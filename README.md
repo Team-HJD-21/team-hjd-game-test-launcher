@@ -6,7 +6,9 @@ Windows x64 game playtest library, written in C++20 and Qt Quick. Public launche
 
 Download **TeamHJD-GameTestLauncher-Windows-x64.zip** from [Releases](https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest), extract it to a writable folder and run **TeamHJDLauncher.exe**. Keep the whole extracted folder together. Windows 10/11 x64 is the target; the first release was tested on Windows 11.
 
-Connect using a team-issued invite and access password. Latest versions are checked automatically. Installed games update when selected and idle; an identical verified package is reused rather than installed again. The launcher prepares its own update for the next launch. Games remain playable offline. The game menu includes repair, rollback, version/change information and uninstall. AppData saves and external playtest logs are preserved.
+Select **이메일로 시작** and verify the code sent to your email in the browser, then return to install and play. The default channel uses Cloudflare Access One-time PIN with no email allowlist. Verified email and authentication/access timestamps are kept in private operator storage. Session tokens are protected with Windows DPAPI. Team-issued invitation files remain available for separately configured channels.
+
+Latest versions are checked automatically. Installed games update when selected and idle; an identical verified package is reused rather than installed again. The launcher prepares its own update for the next launch. Games remain playable offline. The game menu includes repair, rollback, version/change information and uninstall. AppData saves and external playtest logs are preserved.
 
 The integrated title bar contains File, View, Help and notifications. Shortcuts: `Ctrl+,` settings, `Ctrl+B` sidebar, `F1` help. See the [Korean player guide](docs/PLAYER_GUIDE.ko.md).
 
@@ -30,8 +32,10 @@ The Qt DLLs are dynamically linked. Compatible modified libraries can be used by
 
 See [private distribution setup](docs/DISTRIBUTION.ko.md) and [architecture/trust model](docs/ARCHITECTURE.md). `New-Publisher.ps1` stores a current-user DPAPI signing key and a salted password verifier in ignored private storage. `Publish-GameArchive.ps1 -LatestPointer .../Builds/latest.json` validates and reuses the canonical game ZIP byte for byte, then adds a launcher catalog signature. The local game pointer is selection metadata, not an Internet trust signature.
 
+For Cloudflare hosting, automatic recovery/startup, catalog renewal and verified-email reports, see the [Korean hosting guide](docs/PLAYTEST_HOSTING.ko.md). The origin binds to loopback; only the authenticated tunnel is public. Per-user autostart requires Windows logon, an awake PC and Internet access.
+
 The server exposes read-only catalog/package routes. It has no upload, remote execution, game hosting or log collection endpoint. Binding a public interface, certificates, router forwarding and firewall deployment are explicit operator steps; the launcher does not change them.
 
 ## Release status
 
-Version 0.1.0 is the first portable release. No Authenticode certificate is configured. The small stable bootstrap is replaced with a closed portable-bundle update when its own compatibility contract changes; ordinary client/Qt updates use the automatic versioned payload flow. Unselected games are checked when selected. Old versions remain available until game deletion; disk use is shown in version information.
+Version 0.1.1 adds email authentication, the original Hose for Hire logo and consistent dark menus. See [release verification](docs/RELEASE_VALIDATION_0.1.1.md). No Authenticode certificate is configured. The small stable bootstrap is replaced with a closed portable-bundle update when its own compatibility contract changes; ordinary client/Qt updates use the automatic versioned payload flow. Unselected games are checked when selected. Old versions remain available until game deletion; disk use is shown in version information.

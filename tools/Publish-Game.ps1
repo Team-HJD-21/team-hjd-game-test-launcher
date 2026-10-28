@@ -50,18 +50,6 @@ try {
     if(-not(Test-Path -LiteralPath $packagePath)){Move-Item -LiteralPath $zipPath -Destination $packagePath}
     $notes=if($NotesFile){[IO.File]::ReadAllText([IO.Path]::GetFullPath($NotesFile))}else{'새 테스트 빌드가 배포되었습니다.'}
     $game=@{id=$Id;name=$Name;version=$Version;description=$Description;executable=$Executable;notes=$notes;url="packages/$sha.zip";sha256=$sha;bytes=(Get-Item -LiteralPath $packagePath).Length;expandedBytes=$expanded;files=$artifacts}
-    $catalogPath=Join-Path $root 'catalog.json';$games=@();$sequence=0L
-    if(Test-Path -LiteralPath $catalogPath){$old=Get-Content -LiteralPath $catalogPath -Raw|ConvertFrom-Json;$payload=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($old.payload))|ConvertFrom-Json;$sequence=[long]$payload.sequence;$games=@($payload.games|Where-Object id -CNE $Id)}
-    $games+=,$game
-    $now=[DateTimeOffset]::UtcNow
-    $catalog=@{schema=1;sequence=$sequence+1;issuedAt=$now.ToString('o');expiresAt=$now.AddDays(7).ToString('o');games=$games}
-    $data=[Text.Encoding]::UTF8.GetBytes(($catalog|ConvertTo-Json -Depth 30 -Compress))
-    $protected=[IO.File]::ReadAllBytes((Join-Path $root 'publisher.dpapi'))
-    $private=[Security.Cryptography.ProtectedData]::Unprotect($protected,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)
-    $key=[Security.Cryptography.ECDsa]::Create()
-    try{$consumed=0;$key.ImportPkcs8PrivateKey($private,[ref]$consumed);$signature=$key.SignData($data,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation)}finally{$key.Dispose();[Array]::Clear($private,0,$private.Length)}
-    $signed=@{payload=[Convert]::ToBase64String($data);signature=[Convert]::ToBase64String($signature)}|ConvertTo-Json -Compress
-    $temporary=Join-Path $root ('catalog-'+[Guid]::NewGuid().ToString('N')+'.tmp')
-    [IO.File]::WriteAllText($temporary,$signed,[Text.UTF8Encoding]::new($false));[IO.File]::Move($temporary,$catalogPath,$true)
-    Write-Output "Published $Id $Version; catalog sequence $($sequence+1); files $($artifacts.Count); private package verified."
+    $publication=& (Join-Path $PSScriptRoot 'Write-SignedCatalog.ps1') -PrivateRoot $root -Game $game
+    Write-Output "Published $Id $Version; catalog sequence $($publication.Sequence); files $($artifacts.Count); private package verified."
 }finally{if(Test-Path -LiteralPath $zipPath){Remove-Item -LiteralPath $zipPath}}

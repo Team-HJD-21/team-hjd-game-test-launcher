@@ -27,7 +27,8 @@ Response request(const QUrl &url,const NetConfig &cfg,std::atomic_bool &cancel,q
     req.setRawHeader("User-Agent","TeamHJD-GameTestLauncher/" HJD_VERSION);
     req.setRawHeader("Accept-Encoding","identity");
     if(!publicFile) {
-        req.setRawHeader("Authorization","Bearer "+cfg.password.toBase64());
+        if(!cfg.cloudflareToken.isEmpty()) req.setRawHeader("Cookie","CF_Authorization="+cfg.cloudflareToken);
+        else if(!cfg.password.isEmpty()) req.setRawHeader("Authorization","Bearer "+cfg.password.toBase64());
         if(!cfg.caPem.isEmpty()) {
             auto certs=QSslCertificate::fromData(cfg.caPem); if(certs.isEmpty()) fail(QStringLiteral("초대 인증서를 읽을 수 없습니다."));
             auto ssl=QSslConfiguration::defaultConfiguration(); auto roots=ssl.caCertificates(); roots+=certs; ssl.setCaCertificates(roots); req.setSslConfiguration(ssl);
@@ -67,8 +68,8 @@ Response request(const QUrl &url,const NetConfig &cfg,std::atomic_bool &cancel,q
     if(reply->bytesAvailable()) drain();
     result.status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if(!error.isEmpty()) fail(error);
-    if(result.status>=300&&result.status<400) { result.redirect=url.resolved(reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl()); return result; }
-    if(result.status==401||result.status==403) fail(publicFile?QStringLiteral("런처 업데이트 조회가 제한되었습니다. 잠시 후 다시 시도하세요."):QStringLiteral("접근 암호를 확인하세요."));
+    if(result.status>=300&&result.status<400) { if(!publicFile&&!cfg.cloudflareToken.isEmpty())fail(QStringLiteral("이메일 인증이 만료되었어요. 이메일로 다시 연결해 주세요.")); result.redirect=url.resolved(reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl()); return result; }
+    if(result.status==401||result.status==403) fail(publicFile?QStringLiteral("런처 업데이트 조회가 제한되었습니다. 잠시 후 다시 시도하세요."):!cfg.cloudflareToken.isEmpty()?QStringLiteral("이메일 인증이 만료되었어요. 이메일로 다시 연결해 주세요."):QStringLiteral("초대 또는 접근 정보를 확인하세요. 만료되었거나 회수된 초대는 새로 받아 주세요."));
     if(result.status==404) fail(QStringLiteral("배포된 파일을 찾을 수 없습니다."));
     if(reply->error()!=QNetworkReply::NoError) fail(QStringLiteral("서버에 연결할 수 없습니다. 주소와 인증서, 인터넷 연결을 확인하세요."));
     if(result.status!=200&&result.status!=206) fail(QStringLiteral("서버가 요청을 처리하지 못했습니다. 잠시 후 다시 시도하세요."));

@@ -1,4 +1,5 @@
 #include "core/Core.h"
+#include "core/CloudflareLogin.h"
 #include "miniz.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -49,8 +50,8 @@ int probe(const QStringList &args){
 int main(int argc,char **argv){
     QCoreApplication app(argc,argv);
     try{
-        if(app.arguments().contains("--verify-payload")){auto args=app.arguments();std::atomic_bool cancel=false;Store store(args.value(3));auto zip=args.value(2);auto folder=store.stagePayload("0.1.0",fileHash(zip),zip,cancel);store.activate("launcher",folder);if(!store.verify("launcher"))fail("release payload tree mismatch");QTextStream(stdout)<<"PASS complete release payload extraction and verification\n";return 0;}
-        if(app.arguments().contains("--verify-public-release")){auto args=app.arguments();std::atomic_bool cancel=false;auto raw=Http::get(QUrl("https://api.github.com/repos/Team-HJD-21/team-hjd-game-test-launcher/releases/latest"),{},cancel,2*1024*1024,true);auto release=QJsonDocument::fromJson(raw).object();for(auto v:release["assets"].toArray()){auto a=v.toObject();if(a["name"].toString()!="TeamHJD-LauncherPayload-Windows-x64.zip")continue;auto path=args.value(2)+"/public-payload.part";Http::download(QUrl(a["browser_download_url"].toString()),{},path,a["size"].toInteger(),a["digest"].toString().mid(7),cancel,{},true);Store store(args.value(2)+"/install");auto folder=store.stagePayload("0.1.0",a["digest"].toString().mid(7),path,cancel);store.activate("launcher",folder);if(!store.verify("launcher"))fail("public release payload tree mismatch");QTextStream(stdout)<<"PASS live public GitHub API, HTTPS redirects, digest, extraction and payload verification\n";return 0;}fail("public release payload missing");}
+        if(app.arguments().contains("--verify-payload")){auto args=app.arguments();std::atomic_bool cancel=false;Store store(args.value(3));auto zip=args.value(2);auto folder=store.stagePayload(QStringLiteral(HJD_VERSION),fileHash(zip),zip,cancel);store.activate("launcher",folder);if(!store.verify("launcher"))fail("release payload tree mismatch");QTextStream(stdout)<<"PASS complete release payload extraction and verification\n";return 0;}
+        if(app.arguments().contains("--verify-public-release")){auto args=app.arguments();std::atomic_bool cancel=false;auto raw=Http::get(QUrl("https://api.github.com/repos/Team-HJD-21/team-hjd-game-test-launcher/releases/latest"),{},cancel,2*1024*1024,true);auto release=QJsonDocument::fromJson(raw).object();for(auto v:release["assets"].toArray()){auto a=v.toObject();if(a["name"].toString()!="TeamHJD-LauncherPayload-Windows-x64.zip")continue;auto path=args.value(2)+"/public-payload.part";Http::download(QUrl(a["browser_download_url"].toString()),{},path,a["size"].toInteger(),a["digest"].toString().mid(7),cancel,{},true);Store store(args.value(2)+"/install");auto folder=store.stagePayload(release["tag_name"].toString().mid(1),a["digest"].toString().mid(7),path,cancel);store.activate("launcher",folder);if(!store.verify("launcher"))fail("public release payload tree mismatch");QTextStream(stdout)<<"PASS live public GitHub API, HTTPS redirects, digest, extraction and payload verification\n";return 0;}fail("public release payload missing");}
         if(app.arguments().contains("--probe"))return probe(app.arguments());
         QDir().mkpath(QCoreApplication::applicationDirPath()+"/../.local");QTemporaryDir temp(QCoreApplication::applicationDirPath()+"/../.local/core-한글-XXXXXX");if(!temp.isValid())fail("test directory");auto root=temp.path();
         for(const auto &binary:QStringList{"TeamHJDClient.exe","TeamHJDLauncher.exe"}){auto path=QCoreApplication::applicationDirPath()+"/"+binary;auto module=LoadLibraryExW(reinterpret_cast<LPCWSTR>(path.utf16()),nullptr,LOAD_LIBRARY_AS_DATAFILE);check(module&&FindResourceW(module,L"IDI_APP_ICON",RT_GROUP_ICON),"brand icon embedded in "+binary);if(module)FreeLibrary(module);}
@@ -58,8 +59,44 @@ int main(int argc,char **argv){
         check(safePath("게임_Data/설정 파일.json"),"Unicode relative paths");
         check(!allowedServer(QUrl("http://example.com"),true),"HTTP internet blocked even in tests");check(!allowedServer(QUrl("https://user:pw@example.com")),"URL credentials blocked");check(allowedServer(QUrl("https://localhost:8443/")),"HTTPS accepted");check(!sameOrigin(QUrl("https://a:8443"),QUrl("https://a:8444")),"Origin includes port");
         auto secret=QByteArray("fixture-secret-한국어");auto encrypted=protect(secret);check(encrypted!=secret&&unprotect(encrypted)==secret,"DPAPI round trip");
+        {
+            // Synthetic tokens intentionally have no cryptographic signature.
+            // inspect() guards response shape/claims; only the server authorizes.
+            const QString issuer="https://fixture.cloudflareaccess.com",audience=QString(64,'a');
+            const auto now=QDateTime::currentSecsSinceEpoch();
+            QJsonObject header{{"alg","RS256"},{"kid","fixture-key"}};
+            QJsonObject claims{{"iss",issuer},{"aud",QJsonArray{audience}},{"type","app"},{"exp",now+3600},{"iat",now-60},{"nbf",now-60}};
+            auto token=[](const QJsonObject &h,const QJsonObject &c){
+                const auto encoding=QByteArray::Base64UrlEncoding|QByteArray::OmitTrailingEquals;
+                return QJsonDocument(h).toJson(QJsonDocument::Compact).toBase64(encoding)+'.'+QJsonDocument(c).toJson(QJsonDocument::Compact).toBase64(encoding)+'.'+QByteArray("synthetic-signature").toBase64(encoding);
+            };
+            const auto validToken=token(header,claims);
+            const auto session=CloudflareLogin::inspect(validToken,issuer,audience);
+            check(session.jwt==validToken&&session.expires.toSecsSinceEpoch()==now+3600,"Access structural response and expiry accepted without authorizing");
+            auto stringAudience=claims;stringAudience["aud"]=audience;
+            check(CloudflareLogin::inspect(token(header,stringAudience),issuer,audience).jwt==token(header,stringAudience),"Access string audience accepted");
+            rejects("Access wrong audience rejected",[&]{CloudflareLogin::inspect(validToken,issuer,QString(64,'b'));});
+            rejects("Access wrong issuer rejected",[&]{CloudflareLogin::inspect(validToken,"https://other.cloudflareaccess.com",audience);});
+            auto badAlgorithm=header;badAlgorithm["alg"]="none";
+            rejects("Access unexpected algorithm rejected",[&]{CloudflareLogin::inspect(token(badAlgorithm,claims),issuer,audience);});
+            auto expiredClaims=claims;expiredClaims["exp"]=now-1;
+            rejects("Access expired response rejected",[&]{CloudflareLogin::inspect(token(header,expiredClaims),issuer,audience);});
+            auto futureClaims=claims;futureClaims["nbf"]=now+600;
+            rejects("Access future response rejected",[&]{CloudflareLogin::inspect(token(header,futureClaims),issuer,audience);});
+            auto wrongType=claims;wrongType["type"]="org";
+            rejects("Access organization token rejected",[&]{CloudflareLogin::inspect(token(header,wrongType),issuer,audience);});
+            rejects("Access malformed token rejected",[&]{CloudflareLogin::inspect("not-a-token",issuer,audience);});
+            rejects("Access malformed JSON rejected",[&]{CloudflareLogin::inspect("eA.eA.eA",issuer,audience);});
+            rejects("Access oversized token rejected",[&]{CloudflareLogin::inspect(QByteArray(65537,'a'),issuer,audience);});
+        }
         auto exe=readFile(QCoreApplication::applicationDirPath()+"/LauncherFixtureGame.exe");auto zip=root+"/fixture.zip";makeZip(zip,{{"Fixture.exe",exe}});auto game=fixture(zip,exe);std::atomic_bool cancel=false;Store store(root+"/games");
-        SigningKey key;auto cat=catalog(game);auto envelope=key.envelope(cat);auto verified=verifyCatalog(envelope,key.publicKey,QUrl("https://localhost/"),5);check(verified.games.size()==1&&verified.sequence==5,"signed catalog");
+        SigningKey key;
+        QJsonObject invite{{"schema",1},{"server","https://localhost:8443/"},{"publisherKey",key.publicKey},{"accessToken","hjd1."+QString(16,'a')+"."+QString(43,'b')},{"expiresAt",QDateTime::currentDateTimeUtc().addDays(7).toString(Qt::ISODate)},{"recipientLabel","Fixture"}};
+        auto parsedInvite=Invite::parse(QJsonDocument(invite).toJson());check(parsedInvite.label=="Fixture"&&parsedInvite.accessToken.size()==65,"personal invite validated");
+        auto expiredInvite=invite;expiredInvite["expiresAt"]=QDateTime::currentDateTimeUtc().addSecs(-1).toString(Qt::ISODate);rejects("expired invite rejected before saving",[&]{Invite::parse(QJsonDocument(expiredInvite).toJson());});
+        auto malformedInvite=invite;malformedInvite["accessToken"]="hjd1.bad";rejects("malformed invite credential",[&]{Invite::parse(QJsonDocument(malformedInvite).toJson());});
+        auto insecureInvite=invite;insecureInvite["server"]="http://example.com/";rejects("insecure invite endpoint",[&]{Invite::parse(QJsonDocument(insecureInvite).toJson());});
+        auto cat=catalog(game);auto envelope=key.envelope(cat);auto verified=verifyCatalog(envelope,key.publicKey,QUrl("https://localhost/"),5);check(verified.games.size()==1&&verified.sequence==5,"signed catalog");
         rejects("wrong publisher key",[&]{SigningKey other;verifyCatalog(envelope,other.publicKey,QUrl("https://localhost/"));});
         auto altered=QJsonDocument::fromJson(envelope).object();auto p=QByteArray::fromBase64(altered["payload"].toString().toLatin1());p.replace("Fixture","Altered");altered["payload"]=QString::fromLatin1(p.toBase64());rejects("tampered catalog",[&]{verifyCatalog(QJsonDocument(altered).toJson(),key.publicKey,QUrl("https://localhost/"));});
         rejects("catalog rollback",[&]{verifyCatalog(envelope,key.publicKey,QUrl("https://localhost/"),6);});

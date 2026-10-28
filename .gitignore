@@ -9,6 +9,7 @@
 *.pfx
 *.key
 *.dpapi
+*.hjdinvite
 *.dmp
 *.log
 *.zip

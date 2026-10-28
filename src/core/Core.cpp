@@ -9,6 +9,7 @@
 #include <QSaveFile>
 #include <QSet>
 #include <QStorageInfo>
+#include <QSslCertificate>
 #include <cmath>
 #include <windows.h>
 #include <bcrypt.h>
@@ -103,6 +104,25 @@ bool sameOrigin(const QUrl &a,const QUrl &b) { return a.scheme()==b.scheme() && 
 bool allowedServer(const QUrl &u,bool test) {
     return u.isValid() && !u.host().isEmpty() && u.userInfo().isEmpty() && u.query().isEmpty() && u.fragment().isEmpty()
         && (u.scheme()=="https" || (test && u.scheme()=="http" && (u.host()=="127.0.0.1" || u.host()=="[::1]" || u.host()=="localhost")));
+}
+Invite Invite::parse(const QByteArray &json,bool test){
+    if(json.size()>256*1024)fail(QStringLiteral("초대 파일이 너무 큽니다."));
+    QJsonParseError error;auto document=QJsonDocument::fromJson(json,&error);auto object=document.object();
+    if(error.error!=QJsonParseError::NoError||!document.isObject()||object["schema"].toInt()!=1)fail(QStringLiteral("지원하지 않는 초대 파일입니다."));
+    Invite result;result.server=QUrl(object["server"].toString());result.publisherKey=object["publisherKey"].toString().trimmed();result.certificate=object["certificate"].toString().toUtf8();result.label=object["recipientLabel"].toString().left(120);
+    if(!result.server.path().endsWith('/'))result.server.setPath(result.server.path()+'/');
+    if(!allowedServer(result.server,test))fail(QStringLiteral("초대 파일의 HTTPS 서버 주소가 올바르지 않습니다."));
+    auto key=QByteArray::fromBase64Encoding(result.publisherKey.mid(5).toLatin1(),QByteArray::AbortOnBase64DecodingErrors);
+    if(!result.publisherKey.startsWith("p256:")||!key||key.decoded.size()!=64)fail(QStringLiteral("초대 파일의 배포자 키가 올바르지 않습니다."));
+    if(!result.certificate.isEmpty()&&QSslCertificate::fromData(result.certificate).isEmpty())fail(QStringLiteral("초대 파일의 인증서를 읽을 수 없습니다."));
+    result.accessToken=object["accessToken"].toString().toLatin1();
+    if(!result.accessToken.isEmpty()){
+        static QRegularExpression token("^hjd1\\.[a-f0-9]{16}\\.[A-Za-z0-9_-]{43}$");
+        if(!token.match(QString::fromLatin1(result.accessToken)).hasMatch())fail(QStringLiteral("초대 파일의 인증 정보가 올바르지 않습니다."));
+        result.expires=QDateTime::fromString(object["expiresAt"].toString(),Qt::ISODate);
+        auto now=QDateTime::currentDateTimeUtc();if(!result.expires.isValid()||result.expires<=now||result.expires>now.addDays(31))fail(QStringLiteral("초대가 만료되었거나 유효기간이 올바르지 않습니다. 새 초대를 받아 주세요."));
+    }
+    return result;
 }
 QJsonObject Game::toJson() const {
     QJsonArray a; for(const auto &f:files) a.append(QJsonObject{{"path",f.path},{"bytes",f.bytes},{"sha256",f.sha256}});

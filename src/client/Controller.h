@@ -25,9 +25,13 @@ public:
     QString installRoot() const { return m_gamesRoot; }
     bool reduceMotion() const { return m_reduceMotion; }
     QString version() const { return QStringLiteral(HJD_VERSION); }
+    // Only changes the update comparison for an explicitly isolated test run.
+    // It never changes the reported version, update source, digest or TLS rules.
+    void setTestUpdateFrom(const QString &version);
     Q_INVOKABLE void selectGame(const QString &id);
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void primary();
+    Q_INVOKABLE void login();
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void repair();
     Q_INVOKABLE void rollback();
@@ -44,6 +48,9 @@ signals:
     void changed();
     void settingsChanged();
     void requestSettings();
+    void requestInvite();
+    void requestLogin();
+    void inviteAccepted();
     void quitForUpdate();
     void toast(const QString &title,const QString &message,const QString &tone);
 private:
@@ -51,6 +58,7 @@ private:
     void install(bool force);
     void load();
     void save();
+    bool needsLogin() const;
     void updateProgress(qint64 done,qint64 total,const QString &phase);
     bool deferDuringCheck(std::function<void()> action);
     const hjd::Game *selected() const;
@@ -67,10 +75,14 @@ private:
     QTimer m_autoTimer;
     QJsonObject m_updateAsset;
     QString m_updateVersion;
+    QString m_testUpdateFrom;
     qint64 m_progressStart=0;
     qint64 m_lastRefresh=0,m_lastLauncherCheck=0;
     bool m_wasRunning=false;
     QJsonObject m_updateHolds;
     QByteArray m_pendingCa;
     bool m_hasPendingCa=false;
+    QJsonObject m_inviteInfo;
+    bool m_cloudflare=false;
+    QDateTime m_authExpires;
 };

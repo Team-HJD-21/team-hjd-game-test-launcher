@@ -3,11 +3,24 @@ $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $version=([regex]::Match((Get-Content -LiteralPath (Join-Path $root 'CMakeLists.txt') -Raw),'project\(TeamHJDGameTestLauncher VERSION ([0-9.]+)')).Groups[1].Value
 if(-not $version){throw 'Version not found.'}
+$helperDirectory=Join-Path $root '.deps/cloudflared/2026.10.5'
+$helper=Join-Path $helperDirectory 'cloudflared.exe'
+$helperHash='db4e4c413612a0916f3e1679d3caaf376f94911952d163028fb726fb2e0516a9'
+if(@('cloudflared.exe','LICENSE.txt','provenance.json'|Where-Object {-not(Test-Path -LiteralPath (Join-Path $helperDirectory $_) -PathType Leaf)}).Count){
+    & (Join-Path $PSScriptRoot 'Get-Cloudflared.ps1') -OutputDirectory $helperDirectory
+}
+foreach($name in 'cloudflared.exe','LICENSE.txt','provenance.json'){
+    if(-not(Test-Path -LiteralPath (Join-Path $helperDirectory $name) -PathType Leaf)){throw 'Pinned cloudflared dependency is missing. Run tools/Get-Cloudflared.ps1 before packaging.'}
+}
+if((Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant() -cne $helperHash){throw 'The cloudflared helper differs from the reviewed official release.'}
+$helperProvenance=Get-Content -LiteralPath (Join-Path $helperDirectory 'provenance.json') -Raw|ConvertFrom-Json
+if($helperProvenance.version -cne '2026.10.5' -or $helperProvenance.sha256 -cne $helperHash -or $helperProvenance.source -cne 'https://github.com/cloudflare/cloudflared/releases/tag/2026.10.5' -or $helperProvenance.asset -cne 'cloudflared-windows-amd64.exe'){throw 'cloudflared provenance does not match the pinned official dependency.'}
 $bundle=Join-Path $root 'dist/TeamHJD-GameTestLauncher-Windows-x64'
 $payload=Join-Path $bundle "launcher/versions/$version"
 if(Test-Path -LiteralPath (Join-Path $payload 'TeamHJDClient.exe')){throw 'This output already exists. Preserve it and select a fresh dist directory before packaging again.'}
 New-Item -ItemType Directory -Path $payload -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $root 'build/TeamHJDClient.exe') -Destination $payload
+Copy-Item -LiteralPath $helper -Destination (Join-Path $payload 'cloudflared.exe')
 Copy-Item -LiteralPath (Join-Path $root 'build/TeamHJDLauncher.exe') -Destination $bundle
 $env:PATH="$QtRoot/bin;$env:PATH"
 & (Join-Path $QtRoot 'bin/windeployqt.exe') --release --no-translations --no-compiler-runtime --qmldir (Join-Path $root 'qml') --dir $payload (Join-Path $payload 'TeamHJDClient.exe')
@@ -27,6 +40,8 @@ $licenses=Join-Path $payload 'licenses';New-Item -ItemType Directory -Path $lice
 Copy-Item -LiteralPath (Join-Path $root 'licenses/Qt') -Destination $licenses -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'licenses/Qt') -Destination (Join-Path $bundle 'licenses') -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'vendor/miniz/LICENSE') -Destination (Join-Path $licenses 'miniz-LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $helperDirectory 'LICENSE.txt') -Destination (Join-Path $licenses 'cloudflared-LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $helperDirectory 'provenance.json') -Destination (Join-Path $licenses 'cloudflared-provenance.json')
 Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $payload
 Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $bundle
 [IO.Compression.ZipFile]::CreateFromDirectory($payload,(Join-Path $root 'dist/TeamHJD-LauncherPayload-Windows-x64.zip'),[IO.Compression.CompressionLevel]::Optimal,$false)

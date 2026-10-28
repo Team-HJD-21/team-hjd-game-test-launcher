@@ -41,11 +41,18 @@ Catalog verifyCatalog(const QByteArray &envelope, const QString &key, const QUrl
                       qint64 minimumSequence = 0, bool enforceTime = true);
 bool sameOrigin(const QUrl &a, const QUrl &b);
 bool allowedServer(const QUrl &url, bool testLoopback = false);
+struct Invite {
+    QUrl server;
+    QString publisherKey, label;
+    QByteArray certificate, accessToken;
+    QDateTime expires;
+    static Invite parse(const QByteArray &json, bool testLoopback = false);
+};
 QJsonObject inspectArchive(const QString &archive, const QString &destination, const QList<Artifact> &expected,
                           std::atomic_bool &cancel, const std::function<void(qint64,qint64)> &progress = {});
 bool verifyTree(const QString &directory, const QJsonObject &receipt, std::atomic_bool *cancel = nullptr);
 
-struct NetConfig { QUrl server; QByteArray password; QByteArray caPem; bool testLoopback = false; };
+struct NetConfig { QUrl server; QByteArray password; QByteArray caPem; bool testLoopback = false; QByteArray cloudflareToken; };
 using Progress = std::function<void(qint64,qint64)>;
 class Http {
 public:

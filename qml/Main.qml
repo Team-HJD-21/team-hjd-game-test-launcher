@@ -11,23 +11,48 @@ ApplicationWindow {
     flags: Qt.Window | Qt.FramelessWindowHint
     title: "TeamHJD Game Test Launcher"
     color: "#171A1D"
+    palette.window: "#202428"
+    palette.windowText: "#E6E6E6"
+    palette.base: "#171B1E"
+    palette.alternateBase: "#22282C"
+    palette.text: "#E6E6E6"
+    palette.button: "#292E32"
+    palette.buttonText: "#E6E6E6"
+    palette.light: "#363B3F"
+    palette.midlight: "#303539"
+    palette.mid: "#4C5358"
+    palette.dark: "#15191C"
+    palette.highlight: "#3A4247"
+    palette.highlightedText: "#FFFFFF"
+    palette.toolTipBase: "#292929"
+    palette.toolTipText: "#E5E5E5"
+    palette.disabled.windowText: "#858585"
+    palette.disabled.text: "#858585"
+    palette.disabled.buttonText: "#858585"
     font.family: "Malgun Gothic"
     font.pixelSize: 13
     property var v: launcher.view
+    readonly property bool isHoseGame: v.name && v.name.toLowerCase() === "hose for hire"
     property bool entering: true
     property bool nativeMaxHover: false
     property bool sidebarVisible: true
     property int unreadCount: 0
     property int nextNotice: 0
     property string reviewMode: ""
+    property bool advancedSettings: false
     onReviewModeChanged: {
-        if(reviewMode==="settings") settings.open()
+        if(reviewMode==="login") loginNotice.open()
+        else if(reviewMode==="settings") settings.open()
         else if(reviewMode==="help") helpDialog.open()
         else if(reviewMode==="notifications") {window.notify("연결과 업데이트는 자동으로", "새 소식은 이 알림함에 모아 두어요.", "success");notificationPanel.open();window.unreadCount=0}
         else if(reviewMode==="toast") window.notify("플레이할 준비가 되었어요", "설치 완료 알림의 표시와 읽기 흐름을 확인하고 있어요.", "success")
         else if(reviewMode==="versions") gameInfo.open()
         else if(reviewMode==="uninstall") uninstallDialog.open()
+        else if(reviewMode==="menus") {gameMenu.open();gameMenu.currentIndex=0}
+        else if(reviewMode==="menubar") {viewMenu.open();viewMenu.currentIndex=0}
+        else if(reviewMode==="settings-bottom") {settings.open();reviewScrollTimer.start()}
     }
+    Timer { id: reviewScrollTimer; interval: 160; onTriggered: formScroll.contentItem.contentY=Math.max(0,formScroll.contentItem.contentHeight-formScroll.contentItem.height) }
     ListModel { id: notificationHistory }
     ListModel { id: toastModel }
     function notify(title, message, tone) {
@@ -41,7 +66,13 @@ ApplicationWindow {
     function removeToast(uid) { for(var i=0;i<toastModel.count;i++) if(toastModel.get(i).uid===uid) { toastModel.remove(i); return } }
     onClosing: function(close) { if (!launcher.canClose()) { close.accepted = false; closeNotice.open() } }
     Component.onCompleted: entering = false
-    Connections { target: launcher; function onRequestSettings() { settings.open() } function onToast(title, message, tone) { window.notify(title, message, tone) } }
+    function connectInvite(file) { var result=launcher.importInvite(file);if(result.applied){settings.close();return}if(result.server){settings.open();serverField.text=result.server;keyField.text=result.key} }
+    Connections { target: launcher; function onRequestSettings() { settings.open() } function onRequestInvite() { inviteDialog.open() } function onRequestLogin() { loginNotice.open() } function onInviteAccepted() {settings.close();passwordField.text=""} function onToast(title, message, tone) { window.notify(title, message, tone) } }
+    DropArea {
+        id: inviteDrop;anchors.fill: parent
+        onDropped: function(drop) {if(drop.hasUrls&&drop.urls.length===1){var path=drop.urls[0].toString().toLowerCase();if(path.endsWith(".hjdinvite")||path.endsWith(".json")){window.connectInvite(drop.urls[0]);drop.acceptProposedAction()}}}
+    }
+    Rectangle { z:100;anchors.fill: parent;anchors.margins: 5;visible: inviteDrop.containsDrag;color: "#D01B2429";border.color: "#E8C76A";border.width: 2;radius: 7;Label {anchors.centerIn: parent;text: "초대 파일을 여기에 놓아 주세요";color: "#F0E4BD";font.pixelSize: 22;font.bold: true} }
     Shortcut { sequence: "Ctrl+,"; onActivated: settings.open() }
     Shortcut { sequence: "Ctrl+B"; onActivated: window.sidebarVisible=!window.sidebarVisible }
     Shortcut { sequence: "F1"; onActivated: helpDialog.open() }
@@ -61,8 +92,9 @@ ApplicationWindow {
     component Caption: Label { color: "#9FA8AE"; font.pixelSize: 12; wrapMode: Text.WordWrap }
     component HelpTab: TabButton {
         id: tab
+        implicitHeight: 36
         contentItem: Text { text: tab.text; color: tab.checked ? "#EFEFE8" : "#A5B1B9"; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-        background: Rectangle { color: tab.checked ? "#303B41" : "#252D32"; Rectangle { width: parent.width; height: 2; anchors.bottom: parent.bottom; color: tab.checked ? "#E8C76A" : "transparent" } }
+        background: Rectangle { color: tab.checked ? "#303B41" : tab.hovered ? "#2D353B" : "#252D32"; border.width: tab.visualFocus ? 1 : 0; border.color: "#CFC3A1"; Rectangle { width: parent.width; height: 2; anchors.bottom: parent.bottom; color: tab.checked ? "#E8C76A" : "transparent" } }
     }
 
     Rectangle {
@@ -74,9 +106,9 @@ ApplicationWindow {
             anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter; spacing: 3
             ActionButton { text: "\uE700"; font.family: "Segoe Fluent Icons"; padding: 4; quiet: true; implicitWidth: 28; implicitHeight: 28; font.pixelSize: 14; Accessible.name: "사이드바 전환"; onClicked: window.sidebarVisible=!window.sidebarVisible }
             Image { source: "qrc:/assets/brand/TeamHJD-Simple-Logo.png"; Layout.preferredWidth: 88; Layout.preferredHeight: 24; fillMode: Image.PreserveAspectFit; mipmap: true; Layout.leftMargin: 3; Layout.rightMargin: 12 }
-            ActionButton { id: fileMenuButton; text: "파일"; padding: 4; quiet: true; implicitWidth: 44; implicitHeight: 28; font.pixelSize: 11; onClicked: fileMenu.popup() }
-            ActionButton { id: viewMenuButton; text: "보기"; padding: 4; quiet: true; implicitWidth: 44; implicitHeight: 28; font.pixelSize: 11; onClicked: viewMenu.popup() }
-            ActionButton { id: helpMenuButton; text: "도움말"; padding: 4; quiet: true; implicitWidth: 58; implicitHeight: 28; font.pixelSize: 11; onClicked: helpMenu.popup() }
+            ActionButton { id: fileMenuButton; text: "파일"; padding: 4; quiet: true; implicitWidth: 44; implicitHeight: 28; font.pixelSize: 11; onClicked: fileMenu.open() }
+            ActionButton { id: viewMenuButton; text: "보기"; padding: 4; quiet: true; implicitWidth: 44; implicitHeight: 28; font.pixelSize: 11; onClicked: viewMenu.open() }
+            ActionButton { id: helpMenuButton; text: "도움말"; padding: 4; quiet: true; implicitWidth: 58; implicitHeight: 28; font.pixelSize: 11; onClicked: helpMenu.open() }
         }
         Label { anchors.centerIn: parent; text: "TeamHJD Game Test Launcher"; color: "#8E989F"; font.family: "Segoe UI"; font.pixelSize: 11; visible: window.width>=1080 }
         Row {
@@ -84,9 +116,10 @@ ApplicationWindow {
             ToolButton {
                 id: notificationButton; width: 42; height: 40
                 contentItem: Item { Image { anchors.centerIn: parent; width: 19; height: 19; source: "qrc:/assets/icons/bell.svg" } }
-                Accessible.name: "알림"; ToolTip.text: "알림"; ToolTip.visible: hovered; ToolTip.delay: 700
+                Accessible.name: "알림"
+                AppToolTip { parent: notificationButton; text: "알림"; visible: notificationButton.hovered }
                 onClicked: { notificationPanel.open(); window.unreadCount=0 }
-                background: Rectangle { color: parent.hovered ? "#323A40" : "transparent" }
+                background: Rectangle { color: notificationButton.hovered ? "#323A40" : "transparent"; border.width: notificationButton.visualFocus ? 1 : 0; border.color: "#BDAE83" }
                 Rectangle { visible: window.unreadCount>0; width: 6; height: 6; radius: 3; color: "#E8C76A"; anchors.right: parent.right; anchors.rightMargin: 10; anchors.top: parent.top; anchors.topMargin: 8 }
             }
             Repeater {
@@ -108,28 +141,26 @@ ApplicationWindow {
         }
         Rectangle { height: 1; color: "#2B3237"; anchors.bottom: parent.bottom; width: parent.width }
     }
-    Menu {
-        id: fileMenu; parent: fileMenuButton; y: 31
-        palette.window: "#252B30"; palette.windowText: "#ECEDE8"; palette.text: "#ECEDE8"; palette.highlight: "#454D52"
-        MenuItem { text: "설정…    Ctrl+,"; onTriggered: settings.open() }
-        MenuItem { text: "게임 설치 폴더 열기"; onTriggered: launcher.openFolder("root") }
-        MenuSeparator {}
-        MenuItem { text: "종료    Alt+F4"; onTriggered: window.close() }
+    AppMenu {
+        id: fileMenu; parent: fileMenuButton; y: fileMenuButton.height+6
+        AppMenuItem { text: v.needsLogin ? "이메일로 연결…" : "이메일 다시 인증…"; visible: v.cloudflare; enabled: !v.busy; onTriggered: loginNotice.open() }
+        AppMenuItem { text: "설정…"; shortcutText: "Ctrl+,"; onTriggered: settings.open() }
+        AppMenuItem { text: "게임 설치 폴더 열기"; onTriggered: launcher.openFolder("root") }
+        AppMenuSeparator {}
+        AppMenuItem { text: "종료"; shortcutText: "Alt+F4"; onTriggered: window.close() }
     }
-    Menu {
-        id: viewMenu; parent: viewMenuButton; y: 31
-        palette.window: "#252B30"; palette.windowText: "#ECEDE8"; palette.text: "#ECEDE8"; palette.highlight: "#454D52"
-        MenuItem { text: "사이드바 표시    Ctrl+B"; checkable: true; checked: window.sidebarVisible; onTriggered: window.sidebarVisible=checked }
-        MenuItem { text: "알림 보기"; onTriggered: {notificationPanel.open();window.unreadCount=0} }
-        MenuItem { text: "화면 설정…"; onTriggered: settings.open() }
+    AppMenu {
+        id: viewMenu; parent: viewMenuButton; y: viewMenuButton.height+6; width: 290
+        AppMenuItem { text: "사이드바 표시"; shortcutText: "Ctrl+B"; reserveIndicator: true; checkable: true; checked: window.sidebarVisible; onTriggered: window.sidebarVisible=checked }
+        AppMenuItem { text: "알림 보기"; reserveIndicator: true; onTriggered: {notificationPanel.open();window.unreadCount=0} }
+        AppMenuItem { text: "화면 설정…"; reserveIndicator: true; onTriggered: settings.open() }
     }
-    Menu {
-        id: helpMenu; parent: helpMenuButton; y: 31
-        palette.window: "#252B30"; palette.windowText: "#ECEDE8"; palette.text: "#ECEDE8"; palette.highlight: "#454D52"
-        MenuItem { text: "사용 안내    F1"; onTriggered: helpDialog.open() }
-        MenuItem { text: "문제 해결"; onTriggered: { helpTabs.currentIndex=1; helpDialog.open() } }
-        MenuSeparator {}
-        MenuItem { text: "런처 정보"; onTriggered: {helpTabs.currentIndex=2;helpDialog.open()} }
+    AppMenu {
+        id: helpMenu; parent: helpMenuButton; y: helpMenuButton.height+6
+        AppMenuItem { text: "사용 안내"; shortcutText: "F1"; onTriggered: helpDialog.open() }
+        AppMenuItem { text: "문제 해결"; onTriggered: { helpTabs.currentIndex=1; helpDialog.open() } }
+        AppMenuSeparator {}
+        AppMenuItem { text: "런처 정보"; onTriggered: {helpTabs.currentIndex=2;helpDialog.open()} }
     }
 
     Rectangle {
@@ -153,7 +184,11 @@ ApplicationWindow {
                     padding: 12; hoverEnabled: true
                     onClicked: launcher.selectGame(modelData.id)
                     background: Rectangle { radius: 5; color: libraryItem.modelData.selected ? "#282E32" : libraryItem.hovered ? "#20262B" : "transparent"; border.width: libraryItem.activeFocus ? 2 : 0; border.color: "#E8C76A"; Rectangle { visible: libraryItem.modelData.selected; width: 3; height: 24; color: "#E8C76A"; anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; radius: 1 } }
-                    contentItem: Column { spacing: 4; Label { width: parent.width; text: libraryItem.modelData.name; color: "#ECEDE8"; font.pixelSize: 13; font.bold: true; elide: Text.ElideRight } Label { text: "TEAMHJD PLAYTEST"; color: "#8C989F"; font.pixelSize: 9; font.letterSpacing: .6 } }
+                    contentItem: RowLayout {
+                        spacing: 9
+                        Image { visible: libraryItem.modelData.id==="hose-for-hire" || libraryItem.modelData.name.toLowerCase()==="hose for hire"; source: "qrc:/assets/games/hose-for-hire-logo.png"; Layout.preferredWidth: 37; Layout.preferredHeight: 32; fillMode: Image.PreserveAspectFit; mipmap: true }
+                        ColumnLayout { spacing: 4; Layout.fillWidth: true; Label { Layout.fillWidth: true; text: libraryItem.modelData.name; color: "#ECEDE8"; font.pixelSize: 12; font.bold: true; elide: Text.ElideRight } Label { text: "TEAMHJD PLAYTEST"; color: "#8C989F"; font.pixelSize: 8; font.letterSpacing: .3 } }
+                    }
                     Accessible.name: modelData.name
                     HoverHandler { cursorShape: Qt.PointingHandCursor }
                 }
@@ -186,10 +221,10 @@ ApplicationWindow {
             gradient: Gradient { orientation: Gradient.Horizontal; GradientStop { position: 0; color: "#283338" } GradientStop { position: 1; color: "#1E282B" } }
             Rectangle { width: 310; height: 310; radius: 155; anchors.right: parent.right; anchors.rightMargin: -12; anchors.verticalCenter: parent.verticalCenter; color: "transparent"; border.width: 1; border.color: "#43524C"; opacity: .6 }
             Rectangle { width: 376; height: 376; radius: 188; anchors.right: parent.right; anchors.rightMargin: -45; anchors.verticalCenter: parent.verticalCenter; color: "transparent"; border.width: 1; border.color: "#43524C"; opacity: .24 }
-            Image { source: "qrc:/assets/brand/TeamHJD-Logo.png"; width: Math.min(290, parent.width*.35); height: width; anchors.right: parent.right; anchors.rightMargin: 25; anchors.verticalCenter: parent.verticalCenter; fillMode: Image.PreserveAspectFit; opacity: .46; mipmap: true }
+            Image { source: window.isHoseGame ? "qrc:/assets/games/hose-for-hire-logo.png" : "qrc:/assets/brand/TeamHJD-Logo.png"; width: window.isHoseGame ? parent.width*.43 : Math.min(290, parent.width*.35); height: window.isHoseGame ? parent.height*.84 : width; anchors.right: parent.right; anchors.rightMargin: window.isHoseGame ? 18 : 25; anchors.verticalCenter: parent.verticalCenter; fillMode: Image.PreserveAspectFit; opacity: window.isHoseGame ? 1 : .46; mipmap: true; Accessible.name: window.isHoseGame ? "Hose for Hire 게임 로고" : "TeamHJD" }
             Column {
                 anchors.left: parent.left; anchors.leftMargin: 30; anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * .60; spacing: 15
+                width: parent.width * (window.isHoseGame ? .49 : .60); spacing: 15
                 Label { text: "TEAMHJD  /  PLAYTEST"; color: "#E8C76A"; font.pixelSize: 10; font.bold: true; font.letterSpacing: 2 }
                 Label { width: parent.width; text: v.name; color: "#F7F6EE"; font.family: "Segoe UI"; font.pixelSize: v.name.length > 24 ? 33 : 45; font.weight: Font.Bold; font.letterSpacing: -.8; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight }
                 Label { width: parent.width; text: v.description; color: "#C0CBCB"; font.pixelSize: 12; lineHeight: 1.45; wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight }
@@ -205,7 +240,7 @@ ApplicationWindow {
             }
             ActionButton { text: "취소"; visible: v.busy && v.canCancel; onClicked: launcher.cancel() }
             ActionButton { text: v.action; prominent: true; visible: !v.busy; implicitWidth: 164; implicitHeight: 50; font.pixelSize: 15; enabled: !v.running && !v.busy; onClicked: launcher.primary() }
-            ActionButton { id: menuButton; text: "···"; padding: 0; implicitWidth: 40; implicitHeight: 50; font.pixelSize: 21; enabled: !v.busy; onClicked: gameMenu.popup(); Accessible.name: "게임 관리" }
+            ActionButton { id: menuButton; text: "···"; padding: 0; implicitWidth: 40; implicitHeight: 50; font.pixelSize: 21; enabled: !v.busy; onClicked: gameMenu.open(); Accessible.name: "게임 관리" }
         }
         ProgressBar {
             id: progressBar
@@ -240,19 +275,19 @@ ApplicationWindow {
         }
     }
 
-    Menu {
+    AppMenu {
         id: gameMenu
         parent: menuButton
-        y: menuButton.height + 6
-        palette.window: "#252B30"; palette.windowText: "#ECEDE8"; palette.text: "#ECEDE8"; palette.highlight: "#454D52"; palette.highlightedText: "#FFFFFF"
-        MenuItem { text: "버전 및 설치 정보"; onTriggered: gameInfo.open() }
-        MenuItem { text: "설치 폴더 열기"; enabled: !!v.installed; onTriggered: launcher.openFolder("game") }
-        MenuItem { text: "테스트 로그 열기"; onTriggered: launcher.openFolder("logs") }
-        MenuSeparator {}
-        MenuItem { text: "파일 복구"; enabled: v.online && !v.running && !v.busy; onTriggered: launcher.repair() }
-        MenuItem { text: "이전 버전으로 복원"; enabled: v.previous && !v.running && !v.busy; onTriggered: launcher.rollback() }
-        MenuSeparator {}
-        MenuItem { text: "게임 삭제…"; enabled: v.canUninstall && !v.running && !v.busy; onTriggered: uninstallDialog.open() }
+        x: menuButton.width-width
+        y: menuButton.height + 8
+        AppMenuItem { text: "버전 및 설치 정보"; onTriggered: gameInfo.open() }
+        AppMenuItem { text: "설치 폴더 열기"; enabled: !!v.installed; onTriggered: launcher.openFolder("game") }
+        AppMenuItem { text: "테스트 로그 열기"; onTriggered: launcher.openFolder("logs") }
+        AppMenuSeparator {}
+        AppMenuItem { text: "파일 복구"; enabled: v.online && !v.running && !v.busy; onTriggered: launcher.repair() }
+        AppMenuItem { text: "이전 버전으로 복원"; enabled: v.previous && !v.running && !v.busy; onTriggered: launcher.rollback() }
+        AppMenuSeparator {}
+        AppMenuItem { text: "게임 삭제…"; destructive: true; enabled: v.canUninstall && !v.running && !v.busy; onTriggered: uninstallDialog.open() }
     }
     Popup {
         id: gameInfo; anchors.centerIn: Overlay.overlay; width: 650; height: Math.min(625,window.height-60); padding: 28; modal: true; focus: true
@@ -284,7 +319,7 @@ ApplicationWindow {
             spacing: 17
             Label { text: "게임을 삭제할까요?"; color: "#F0F0EA"; font.pixelSize: 20; font.bold: true }
             Label { text: v.name; color: "#E8C76A"; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-            Caption { text: "설치 파일과 보관된 이전 버전 "+v.versionCount+"개를 삭제합니다. 사용 용량은 "+v.installedSize+"입니다.\n\n게임의 AppData 저장 데이터와 테스트 로그는 유지됩니다. 나중에 같은 라이브러리에서 다시 설치할 수 있어요."; Layout.fillWidth: true; lineHeight: 1.55 }
+            Caption { text: "현재 설치와 보관 버전, 총 "+v.versionCount+"개를 삭제합니다. 사용 용량은 "+v.installedSize+"입니다.\n\n게임의 AppData 저장 데이터와 테스트 로그는 유지됩니다. 나중에 같은 라이브러리에서 다시 설치할 수 있어요."; Layout.fillWidth: true; lineHeight: 1.55 }
             RowLayout { Layout.fillWidth: true; Item { Layout.fillWidth: true } ActionButton { text: "취소"; onClicked: uninstallDialog.close() } ActionButton { text: "게임 삭제"; prominent: true; enabled: !v.busy&&!v.running; onClicked: {uninstallDialog.close();launcher.uninstall()} } }
         }
     }
@@ -294,41 +329,61 @@ ApplicationWindow {
         contentItem: ColumnLayout { spacing: 20; Label { text: "작업을 마친 뒤 종료할 수 있어요"; color: "#F0F0EA"; font.bold: true } Caption { text: "다운로드나 설치 중에는 취소를 누른 뒤 창을 닫아 주세요."; Layout.fillWidth: true } ActionButton { text: "확인"; Layout.alignment: Qt.AlignRight; onClicked: closeNotice.close() } }
     }
     Popup {
+        id: loginNotice
+        anchors.centerIn: Overlay.overlay; width: Math.min(520,window.width-60)
+        modal: true; focus: true; padding: 28; closePolicy: Popup.CloseOnEscape
+        Overlay.modal: Rectangle { color: "#B0000000" }
+        background: Rectangle { color: "#20262B"; radius: 9; border.color: "#48525B" }
+        contentItem: ColumnLayout {
+            spacing: 18
+            Label { text: "이메일로 테스트 참여"; color: "#F0F0EA"; font.pixelSize: 21; font.bold: true }
+            Caption { text: "브라우저에서 이메일로 받은 일회용 코드를 입력하면 연결됩니다. 인증을 마친 뒤 런처로 돌아오세요."; Layout.fillWidth: true; lineHeight: 1.5 }
+            Rectangle { Layout.fillWidth: true; implicitHeight: privacyText.implicitHeight+28; radius: 5; color: "#171C20"; border.color: "#333D44"
+                Caption { id: privacyText; anchors.fill: parent; anchors.margins: 14; text: "TeamHJD는 테스트 운영을 위해 인증된 이메일, 최초·최근 인증 시각, 최근 접속 시각과 인증 횟수를 비공개 서버에 저장합니다. 이메일 주소별 참여 제한은 없습니다."; lineHeight: 1.55 }
+            }
+            Caption { text: "연결 정보는 이 PC의 Windows 계정으로 암호화해 보관합니다. 인증은 Cloudflare Access에서 처리합니다."; Layout.fillWidth: true; lineHeight: 1.5 }
+            RowLayout { Layout.fillWidth: true; Item {Layout.fillWidth: true} ActionButton { text: "취소"; onClicked: loginNotice.close() } ActionButton { text: "브라우저에서 인증"; prominent: true; onClicked: {loginNotice.close();launcher.login()} } }
+        }
+    }
+    Popup {
         id: settings
         anchors.centerIn: Overlay.overlay; width: Math.min(620, window.width-60); height: Math.min(710, window.height-40)
         modal: true; focus: true; padding: 28
         closePolicy: Popup.CloseOnEscape
         Overlay.modal: Rectangle { color: "#B0000000" }
         background: Rectangle { color: "#20262B"; radius: 9; border.color: "#48525B" }
-        onOpened: { serverField.text=launcher.serverUrl; keyField.text=launcher.publisherKey; locationField.text=launcher.installRoot; passwordField.text=""; motionCheck.checked=launcher.reduceMotion; serverField.forceActiveFocus() }
+        onOpened: { serverField.text=launcher.serverUrl; keyField.text=launcher.publisherKey; locationField.text=launcher.installRoot; passwordField.text=""; motionCheck.checked=launcher.reduceMotion; window.advancedSettings=!v.cloudflare;locationField.forceActiveFocus() }
         contentItem: ColumnLayout {
             spacing: 0
             RowLayout { Layout.fillWidth: true; Label { text: "런처 설정"; font.pixelSize: 22; font.bold: true; color: "#F0F0EA" } Item { Layout.fillWidth: true } ActionButton { text: "닫기"; quiet: true; implicitWidth: 66; onClicked: settings.close() } }
-            Caption { text: "팀에서 받은 초대 정보로 테스트 서버를 연결하세요."; Layout.topMargin: 10; Layout.bottomMargin: 22; Layout.fillWidth: true }
+            Caption { text: "이메일로 연결하고 설치 위치와 화면 옵션을 설정하세요."; Layout.topMargin: 10; Layout.bottomMargin: 22; Layout.fillWidth: true }
             ScrollView {
                 id: formScroll; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 ColumnLayout {
                     width: formScroll.availableWidth - 14; spacing: 10
-                    ActionButton { text: "초대 파일 가져오기"; Layout.fillWidth: true; onClicked: inviteDialog.open() }
-                    Label { text: "테스트 서버"; color: "#E0E5E5"; Layout.topMargin: 14 }
-                    Field { id: serverField; Layout.fillWidth: true; placeholderText: "https://서버주소:포트/"; inputMethodHints: Qt.ImhUrlCharactersOnly; Accessible.name: "테스트 서버 주소" }
-                    Label { text: "접근 암호"; color: "#E0E5E5"; Layout.topMargin: 8 }
-                    Field { id: passwordField; Layout.fillWidth: true; placeholderText: launcher.serverUrl ? "변경할 때만 입력" : "팀에서 전달받은 암호"; echoMode: TextInput.Password; Accessible.name: "배포 접근 암호" }
-                    Caption { text: "암호는 이 PC의 Windows 계정으로 보호하여 저장합니다."; Layout.fillWidth: true }
-                    Label { text: "배포자 키"; color: "#E0E5E5"; Layout.topMargin: 8 }
-                    Field { id: keyField; Layout.fillWidth: true; placeholderText: "p256:…  (초대 파일에 포함)"; font.pixelSize: 11; Accessible.name: "배포자 공개키" }
-                    Caption { text: "게임의 출처를 확인하는 공개키입니다. 팀이 전달한 값과 일치해야 합니다."; Layout.fillWidth: true }
+                    ActionButton { text: v.needsLogin ? "이메일로 연결" : "이메일 다시 인증"; visible: v.cloudflare; prominent: true; Layout.fillWidth: true; enabled: !v.working; onClicked: {settings.close();loginNotice.open()} }
+                    Caption { text: v.needsLogin ? "브라우저에서 이메일 일회용 코드로 인증합니다." : "연결됨 · 인증 정보는 이 PC의 Windows 계정으로 보호됩니다."; visible: v.cloudflare; Layout.fillWidth: true }
+                    AppCheckBox { text: "고급 연결 설정"; checked: window.advancedSettings; onToggled: window.advancedSettings=checked }
+                    ActionButton { text: "초대 파일로 연결"; visible: window.advancedSettings; Layout.fillWidth: true; onClicked: inviteDialog.open() }
+                    Label { visible: window.advancedSettings; text: "테스트 서버"; color: "#E0E5E5"; Layout.topMargin: 14 }
+                    Field { id: serverField; visible: window.advancedSettings; Layout.fillWidth: true; placeholderText: "https://서버주소:포트/"; inputMethodHints: Qt.ImhUrlCharactersOnly; Accessible.name: "테스트 서버 주소" }
+                    Label { visible: window.advancedSettings; text: "접근 암호"; color: "#E0E5E5"; Layout.topMargin: 8 }
+                    Field { id: passwordField; visible: window.advancedSettings; Layout.fillWidth: true; placeholderText: launcher.serverUrl ? "변경할 때만 입력" : "팀에서 전달받은 암호"; echoMode: TextInput.Password; Accessible.name: "배포 접근 암호" }
+                    Caption { visible: window.advancedSettings; text: "암호는 이 PC의 Windows 계정으로 보호하여 저장합니다."; Layout.fillWidth: true }
+                    Label { visible: window.advancedSettings; text: "배포자 키"; color: "#E0E5E5"; Layout.topMargin: 8 }
+                    Field { id: keyField; visible: window.advancedSettings; Layout.fillWidth: true; placeholderText: "p256:…  (초대 파일에 포함)"; font.pixelSize: 11; Accessible.name: "배포자 공개키" }
+                    Caption { visible: window.advancedSettings; text: "게임의 출처를 확인하는 공개키입니다. 팀이 전달한 값과 일치해야 합니다."; Layout.fillWidth: true }
                     Label { text: "게임 설치 폴더"; color: "#E0E5E5"; Layout.topMargin: 8 }
                     RowLayout { Layout.fillWidth: true; Field { id: locationField; Layout.fillWidth: true; placeholderText: "게임 설치 폴더의 전체 경로" } ActionButton { text: "찾기"; implicitWidth: 70; onClicked: folderDialog.open() } }
                     Caption { text: "위치를 바꾸면 새 설치부터 적용됩니다. 기존 게임 파일과 저장 데이터는 유지됩니다."; Layout.fillWidth: true }
-                    CheckBox { id: motionCheck; text: "화면 움직임 줄이기"; palette.windowText: "#DBE1E1"; palette.text: "#DBE1E1"; Layout.topMargin: 12; Accessible.name: text }
+                    AppCheckBox { id: motionCheck; text: "화면 움직임 줄이기"; Layout.topMargin: 12 }
                 }
             }
             Label { Layout.fillWidth: true; Layout.topMargin: 14; visible: v.error.length > 0; text: v.error; color: "#F0BAA2"; wrapMode: Text.WordWrap; font.pixelSize: 12 }
             ActionButton { text: "저장하고 연결"; prominent: true; Layout.fillWidth: true; Layout.topMargin: 20; enabled: !v.working; onClicked: if(launcher.saveSettings(serverField.text,passwordField.text,keyField.text,locationField.text,motionCheck.checked)) settings.close() }
         }
     }
-    FileDialog { id: inviteDialog; title: "TeamHJD 초대 파일 선택"; nameFilters: ["TeamHJD 초대 (*.json)"]; onAccepted: { var invite=launcher.importInvite(selectedFile); if(invite.server) { serverField.text=invite.server; keyField.text=invite.key } } }
+    FileDialog { id: inviteDialog; title: "TeamHJD 초대 파일 선택"; nameFilters: ["TeamHJD 초대 (*.hjdinvite *.json)"]; onAccepted: window.connectInvite(selectedFile) }
     FolderDialog { id: folderDialog; title: "게임 설치 폴더 선택"; onAccepted: locationField.text=launcher.localPath(selectedFolder) }
 
     Popup {
@@ -362,7 +417,7 @@ ApplicationWindow {
                     Label { text: toastCard.noticeTitle; width: parent.width; color: "#F1F2EC"; font.bold: true; font.pixelSize: 12; wrapMode: Text.WordWrap }
                     Caption { text: toastCard.noticeBody; width: parent.width; lineHeight: 1.45; visible: text.length>0 }
                 }
-                ToolButton { anchors.right: parent.right; anchors.top: parent.top; width: 32; height: 32; text: "×"; palette.buttonText: "#A6B1B8"; Accessible.name: "알림 닫기"; onClicked: window.removeToast(toastCard.uid) }
+                ToolButton { id: dismissToast; anchors.right: parent.right; anchors.top: parent.top; width: 32; height: 32; Accessible.name: "알림 닫기"; onClicked: window.removeToast(toastCard.uid); contentItem: Text { text: "×"; color: "#A6B1B8"; font.pixelSize: 19; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter } background: Rectangle { color: dismissToast.hovered ? "#3B444B" : "transparent"; radius: 4; border.width: dismissToast.visualFocus ? 1 : 0; border.color: "#C7B98E" } }
                 Timer { interval: toastCard.noticeTone==="error" ? 8000 : 5500; running: true; onTriggered: window.removeToast(toastCard.uid) }
                 opacity: 1
                 Component.onCompleted: { if(!launcher.reduceMotion) toastEnter.start() }
@@ -380,7 +435,7 @@ ApplicationWindow {
             TabBar { id: helpTabs; Layout.fillWidth: true; palette.button: "#2D353C"; palette.buttonText: "#DFE5E5"; palette.highlight: "#E8C76A"; HelpTab { text: "시작하기" } HelpTab { text: "문제 해결" } HelpTab { text: "런처 정보" } }
             ScrollView { Layout.fillWidth: true; Layout.fillHeight: true; clip: true
                 TextArea { readOnly: true; wrapMode: Text.WordWrap; selectByMouse: true; textFormat: TextEdit.PlainText; color: "#C4CED3"; font.pixelSize: 13; padding: 0; rightPadding: 14; background: null
-                    text: helpTabs.currentIndex===0 ? "1. 테스트 서버 연결\n설정에서 팀이 전달한 초대 파일과 접근 암호를 입력하세요.\n\n2. 설치하고 플레이\n게임의 설치 버튼을 누르면 다운로드와 파일 확인이 이어집니다. 준비가 끝나면 플레이를 선택하세요.\n\n3. 업데이트는 자동으로\n연결과 최신 버전은 자동 확인합니다. 설치한 게임의 새 버전은 게임을 종료한 뒤 준비합니다. 런처 업데이트는 다음 실행에 적용됩니다.\n\n단축키\nCtrl+,  설정   ·   Ctrl+B  사이드바   ·   F1  도움말" : helpTabs.currentIndex===1 ? "서버에 연결할 수 없어요\n인터넷과 초대 정보의 서버 주소를 확인하세요. 연결이 돌아오면 자동으로 다시 확인합니다. 설치된 버전은 오프라인에서도 플레이할 수 있습니다.\n\n암호 또는 배포자 키 오류\n팀에서 전달한 초대 정보를 다시 가져오세요. 게임 내 방 암호와 배포 접근 암호는 다릅니다.\n\n설치가 중단됐어요\n설치를 다시 선택하면 이어받습니다. 기존 정상 버전은 유지됩니다.\n\n파일 문제 또는 새 버전 문제\n게임 관리 ··· 메뉴에서 파일 복구 또는 이전 버전 복원을 사용할 수 있습니다. 게임을 먼저 종료하세요.\n\n테스트 로그\n게임 관리에서 로그 폴더를 열 수 있습니다. 로그를 자동으로 외부에 전송하지 않습니다." : "TeamHJD Game Test Launcher\nv"+launcher.version+"  ·  Windows x64\n\nHappy Journey of Developers\n팀의 다음 플레이테스트를 위한 게임 라이브러리입니다.\n\nC++ · Qt 6.8.3\nQt is used under LGPLv3. Copyright The Qt Company Ltd. and other contributors.\n라이브러리 라이선스와 소스 안내는 함께 제공되는 THIRD_PARTY_NOTICES.md 및 licenses 폴더에 있습니다.\n\n공개 런처 업데이트와 비공개 게임 배포는 분리됩니다. 게임과 접근 암호는 공개 Release에 포함되지 않습니다."
+                    text: helpTabs.currentIndex===0 ? "1. 이메일로 시작\n이메일로 시작을 누르고 브라우저에서 이메일과 일회용 코드를 입력하세요. 인증을 마치면 런처로 돌아오세요. 별도 초대 파일이 전달된 경우 설정에서 가져올 수도 있습니다.\n\n2. 설치하고 플레이\n게임의 설치 버튼을 누르면 다운로드와 파일 확인이 이어집니다. 준비가 끝나면 플레이를 선택하세요.\n\n3. 업데이트는 자동으로\n연결과 최신 버전은 자동 확인합니다. 설치한 게임의 새 버전은 게임을 종료한 뒤 준비합니다. 런처 업데이트는 다음 실행에 적용됩니다.\n\n단축키\nCtrl+,  설정   ·   Ctrl+B  사이드바   ·   F1  도움말" : helpTabs.currentIndex===1 ? "서버에 연결할 수 없어요\n인터넷을 확인하세요. 이메일 인증이 만료되면 파일 메뉴 또는 설정에서 이메일로 다시 연결하세요. 연결이 돌아오면 자동으로 다시 확인합니다. 설치된 버전은 오프라인에서도 플레이할 수 있습니다.\n\n인증 정보와 개인정보\n인증된 이메일, 최초·최근 인증 시각과 최근 접속 시각은 TeamHJD 운영 서버에 저장됩니다. 게임 로그는 자동 전송하지 않습니다. 초대 파일을 사용하는 경우 팀에서 새 초대를 받을 수 있습니다.\n\n설치가 중단됐어요\n설치를 다시 선택하면 이어받습니다. 기존 정상 버전은 유지됩니다.\n\n파일 문제 또는 새 버전 문제\n게임 관리 ··· 메뉴에서 파일 복구 또는 이전 버전 복원을 사용할 수 있습니다. 게임을 먼저 종료하세요.\n\n테스트 로그\n게임 관리에서 로그 폴더를 열 수 있습니다. 로그를 자동으로 외부에 전송하지 않습니다." : "TeamHJD Game Test Launcher\nv"+launcher.version+"  ·  Windows x64\n\nHappy Journey of Developers\n팀의 다음 플레이테스트를 위한 게임 라이브러리입니다.\n\nC++ · Qt 6.8.3\nQt is used under LGPLv3. Copyright The Qt Company Ltd. and other contributors.\n라이브러리 라이선스와 소스 안내는 함께 제공되는 THIRD_PARTY_NOTICES.md 및 licenses 폴더에 있습니다.\n\n공개 런처 업데이트와 비공개 게임 배포는 분리됩니다. 게임과 접근 암호는 공개 Release에 포함되지 않습니다."
                 }
             }
             ActionButton { visible: helpTabs.currentIndex===2; text: "오픈소스 고지 열기"; onClicked: launcher.showLicenses(); Layout.alignment: Qt.AlignLeft }
