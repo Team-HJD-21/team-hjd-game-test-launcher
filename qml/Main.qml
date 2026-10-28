@@ -33,6 +33,7 @@ ApplicationWindow {
     font.pixelSize: 13
     property var v: launcher.view
     readonly property bool isHoseGame: v.name && v.name.toLowerCase() === "hose for hire"
+    readonly property bool gameUpdateReady: !!v.installed && !!v.updateAvailable && !!v.online && !v.busy && !v.running
     property bool entering: true
     property bool nativeMaxHover: false
     property bool sidebarVisible: true
@@ -44,7 +45,7 @@ ApplicationWindow {
         if(reviewMode==="login") loginNotice.open()
         else if(reviewMode==="settings") settings.open()
         else if(reviewMode==="help") helpDialog.open()
-        else if(reviewMode==="notifications") {window.notify("연결과 업데이트는 자동으로", "새 소식은 이 알림함에 모아 두어요.", "success");notificationPanel.open();window.unreadCount=0}
+        else if(reviewMode==="notifications") {window.notify("새 버전을 확인했어요", "게임은 업데이트 버튼을 눌러 적용하세요.", "success");notificationPanel.open();window.unreadCount=0}
         else if(reviewMode==="toast") window.notify("플레이할 준비가 되었어요", "설치 완료 알림의 표시와 읽기 흐름을 확인하고 있어요.", "success")
         else if(reviewMode==="versions") gameInfo.open()
         else if(reviewMode==="uninstall") uninstallDialog.open()
@@ -212,7 +213,7 @@ ApplicationWindow {
             Label { text: "플레이테스트"; font.pixelSize: 16; font.bold: true; color: "#E8EBE8" }
             Item { Layout.fillWidth: true }
             Rectangle { width: 6; height: 6; radius: 3; color: v.online ? "#8CBD9E" : "#7B8389" }
-            Caption { text: v.checking ? "자동 확인 중" : v.online ? "자동 업데이트 켜짐" : v.hasServer ? "자동 재연결 중" : "서버 연결 전"; font.pixelSize: 11 }
+            Caption { text: v.checking ? "자동 확인 중" : v.online ? "새 버전 자동 확인" : v.hasServer ? "자동 재연결 중" : "서버 연결 전"; font.pixelSize: 11 }
         }
         Rectangle {
             id: hero
@@ -236,9 +237,14 @@ ApplicationWindow {
             ColumnLayout {
                 spacing: 7; Layout.fillWidth: true
                 Label { text: v.status; Layout.fillWidth: true; color: "#E8EBE7"; font.pixelSize: 13; font.bold: true; wrapMode: Text.WordWrap; maximumLineCount: 2 }
-                Caption { text: v.busy ? v.transfer : v.installed ? "설치 버전 " + v.installed + (v.updateAvailable ? "  ·  최신 " + v.latest : "") : v.latest ? "버전 " + v.latest + "  ·  " + v.size : "Windows 64-bit  ·  비공개 팀 테스트"; Layout.fillWidth: true; elide: Text.ElideRight; maximumLineCount: 1 }
+                Caption {
+                    text: v.busy ? v.transfer : window.gameUpdateReady ? "현재 " + v.installed + "  →  최신 " + v.latest : v.installed ? "설치 버전 " + v.installed + (v.updateAvailable ? "  ·  최신 " + v.latest : "") : v.latest ? "버전 " + v.latest + "  ·  " + v.size : "Windows 64-bit  ·  비공개 팀 테스트"
+                    Layout.fillWidth: true; wrapMode: Text.WrapAnywhere; elide: Text.ElideRight; maximumLineCount: window.gameUpdateReady ? 2 : 1
+                }
+                Caption { visible: window.gameUpdateReady; text: "업데이트를 눌러 적용"; Layout.fillWidth: true; color: "#C5B580"; font.pixelSize: 11 }
             }
             ActionButton { text: "취소"; visible: v.busy && v.canCancel; onClicked: launcher.cancel() }
+            ActionButton { text: "현재 버전 플레이"; visible: window.gameUpdateReady; implicitWidth: 148; implicitHeight: 50; enabled: !!v.canPlay; onClicked: launcher.playInstalled() }
             ActionButton { text: v.action; prominent: true; visible: !v.busy; implicitWidth: 164; implicitHeight: 50; font.pixelSize: 15; enabled: !v.running && !v.busy; onClicked: launcher.primary() }
             ActionButton { id: menuButton; text: "···"; padding: 0; implicitWidth: 40; implicitHeight: 50; font.pixelSize: 21; enabled: !v.busy; onClicked: gameMenu.open(); Accessible.name: "게임 관리" }
         }
@@ -435,7 +441,7 @@ ApplicationWindow {
             TabBar { id: helpTabs; Layout.fillWidth: true; palette.button: "#2D353C"; palette.buttonText: "#DFE5E5"; palette.highlight: "#E8C76A"; HelpTab { text: "시작하기" } HelpTab { text: "문제 해결" } HelpTab { text: "런처 정보" } }
             ScrollView { Layout.fillWidth: true; Layout.fillHeight: true; clip: true
                 TextArea { readOnly: true; wrapMode: Text.WordWrap; selectByMouse: true; textFormat: TextEdit.PlainText; color: "#C4CED3"; font.pixelSize: 13; padding: 0; rightPadding: 14; background: null
-                    text: helpTabs.currentIndex===0 ? "1. 이메일로 시작\n이메일로 시작을 누르고 브라우저에서 이메일과 일회용 코드를 입력하세요. 인증을 마치면 런처로 돌아오세요. 별도 초대 파일이 전달된 경우 설정에서 가져올 수도 있습니다.\n\n2. 설치하고 플레이\n게임의 설치 버튼을 누르면 다운로드와 파일 확인이 이어집니다. 준비가 끝나면 플레이를 선택하세요.\n\n3. 업데이트는 자동으로\n연결과 최신 버전은 자동 확인합니다. 설치한 게임의 새 버전은 게임을 종료한 뒤 준비합니다. 런처 업데이트는 다음 실행에 적용됩니다.\n\n단축키\nCtrl+,  설정   ·   Ctrl+B  사이드바   ·   F1  도움말" : helpTabs.currentIndex===1 ? "서버에 연결할 수 없어요\n인터넷을 확인하세요. 이메일 인증이 만료되면 파일 메뉴 또는 설정에서 이메일로 다시 연결하세요. 연결이 돌아오면 자동으로 다시 확인합니다. 설치된 버전은 오프라인에서도 플레이할 수 있습니다.\n\n인증 정보와 개인정보\n인증된 이메일, 최초·최근 인증 시각과 최근 접속 시각은 TeamHJD 운영 서버에 저장됩니다. 게임 로그는 자동 전송하지 않습니다. 초대 파일을 사용하는 경우 팀에서 새 초대를 받을 수 있습니다.\n\n설치가 중단됐어요\n설치를 다시 선택하면 이어받습니다. 기존 정상 버전은 유지됩니다.\n\n파일 문제 또는 새 버전 문제\n게임 관리 ··· 메뉴에서 파일 복구 또는 이전 버전 복원을 사용할 수 있습니다. 게임을 먼저 종료하세요.\n\n테스트 로그\n게임 관리에서 로그 폴더를 열 수 있습니다. 로그를 자동으로 외부에 전송하지 않습니다." : "TeamHJD Game Test Launcher\nv"+launcher.version+"  ·  Windows x64\n\nHappy Journey of Developers\n팀의 다음 플레이테스트를 위한 게임 라이브러리입니다.\n\nC++ · Qt 6.8.3\nQt is used under LGPLv3. Copyright The Qt Company Ltd. and other contributors.\n라이브러리 라이선스와 소스 안내는 함께 제공되는 THIRD_PARTY_NOTICES.md 및 licenses 폴더에 있습니다.\n\n공개 런처 업데이트와 비공개 게임 배포는 분리됩니다. 게임과 접근 암호는 공개 Release에 포함되지 않습니다."
+                    text: helpTabs.currentIndex===0 ? "1. 이메일로 시작\n이메일로 시작을 누르고 브라우저에서 이메일과 일회용 코드를 입력하세요. 인증을 마치면 런처로 돌아오세요. 별도 초대 파일이 전달된 경우 설정에서 가져올 수도 있습니다.\n\n2. 설치하고 플레이\n게임의 설치 버튼을 누르면 다운로드와 파일 확인이 이어집니다. 준비가 끝나면 플레이를 선택하세요.\n\n3. 새 버전은 직접 업데이트\n연결과 최신 버전은 자동 확인합니다. 게임의 새 버전은 업데이트를 눌러 다운로드하고 적용하세요. 현재 버전 플레이로 기존 버전을 계속 실행할 수도 있습니다. 게임 실행 중이라면 종료한 뒤 업데이트를 눌러 주세요. 런처의 새 버전은 자동으로 준비해 다음 실행에 적용됩니다.\n\n단축키\nCtrl+,  설정   ·   Ctrl+B  사이드바   ·   F1  도움말" : helpTabs.currentIndex===1 ? "서버에 연결할 수 없어요\n인터넷을 확인하세요. 이메일 인증이 만료되면 파일 메뉴 또는 설정에서 이메일로 다시 연결하세요. 연결이 돌아오면 자동으로 다시 확인합니다. 설치된 버전은 오프라인에서도 플레이할 수 있습니다.\n\n인증 정보와 개인정보\n인증된 이메일, 최초·최근 인증 시각과 최근 접속 시각은 TeamHJD 운영 서버에 저장됩니다. 게임 로그는 자동 전송하지 않습니다. 초대 파일을 사용하는 경우 팀에서 새 초대를 받을 수 있습니다.\n\n설치가 중단됐어요\n설치를 다시 선택하면 이어받습니다. 기존 정상 버전은 유지됩니다.\n\n파일 문제 또는 새 버전 문제\n게임 관리 ··· 메뉴에서 파일 복구 또는 이전 버전 복원을 사용할 수 있습니다. 게임을 먼저 종료하세요.\n\n테스트 로그\n게임 관리에서 로그 폴더를 열 수 있습니다. 로그를 자동으로 외부에 전송하지 않습니다." : "TeamHJD Game Test Launcher\nv"+launcher.version+"  ·  Windows x64\n\nHappy Journey of Developers\n팀의 다음 플레이테스트를 위한 게임 라이브러리입니다.\n\nC++ · Qt 6.8.3\nQt is used under LGPLv3. Copyright The Qt Company Ltd. and other contributors.\n라이브러리 라이선스와 소스 안내는 함께 제공되는 THIRD_PARTY_NOTICES.md 및 licenses 폴더에 있습니다.\n\n공개 런처 업데이트와 비공개 게임 배포는 분리됩니다. 게임과 접근 암호는 공개 Release에 포함되지 않습니다."
                 }
             }
             ActionButton { visible: helpTabs.currentIndex===2; text: "오픈소스 고지 열기"; onClicked: launcher.showLicenses(); Layout.alignment: Qt.AlignLeft }

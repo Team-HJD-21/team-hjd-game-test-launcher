@@ -8,7 +8,7 @@ Download **TeamHJD-GameTestLauncher-Windows-x64.zip** from [Releases](https://gi
 
 Select **이메일로 시작** and verify the code sent to your email in the browser, then return to install and play. The default channel uses Cloudflare Access One-time PIN with no email allowlist. Verified email and authentication/access timestamps are kept in private operator storage. Session tokens are protected with Windows DPAPI. Team-issued invitation files remain available for separately configured channels.
 
-Latest versions are checked automatically. Installed games update when selected and idle; an identical verified package is reused rather than installed again. The launcher prepares its own update for the next launch. Games remain playable offline. The game menu includes repair, rollback, version/change information and uninstall. AppData saves and external playtest logs are preserved.
+Latest game versions are checked automatically. When a new version is available, choose **업데이트** to download and apply it, or **현재 버전 플레이** to keep playing the installed version. Opening the launcher or exiting a game does not start a game update. An identical verified package is reused rather than installed again. The launcher prepares its own update for the next launch. Games remain playable offline. The game menu includes repair, rollback, version/change information and uninstall. AppData saves and external playtest logs are preserved.
 
 The integrated title bar contains File, View, Help and notifications. Shortcuts: `Ctrl+,` settings, `Ctrl+B` sidebar, `F1` help. See the [Korean player guide](docs/PLAYER_GUIDE.ko.md).
 
@@ -38,4 +38,4 @@ The server exposes read-only catalog/package routes. It has no upload, remote ex
 
 ## Release status
 
-Version 0.1.1 adds email authentication, the original Hose for Hire logo and consistent dark menus. See [release verification](docs/RELEASE_VALIDATION_0.1.1.md). No Authenticode certificate is configured. The small stable bootstrap is replaced with a closed portable-bundle update when its own compatibility contract changes; ordinary client/Qt updates use the automatic versioned payload flow. Unselected games are checked when selected. Old versions remain available until game deletion; disk use is shown in version information.
+Version 0.1.2 makes game updates explicit, keeps the installed version playable, and fixes the native maximize-button crash. Operators can open the private local server dashboard with `tools/Open-HostingDashboard.ps1`. See [release verification](docs/RELEASE_VALIDATION_0.1.2.md). No Authenticode certificate is configured. The small stable bootstrap is replaced with a closed portable-bundle update when its own compatibility contract changes; ordinary client/Qt updates use the automatic versioned payload flow. Unselected games are checked when selected. Old versions remain available until game deletion; disk use is shown in version information.

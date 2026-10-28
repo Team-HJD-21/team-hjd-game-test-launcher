@@ -1,6 +1,8 @@
-param([Parameter(Mandatory)][string]$QtRoot)
+param([Parameter(Mandatory)][string]$QtRoot,[string]$OutputRoot)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
+if(-not $OutputRoot){$OutputRoot=Join-Path $root 'dist'}
+$output=[IO.Path]::GetFullPath($OutputRoot)
 $version=([regex]::Match((Get-Content -LiteralPath (Join-Path $root 'CMakeLists.txt') -Raw),'project\(TeamHJDGameTestLauncher VERSION ([0-9.]+)')).Groups[1].Value
 if(-not $version){throw 'Version not found.'}
 $helperDirectory=Join-Path $root '.deps/cloudflared/2026.10.5'
@@ -15,7 +17,7 @@ foreach($name in 'cloudflared.exe','LICENSE.txt','provenance.json'){
 if((Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant() -cne $helperHash){throw 'The cloudflared helper differs from the reviewed official release.'}
 $helperProvenance=Get-Content -LiteralPath (Join-Path $helperDirectory 'provenance.json') -Raw|ConvertFrom-Json
 if($helperProvenance.version -cne '2026.10.5' -or $helperProvenance.sha256 -cne $helperHash -or $helperProvenance.source -cne 'https://github.com/cloudflare/cloudflared/releases/tag/2026.10.5' -or $helperProvenance.asset -cne 'cloudflared-windows-amd64.exe'){throw 'cloudflared provenance does not match the pinned official dependency.'}
-$bundle=Join-Path $root 'dist/TeamHJD-GameTestLauncher-Windows-x64'
+$bundle=Join-Path $output 'TeamHJD-GameTestLauncher-Windows-x64'
 $payload=Join-Path $bundle "launcher/versions/$version"
 if(Test-Path -LiteralPath (Join-Path $payload 'TeamHJDClient.exe')){throw 'This output already exists. Preserve it and select a fresh dist directory before packaging again.'}
 New-Item -ItemType Directory -Path $payload -Force | Out-Null
@@ -44,10 +46,10 @@ Copy-Item -LiteralPath (Join-Path $helperDirectory 'LICENSE.txt') -Destination (
 Copy-Item -LiteralPath (Join-Path $helperDirectory 'provenance.json') -Destination (Join-Path $licenses 'cloudflared-provenance.json')
 Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $payload
 Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $bundle
-[IO.Compression.ZipFile]::CreateFromDirectory($payload,(Join-Path $root 'dist/TeamHJD-LauncherPayload-Windows-x64.zip'),[IO.Compression.CompressionLevel]::Optimal,$false)
+[IO.Compression.ZipFile]::CreateFromDirectory($payload,(Join-Path $output 'TeamHJD-LauncherPayload-Windows-x64.zip'),[IO.Compression.CompressionLevel]::Optimal,$false)
 $files=@(Get-ChildItem -LiteralPath $payload -Recurse -File|ForEach-Object{@{path=[IO.Path]::GetRelativePath($payload,$_.FullName).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
 @{version=$version;executable='TeamHJDClient.exe';files=$files}|ConvertTo-Json -Depth 8 -Compress|Set-Content -LiteralPath (Join-Path $payload '._teamhjd-receipt.json') -Encoding utf8NoBOM
 @{current=$version;previous=''}|ConvertTo-Json -Compress|Set-Content -LiteralPath (Join-Path $bundle 'launcher/active.json') -Encoding utf8NoBOM
 Copy-Item -LiteralPath (Join-Path $root 'docs/PLAYER_GUIDE.ko.md') -Destination (Join-Path $bundle '시작하기.md')
-[IO.Compression.ZipFile]::CreateFromDirectory($bundle,(Join-Path $root 'dist/TeamHJD-GameTestLauncher-Windows-x64.zip'),[IO.Compression.CompressionLevel]::Optimal,$false)
-Write-Output "Portable bundle and update payload written to dist. No game package or credentials included."
+[IO.Compression.ZipFile]::CreateFromDirectory($bundle,(Join-Path $output 'TeamHJD-GameTestLauncher-Windows-x64.zip'),[IO.Compression.CompressionLevel]::Optimal,$false)
+Write-Output "Portable bundle and update payload written to $output. No game package or credentials included."

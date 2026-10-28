@@ -78,6 +78,10 @@ function Ensure-HostingRuntime([bool]$CheckCatalog){
         [pscustomobject]@{OriginPid=$origin.Pid;TunnelPid=$tunnel.Pid;PrivateRoot=$root;Bind='127.0.0.1';Port=$Port}
     }finally{$runtimeLock.Dispose()}
 }
+function Update-PrivateDashboard {
+    try{& (Join-Path $PSScriptRoot 'Update-HostingDashboard.ps1') -PrivateRoot $root|Out-Null}
+    catch{Write-Warning ([DateTime]::UtcNow.ToString('o')+' Private dashboard refresh failed; hosting continues.')}
+}
 if($Monitor){
     $monitorLock=Open-HostingLock (Join-Path $root 'hosting-monitor.lock')
     try{
@@ -91,6 +95,7 @@ if($Monitor){
                 # Do not persist raw exception text, claims, tokens or request URLs.
                 Write-Warning ([DateTime]::UtcNow.ToString('o')+' Hosting check failed; inspect private state and component logs. Retrying in 30 seconds.')
             }
+            Update-PrivateDashboard
             Start-Sleep -Seconds 30
         }
     }finally{$monitorLock.Dispose()}
@@ -109,7 +114,7 @@ if(-not $NoWatch){
             if($PythonPath){$arguments+=@('-PythonPath',(Quote-HostingArgument $originPlan.Python))}
             $existing=Start-Process -FilePath $pwsh -ArgumentList $arguments -PassThru -WindowStyle Hidden -RedirectStandardOutput $logs.stdout -RedirectStandardError $logs.stderr
             try{
-                Write-HostingJson $watcherStatePath @{pid=$existing.Id;startedTicks=$existing.StartTime.ToUniversalTime().Ticks.ToString();script=$self;privateRoot=$root;stdout=$logs.stdout;stderr=$logs.stderr}
+                Write-HostingJson $watcherStatePath @{pid=$existing.Id;startedTicks=$existing.StartTime.ToUniversalTime().Ticks.ToString();executable=$pwsh;script=$self;privateRoot=$root;stdout=$logs.stdout;stderr=$logs.stderr}
                 Start-Sleep -Milliseconds 300;$existing.Refresh()
                 if($existing.HasExited){throw 'Hosting monitor exited during startup; inspect its private runtime log.'}
             }catch{$existing.Refresh();if(-not $existing.HasExited){$existing.Kill()};throw}
@@ -117,4 +122,5 @@ if(-not $NoWatch){
         $runtime|Add-Member NoteProperty MonitorPid $existing.Id
     }finally{$startLock.Dispose()}
 }
+Update-PrivateDashboard
 $runtime

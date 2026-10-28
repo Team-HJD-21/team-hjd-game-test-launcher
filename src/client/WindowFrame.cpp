@@ -17,9 +17,31 @@ WindowFrame::WindowFrame(QQuickWindow *window):m_window(window){
     SetWindowPos(handle,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
 }
 WindowFrame::~WindowFrame(){qGuiApp->removeNativeEventFilter(this);}
-bool WindowFrame::nativeEventFilter(const QByteArray &,void *message,qintptr *result){
+bool WindowFrame::nativeEventFilter(const QByteArray &type,void *message,qintptr *result){
+    if(type!="windows_generic_MSG"||!message)return false;
     auto *msg=static_cast<MSG*>(message);auto handle=reinterpret_cast<HWND>(m_handle);if(!handle||msg->hwnd!=handle)return false;
     if(msg->message==WM_NCDESTROY){m_handle=0;return false;}
+    if(!m_window)return false;
+    // Qt delivers queued native input with a null result, and deliberately does
+    // not repeat input in the window-proc global filter. Consume max-button
+    // input here, but only write an LRESULT when the caller supplies one.
+    if((msg->message==WM_NCLBUTTONDOWN||msg->message==WM_NCLBUTTONUP)&&msg->wParam==HTMAXBUTTON){
+        if(msg->message==WM_NCLBUTTONUP&&!m_maximizeQueued){
+            m_maximizeQueued=true;
+            // Leave the native callback before changing Qt window state.
+            QMetaObject::invokeMethod(&m_callbacks,[this]{
+                m_maximizeQueued=false;
+                if(!m_window||!m_handle)return;
+                if(m_window->visibility()==QWindow::Maximized)m_window->showNormal();else m_window->showMaximized();
+            },Qt::QueuedConnection);
+        }
+        if(result)*result=0;
+        return true;
+    }
+    if(msg->message==WM_NCMOUSEMOVE){m_window->setProperty("nativeMaxHover",msg->wParam==HTMAXBUTTON);TRACKMOUSEEVENT track{sizeof(track),TME_LEAVE|TME_NONCLIENT,handle,0};TrackMouseEvent(&track);}
+    if(msg->message==WM_NCMOUSELEAVE)m_window->setProperty("nativeMaxHover",false);
+    // Geometry queries need a real result, unlike the queued mouse input above.
+    if(!result)return false;
     if(msg->message==WM_NCCALCSIZE&&msg->wParam){
         if(IsZoomed(handle)){auto *parameters=reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam);MONITORINFO info{sizeof(info)};GetMonitorInfoW(MonitorFromWindow(handle,MONITOR_DEFAULTTONEAREST),&info);parameters->rgrc[0]=info.rcWork;}
         *result=0;return true;
@@ -33,8 +55,5 @@ bool WindowFrame::nativeEventFilter(const QByteArray &,void *message,qintptr *re
         }
         if(p.y>=0&&p.y<int(40*ratio)&&p.x>=r.right-int(92*ratio)&&p.x<r.right-int(46*ratio)){*result=HTMAXBUTTON;return true;}
     }
-    if(msg->message==WM_NCMOUSEMOVE){m_window->setProperty("nativeMaxHover",msg->wParam==HTMAXBUTTON);TRACKMOUSEEVENT track{sizeof(track),TME_LEAVE|TME_NONCLIENT,handle,0};TrackMouseEvent(&track);}
-    if(msg->message==WM_NCMOUSELEAVE)m_window->setProperty("nativeMaxHover",false);
-    if((msg->message==WM_NCLBUTTONDOWN||msg->message==WM_NCLBUTTONUP)&&msg->wParam==HTMAXBUTTON){if(msg->message==WM_NCLBUTTONUP){if(m_window->visibility()==QWindow::Maximized)m_window->showNormal();else m_window->showMaximized();}*result=0;return true;}
     return false;
 }

@@ -52,4 +52,17 @@ Windows가 로그인 후 Run 실행을 지연할 수 있습니다. 짧은 wrappe
 
 인증된 이메일, 처음/최근 인증 확인 UTC, 최근 요청 UTC, 서로 다른 세션 수를 보여줍니다. 기본 실행은 파일을 쓰거나 업로드하지 않습니다. CSV는 `-CsvPath`를 명시할 때만 쓰며 기존 파일 교체에는 `-Force`가 필요합니다. 세션 해시·JWT·IP는 보고서에 포함하지 않습니다. 이메일은 Cloudflare OTP 인증 후 실제 origin 요청까지 도착한 시점에 기록됩니다. 아직 아무도 접속하지 않았다면 빈 목록이 정상입니다.
 
+## 로컬 브라우저 대시보드
+
+```powershell
+./tools/Open-HostingDashboard.ps1 -PrivateRoot D:/Private/TeamHJDDistribution
+./tools/Open-HostingDashboard.ps1 -PrivateRoot D:/Private/TeamHJDDistribution -ExportCsv
+```
+
+비공개 `dashboard/index.html`을 생성하고 기본 브라우저로 엽니다. 새 공개 포트나 웹 서버는 만들지 않습니다. 서버·터널·감시의 PID/시작 시각/실행 파일/인수를 대조한 상태, 원본 루프백 TCP, 공개 인증 게이트의 익명 HEAD 응답, 공개키로 서명을 검증한 게임 목록, 인증된 이메일·시각·세션 수를 표시합니다. 기본 표 시각은 KST이며 UTC 원본도 함께 보입니다. 프로세스 실행이나 게이트 응답만으로 로그인 이후 게임 다운로드 성공을 판정하지 않습니다.
+
+감시가 실행 중이면 30초마다 HTML을 다시 생성하고 브라우저는 15초마다 로컬 파일을 새로 읽습니다. 마지막 생성 시각으로 오래된 화면과 구분하세요. 대시보드 생성 실패는 서버 시작·자동 복구를 중단하지 않습니다. `-SkipPublicCheck`는 2초 제한의 외부 HEAD 확인도 생략하고, `-GenerateOnly`는 브라우저를 열지 않고 파일만 생성합니다. `-ExportCsv`는 같은 dashboard 폴더에 안전한 CSV를 명시적으로 내보내 상대 링크를 추가합니다. CSV는 내보낸 시각을 별도로 표시하며 감시가 자동으로 다시 내보내지 않습니다.
+
+이메일이 들어 있는 HTML·CSV는 private root의 기존 접근 권한을 상속합니다. 파일에는 JWT·세션 해시·키·IP·원본 로그를 넣지 않습니다. 외부 스크립트·폰트·이미지·네트워크 API를 불러오지 않는 정적 HTML이며 사용자 텍스트는 HTML 이스케이프합니다. 이 폴더를 별도 웹 서버나 공개 저장소로 공개하지 않습니다.
+
 새 빌드는 기존 `Publish-Game.ps1`로 게시합니다. 운영자 암호와 개인 만료 초대는 관리·복구 경로로 계속 지원됩니다. [개인 초대 발행·회수](TESTER_INVITES.ko.md)는 별도 문서를 따릅니다. private root나 CSV, 토큰 파일을 공개 저장소·릴리스 ZIP에 넣지 않습니다.

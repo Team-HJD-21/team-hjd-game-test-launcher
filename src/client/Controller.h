@@ -31,6 +31,7 @@ public:
     Q_INVOKABLE void selectGame(const QString &id);
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void primary();
+    Q_INVOKABLE void playInstalled();
     Q_INVOKABLE void login();
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void repair();
@@ -80,6 +81,7 @@ private:
     qint64 m_lastRefresh=0,m_lastLauncherCheck=0;
     bool m_wasRunning=false;
     QJsonObject m_updateHolds;
+    QJsonObject m_updateNotices;
     QByteArray m_pendingCa;
     bool m_hasPendingCa=false;
     QJsonObject m_inviteInfo;
