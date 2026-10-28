@@ -1,0 +1,37 @@
+name: Private distribution external preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tls-and-access-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify from an external network without downloading private content
+        env:
+          TEAMHJD_PREFLIGHT: ${{ secrets.TEAMHJD_DISTRIBUTION_PREFLIGHT }}
+        shell: python
+        run: |
+          import hashlib, http.client, json, os, ssl, sys
+          from urllib.parse import urlsplit
+          try:
+              config = json.loads(os.environ['TEAMHJD_PREFLIGHT'])
+              endpoint = urlsplit(config['server'])
+              assert endpoint.scheme == 'https' and endpoint.port == 8443
+              assert not endpoint.username and not endpoint.query and not endpoint.fragment
+              context = ssl.create_default_context(cadata=config['certificate'])
+              connection = http.client.HTTPSConnection(endpoint.hostname, endpoint.port, context=context, timeout=20)
+              connection.connect()
+              fingerprint = hashlib.sha256(connection.sock.getpeercert(binary_form=True)).hexdigest()
+              assert fingerprint == config['serverFingerprint']
+              connection.request('HEAD', '/catalog.json')
+              response = connection.getresponse()
+              assert response.status == 401
+              connection.close()
+              print('PASS: external HTTPS routing, hostname, CA and certificate fingerprint; protected catalog denies anonymous access (401).')
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'w') as output:
+                  output.write('External distribution preflight passed. No password, signing key, catalog content or game package was transmitted to the runner.\n')
+          except Exception as error:
+              print('External preflight failed: ' + type(error).__name__)
+              sys.exit(1)
