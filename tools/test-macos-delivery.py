@@ -46,6 +46,7 @@ def main():
     parser.add_argument('--roundtrip', type=Path, required=True)
     parser.add_argument('--arch', choices=['arm64', 'x64'], required=True)
     args = parser.parse_args()
+    print('Checking unpacked native GUI', flush=True)
     output = args.app.resolve().parents[2]
     active = load(args.roundtrip / 'launcher/active.json')['current']
     extracted = args.roundtrip / 'launcher/versions' / active
@@ -68,12 +69,14 @@ def main():
         return load(runtime / 'launcher/active.json')
 
     seed = launch()
+    print('PASS initial bootstrap seed and first-frame acknowledgment', flush=True)
     stop_owned(runtime)
     target = runtime / 'launcher/versions' / active
     shutil.copytree(extracted, target)
     save(runtime / 'queued-launcher.json', {'candidate': active})
     applied = launch()
     assert applied['current'] == active and applied['previous'] == seed['current']
+    print('PASS queued native launcher payload activation', flush=True)
     stop_owned(runtime)
     bad = '0.1.3-bad-native-fixture'
     rejected = runtime / 'launcher/versions' / bad

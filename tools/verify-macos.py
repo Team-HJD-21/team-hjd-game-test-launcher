@@ -191,4 +191,7 @@ if __name__ == "__main__":
         main()
     except (ValueError, KeyError, OSError, zipfile.BadZipFile, subprocess.TimeoutExpired) as error:
         print(f"FAIL macOS artifact audit: {error}", file=sys.stderr)
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            annotation = str(error).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+            print(f'::error title=macOS artifact audit::{annotation}', flush=True)
         raise SystemExit(1)

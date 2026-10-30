@@ -61,6 +61,15 @@ def deploy(app, qt, arch):
     # Explicit app-relative paths remain valid after converting frameworks into
     # ordinary dylibs; Qt must not fall back to its SDK/framework prefix.
     (app / 'Contents/Resources/qt.conf').write_text('[Paths]\nPlugins=PlugIns\nQmlImports=Resources/qml\n', encoding='utf-8')
+    # macdeployqt copies optional SQL drivers that link to the SDK producer's
+    # Homebrew databases. The launcher stores JSON and does not use ODBC,
+    # PostgreSQL, MySQL or Mimer. Retain only the self-contained SQLite driver.
+    sql_drivers = app / 'Contents/PlugIns/sqldrivers'
+    if sql_drivers.is_dir():
+        for driver in sql_drivers.iterdir():
+            if driver.name != 'libqsqlite.dylib':
+                print(f'Excluding unused SQL driver {driver.name}', flush=True)
+                owned_remove(driver, app)
     frameworks = app / 'Contents/Frameworks'
     # The verified ZIP installer deliberately rejects symlinks. Convert Qt's
     # versioned frameworks to ordinary dylibs, preserving their binary resources
