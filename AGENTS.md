@@ -3,6 +3,7 @@
 ## 먼저 읽기
 
 - 릴리즈·배포 작업: [릴리즈 절차](docs/RELEASING.ko.md).
+- 공개 다운로드 페이지/도메인/푸터: [공개 배포 안내](docs/PUBLIC_DOWNLOADS.ko.md). `testlauncher`는 GitHub 런처 ZIP, `playtest`는 기존 인증 게임 API다. 종료한 `/downloads` 포털을 되살리거나 기존 API 도메인을 삭제하지 않는다.
 - 오류 조사: [프로젝트 장애 대응](docs/TROUBLESHOOTING.ko.md)에서 같은 증상을 먼저 찾는다.
 - 환경·CLI·권한·도구 문제는 `C:/Users/c/.codex/agent-troubleshooting.md`의 관련 항목을 먼저 읽고, 다른 프로젝트에 재사용할 수 있는 검증된 진단을 같은 파일에 누적한다. 프로젝트 기능 버그는 프로젝트 문서에 기록한다.
 - 이 PC의 인수인계가 필요하면 무시된 로컬 파일 `.local/OPERATIONS_HANDOFF.ko.md`를 읽는다. 다른 PC에는 없을 수 있다. 실제 상태는 저장된 경로와 상태 파일을 다시 확인하며, 과거 PID나 CI run ID를 현재 값으로 가정하지 않는다.

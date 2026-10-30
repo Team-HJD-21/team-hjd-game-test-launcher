@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+  <title>Game Test Launcher — TeamHJD</title>
+  <meta name="description" content="TeamHJD Game Test Launcher의 최신 Windows·macOS 배포본을 다운로드하세요.">
+  <meta name="theme-color" content="#080f17">
+  <link rel="icon" href="assets/teamhjd-logo.png" type="image/png">
+  <link rel="canonical" href="https://testlauncher.teamhjd.com/">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#downloads" data-i18n="skip">다운로드로 바로 가기</a>
+  <header class="shell header">
+    <a class="wordmark" data-home href="https://teamhjd.com/" aria-label="TeamHJD"><img src="assets/teamhjd-wordmark.png" alt="TeamHJD" width="486" height="98"></a>
+    <div class="header-actions">
+      <a class="home-link" data-home href="https://teamhjd.com/" data-i18n="home">TeamHJD 홈 ↗</a>
+      <label class="language"><span class="sr-only" data-i18n="language">언어</span><select id="language" aria-label="Language"><option value="ko">한국어</option><option value="en">English</option><option value="zh-CN">简体中文</option></select><span aria-hidden="true">⌄</span></label>
+    </div>
+  </header>
+  <main class="shell">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="signal" aria-hidden="true"></span> TEAMHJD / GAME TEST LAUNCHER</p>
+        <h1 id="hero-title"><span data-i18n="title1">플레이테스트,</span><br><span class="accent" data-i18n="title2">여기서 시작하세요.</span></h1>
+        <p class="hero-description" data-i18n="intro">게임을 만나기까지, 더 간편하게.<br>내 컴퓨터에 맞는 런처를 받고 이메일 인증으로 시작하세요.</p>
+        <div class="release-info" aria-live="polite"><span class="version-badge" id="release-version" data-i18n="stable">LATEST RELEASE</span><span id="release-date" data-i18n="releaseHint">항상 GitHub의 최신 배포본으로 연결됩니다.</span></div>
+      </div>
+      <div class="launcher-visual" aria-hidden="true">
+        <div class="visual-orbit"></div>
+        <div class="app-preview">
+          <div class="preview-toolbar"><span class="preview-dots"><i></i><i></i><i></i></span><span>TeamHJD Launcher</span><span class="preview-status">●</span></div>
+          <div class="preview-body"><div class="preview-sidebar"><span></span><span></span><span></span></div><div class="preview-content"><div class="preview-art"><span>HAPPY JOURNEY<br>OF DEVELOPERS.</span><b>HJD<span>↗</span></b></div><div class="preview-line"></div><div class="preview-line short"></div><div class="preview-bottom"><span>READY TO PLAY</span><span class="preview-play">▶</span></div></div></div>
+        </div>
+        <span class="visual-caption">INSTALL. UPDATE. PLAY.</span>
+      </div>
+    </section>
+    <section class="downloads" id="downloads" aria-labelledby="download-title">
+      <div class="section-heading"><p class="section-label"><span>01</span> DOWNLOAD</p><h2 id="download-title" data-i18n="choose">내 컴퓨터에 맞게 선택하세요.</h2></div>
+      <div class="download-grid">
+        <article class="download-card" id="windows-card">
+          <div class="card-heading"><span class="platform-icon windows-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="platform-type">FOR PC</span></div>
+          <h3>Windows</h3><p class="platform-requirement" data-i18n="windowsRequirement">Windows 10 / 11 · 64비트</p>
+          <a class="download-button" data-download="windows" href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-Windows-x64.zip"><span data-i18n="windowsDownload">Windows 다운로드</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 15v5h14v-5"/></svg></a>
+          <p class="download-meta"><span>ZIP</span><span data-size="windows"></span><span data-i18n="windowsPackage">Windows x64</span></p>
+        </article>
+        <article class="download-card" id="macos-card">
+          <div class="card-heading"><span class="platform-icon mac-icon" aria-hidden="true"><svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="5" width="30" height="22" rx="3"/><path d="M18 27v5m-7 0h14M3 22h30"/></svg></span><span class="platform-type">FOR MAC</span></div>
+          <h3>macOS</h3><p class="platform-requirement" data-i18n="macRequirement">macOS 12 이상 · 칩에 맞는 버전 선택</p>
+          <div class="mac-buttons"><a class="download-button" data-download="arm64" href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-macOS-arm64.zip"><span>Apple Silicon<small data-i18n="appleHint">M1 이후 모델</small></span><span class="button-arrow" aria-hidden="true">↓</span></a><a class="download-button secondary" data-download="x64" href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-macOS-x64.zip"><span>Intel<small data-i18n="intelHint">Intel 칩 모델</small></span><span class="button-arrow" aria-hidden="true">↓</span></a></div>
+          <p class="download-meta"><span>ZIP</span><span data-size="arm64"></span><span data-size="x64"></span></p><p class="chip-hint" data-i18n="macChip">Apple 메뉴 → 이 Mac에 관하여에서 칩을 확인하세요.</p>
+        </article>
+      </div>
+      <p class="download-note" data-i18n="downloadNote">GitHub에서 공식 ZIP 파일을 내려받습니다. 다운로드에는 이메일 인증이 필요하지 않습니다.</p>
+    </section>
+    <section class="getting-started" aria-labelledby="start-title">
+      <div class="section-heading"><p class="section-label"><span>02</span> GET STARTED</p><h2 id="start-title" data-i18n="startTitle">세 단계면 준비 끝.</h2></div>
+      <ol class="steps"><li><span class="step-number">01 /</span><h3 data-i18n="step1Title">압축을 풀고 실행</h3><p data-i18n="step1">Windows는 폴더 안의 TeamHJDLauncher.exe를 실행하세요. Mac은 TeamHJDLauncher.app을 응용 프로그램 폴더로 옮겨 실행하세요.</p></li><li><span class="step-number">02 /</span><h3 data-i18n="step2Title">이메일로 인증</h3><p data-i18n="step2">런처에서 ‘이메일로 시작’을 누르고 브라우저에서 이메일과 수신 코드를 입력한 뒤 돌아오세요.</p></li><li><span class="step-number">03 /</span><h3 data-i18n="step3Title">설치하고 플레이</h3><p data-i18n="step3">게임을 설치하고 바로 시작하세요. 새 게임 버전은 자동으로 알려 주고, 업데이트 버튼으로 적용할 수 있어요.</p></li></ol>
+    </section>
+    <section class="help-section" aria-labelledby="help-title">
+      <div class="section-heading"><p class="section-label"><span>03</span> NEED A HAND?</p><h2 id="help-title" data-i18n="helpTitle">시작하기 전에 궁금하다면.</h2></div>
+      <div class="faq-list">
+        <details><summary><span data-i18n="faq1Title">Mac에서 실행이 차단돼요.</span><span aria-hidden="true">＋</span></summary><p data-i18n="faq1">현재 테스트 배포본에는 Apple 공증이 없습니다. 공식 배포본을 확인한 뒤 시스템 설정 → 개인정보 보호 및 보안에서 해당 앱의 ‘그래도 열기’를 선택하세요. 처음 인증할 때 키체인 접근 허용을 요청할 수 있습니다.</p></details>
+        <details><summary><span data-i18n="faq2Title">폴더에 있는 파일을 전부 보관해야 하나요?</span><span aria-hidden="true">＋</span></summary><p data-i18n="faq2">Windows는 압축을 푼 폴더 전체를 함께 보관하세요. EXE만 따로 옮기면 필요한 DLL을 찾지 못합니다. 바로가기와 고정 아이콘은 TeamHJDLauncher를 대상으로 만들어 주세요.</p></details>
+        <details><summary><span data-i18n="faq3Title">업데이트할 때 다시 받아야 하나요?</span><span aria-hidden="true">＋</span></summary><p data-i18n="faq3">런처는 새 버전을 자동으로 준비하고 다음 실행에 적용합니다. 게임은 새 버전을 알려 준 뒤 사용자가 ‘업데이트’를 눌러 적용하며, 설치된 버전으로 계속 플레이할 수도 있습니다.</p></details>
+      </div>
+      <a class="guide-link" href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/blob/main/docs/PLAYER_GUIDE.ko.md" data-i18n="guide">런처 사용 안내 보기 ↗</a>
+    </section>
+  </main>
+  <footer class="shell footer">
+    <div class="footer-brand"><a class="wordmark" data-home href="https://teamhjd.com/"><img src="assets/teamhjd-wordmark.png" alt="TeamHJD" width="486" height="98"></a><p>Happy Journey of Developers.</p></div>
+    <nav class="footer-links" aria-label="하단 메뉴"><a href="https://github.com/Team-HJD-21">GitHub ↗</a><a href="https://teamhjd.com/privacy/#email">support@teamhjd.com</a><a href="https://teamhjd.com/privacy/" data-i18n="privacy">개인정보처리방침</a></nav>
+    <dl class="footer-business"><div><dt data-i18n="businessName">상호</dt><dd lang="ko">팀 에이치제이디(TeamHJD)</dd></div><div><dt data-i18n="businessOwner">대표자</dt><dd lang="ko">황재동</dd></div><div><dt data-i18n="businessRegistration">사업자등록번호</dt><dd>622-10-17519 <a href="https://www.ftc.go.kr/bizCommPop.do?wrkr_no=6221017519" target="_blank" rel="noopener noreferrer" data-i18n="businessVerify">(사업자정보확인)</a></dd></div><div><dt data-i18n="businessCommerce">통신판매업 신고번호</dt><dd lang="ko">2026-수원영통-1221호</dd></div><div><dt data-i18n="businessAddress">사업장 주소</dt><dd lang="ko">경기도 수원시 영통구 태장로 71번길 19</dd></div></dl>
+    <div class="footer-policy"><a href="https://teamhjd.com/press/" data-i18n="press">프레스킷</a><a href="https://teamhjd.com/content-policy/" data-i18n="contentPolicy">콘텐츠 이용 · AI 학습 정책</a><p data-i18n="aiPolicy">AI 검색·정보 조회는 허용하며, 콘텐츠의 AI 학습 이용은 금지합니다.</p></div>
+    <small class="footer-copyright">© 2026 TeamHJD. All rights reserved.</small>
+    <details class="related-sites"><summary><span data-i18n="related">관련 사이트</span><span aria-hidden="true">⌃</span></summary><ul><li><a data-home href="https://teamhjd.com/" data-i18n="mainSite">TeamHJD 홈페이지 ↗</a></li><li><a href="https://github-hook.teamhjd.com/connect">GitHub Notify ↗</a></li><li><a href="https://docs.teamhjd.com/" data-i18n="docs">팀 개발 문서 ↗</a></li></ul></details>
+  </footer>
+</body>
+</html>

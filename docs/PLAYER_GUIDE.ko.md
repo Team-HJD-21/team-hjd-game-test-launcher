@@ -1,5 +1,7 @@
 # TeamHJD Game Test Launcher
 
+[TeamHJD 홈페이지](https://teamhjd.com/) 푸터 **관련 사이트 → Game Test Launcher**의 [다운로드 페이지](https://testlauncher.teamhjd.com/)에서 Windows용 최신 런처 ZIP을 받으세요. 런처 다운로드는 GitHub에서 제공하며 게임은 아래 이메일 인증 후 설치합니다.
+
 ZIP을 일반 폴더에 풀고 `TeamHJDLauncher.exe`를 실행하세요. 관리자 권한은 필요하지 않습니다. 업데이트를 저장할 수 있도록 쓰기 가능한 위치를 사용하세요.
 
 1. **이메일로 시작**을 누른 뒤 안내를 확인하고 **브라우저에서 인증**을 선택하세요.

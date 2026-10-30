@@ -13,6 +13,8 @@
 
 공개 저장소는 `Team-HJD-21/team-hjd-game-test-launcher`다. 런처 버전은 `CMakeLists.txt`의 project VERSION, GitHub 태그는 `v<version>`을 쓴다. 게임 BUILD 번호와 런처 버전은 별개다. 런처의 latest stable 조회 주기는 성공한 확인 후 최대 한 시간이다. 게임 목록은 연결 시 약 2분, 오프라인 재시도는 약 30초이며 선택/앱 재활성화 등에서도 확인한다.
 
+공개 다운로드 웹페이지는 `testlauncher.teamhjd.com`이며 대표 사이트 푸터의 관련 사이트에서만 연결한다. 세 OS/CPU 버튼은 GitHub `releases/latest/download/<고정 파일명>`을 쓰므로 모든 stable Release에 세 portable ZIP을 유지한다. 자세한 도메인/Pages 계약은 [공개 배포 안내](PUBLIC_DOWNLOADS.ko.md)를 따른다. 기존 playtest의 `/`와 `/downloads` HTML은 인증 후410으로 종료했고, 같은 호스트의 로그인·게임 API는 유지한다.
+
 공개 자산에는 게임·음악·Unity 데이터·사용자 로그·이메일 목록·설정·인증·서명 개인키를 넣지 않는다. 공개 CI에는 합성 게임 fixture만 보낸다. 게임 원본을 새로 만들거나 수정해 배포 문제를 우회하지 않는다.
 
 ## 2. 릴리즈 작업 디렉터리를 분리한다

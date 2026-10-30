@@ -73,7 +73,9 @@ Windows가 로그인 후 Run 실행을 지연할 수 있습니다. 짧은 wrappe
 
 ## 맥 게임 게시
 
-테스터에게 [게임 다운로드 페이지](https://playtest.teamhjd.com/downloads)를 전달하면 이메일 인증 후 Windows 또는 macOS 원본 ZIP을 선택해 직접 설치할 수 있습니다. 이 페이지와 패키지 모두 같은 Cloudflare Access 인증을 요구합니다. 페이지는 서명된 카탈로그와 패키지 해시·크기를 검증하며, 읽기 전용입니다. 서버에는 업로드나 원격 실행 기능이 추가되지 않습니다.
+기존 수동 게임 ZIP 웹페이지 `/downloads`와 같은 페이지를 제공하던 `/`는 종료했습니다. 인증된 요청에는 빈 HTTP410을 반환하고, 다른 사이트로의 링크나 redirect를 추가하지 않습니다. query가 있는 경로는 기존 HTTP404를 유지합니다. 게임은 런처의 이메일 인증과 서명된 카탈로그를 통해 설치·업데이트합니다. 기존 `playtest.teamhjd.com`의 Cloudflare 로그인, `/catalog.json`, `/packages/<sha256>.zip`, 접속 감사와 이어받기는 유지됩니다. 공개 런처 ZIP 배포는 [별도 공개 배포 안내](PUBLIC_DOWNLOADS.ko.md)를 참고하세요.
+
+고정 cloudflared 2026.10.5의 로그인 확인은 origin HTTP200을 요구하지 않습니다. `isTokenValid`는 Access 로그인으로 향하는 HTTP302인지 검사하며, 확인 요청에 `cloudflared_token_check=true`를 붙입니다. 이 query는 기존 origin에서도 HTTP404였습니다. 앱 metadata는 Cloudflare edge의 서명된 응답 header에서 얻고, 런처는 JWT 수신 후 서명된 카탈로그를 실제로 요청해 세션을 확인합니다. 따라서 HTML 종료를 위해 인증 앱·issuer·AUD 또는 런처 기본 서버 주소를 바꾸지 않습니다. 근거는 [고정 access 로그인 코드](https://github.com/cloudflare/cloudflared/blob/2026.10.5/cmd/cloudflared/access/cmd.go#L519), [Access redirect 판정](https://github.com/cloudflare/cloudflared/blob/2026.10.5/carrier/carrier.go#L109), [metadata 조회](https://github.com/cloudflare/cloudflared/blob/2026.10.5/token/token.go#L395)에 있습니다.
 
 Windows 정본 `Builds/latest.json`과 별도로 받은 `Builds/latest-macos.json`을 지정합니다. 포인터의 `platform`과 실제 `.app/Contents/MacOS/실행파일` 경로를 읽어 기존 ZIP의 크기·SHA256·모든 파일·실행권한을 확인합니다. 원본 게임을 다시 빌드하거나 ZIP을 바꾸지 않습니다.
 

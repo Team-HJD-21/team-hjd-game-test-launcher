@@ -13,7 +13,9 @@ Read [AGENTS.md](AGENTS.md) before agent-led maintenance. Ignored local evidence
 
 ## Players
 
-Download **TeamHJD-GameTestLauncher-Windows-x64.zip** from [Releases](https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest), extract it to a writable folder and run **TeamHJDLauncher.exe**. Keep the whole extracted folder together. Windows 10/11 x64 is the target; the first release was tested on Windows 11.
+Open **teamhjd.com → footer → Related sites → Game Test Launcher**, or the [launcher download page](https://testlauncher.teamhjd.com/). It links to the latest official Windows and Mac portable ZIPs. See the [site's maintenance contract](docs/PUBLIC_DOWNLOADS.ko.md). The old `playtest` web download pages are retired; its authenticated game API remains in use.
+
+Download **TeamHJD-GameTestLauncher-Windows-x64.zip**, extract it to a writable folder and run **TeamHJDLauncher.exe**. Keep the whole extracted folder together. [GitHub Releases](https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest) remains the source of the files. Windows 10/11 x64 is the target; the first release was tested on Windows 11.
 
 On **macOS 12 or later**, download **TeamHJD-GameTestLauncher-macOS-arm64.zip** for Apple Silicon or **TeamHJD-GameTestLauncher-macOS-x64.zip** for Intel. Move **TeamHJDLauncher.app** to Applications and run it. See the [Mac player guide](docs/PLAYER_GUIDE_MACOS.ko.md), including the first-launch security approval for this ad hoc signed, unnotarized playtest distribution. The launcher automatically selects a compatible game package and refuses Windows games on macOS.
 

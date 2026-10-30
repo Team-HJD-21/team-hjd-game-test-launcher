@@ -152,7 +152,7 @@ rg -n 'prepare_failed_health_fixture|returncode == 4|probe.exists|failedNativeHe
 ./tools/Enable-HostingAutostart.ps1 -PrivateRoot 'D:/Private/TeamHJDDistribution' -Action Status
 ./tools/Start-PlaytestHosting.ps1 -PrivateRoot 'D:/Private/TeamHJDDistribution' -ValidateOnly
 ./tools/Open-HostingDashboard.ps1 -PrivateRoot 'D:/Private/TeamHJDDistribution' -GenerateOnly
-curl.exe --head --max-time 10 https://playtest.teamhjd.com/downloads
+curl.exe --head --max-time 10 https://playtest.teamhjd.com/catalog.json
 ```
 
 **원인·확실도:** 자동 시작은 현재 사용자 logon의 HKCU Run 등록이며, 부팅 직후 로그인 전 서비스가 아니다. 절전·꺼짐·인터넷 단절 중에는 배포를 제공할 수 없다. **이번 부팅에서 자동 시작이 누락된 정확한 원인은 미확정**이다. 상태 파일의 오래된 PID만으로 자동 시작 원인을 단정하지 않는다.
@@ -216,7 +216,7 @@ gh api "repos/Team-HJD-21/team-hjd-game-test-launcher/actions/runs/$runId/logs" 
 
 ```powershell
 curl.exe --cacert 'D:/Private/TeamHJDDistribution/tls/ca-cert.pem' --head https://localhost:8443/downloads
-curl.exe --head --max-time 10 https://playtest.teamhjd.com/downloads
+curl.exe --head --max-time 10 https://playtest.teamhjd.com/catalog.json
 ```
 
 **원인·확실도:** Python strict 검증이 기존 사설 인증서의 AKI 조건을 만족하지 못한 것은 예외로 확인했다. Schannel 폐기 조회의 세부 실패 원인은 미확정이며 두 오류를 같은 원인으로 묶지 않는다.
@@ -247,6 +247,8 @@ Get-FileHash -LiteralPath '검증할-artifact.zip' -Algorithm SHA256
 **범위·한계:** Range나 원본 digest가 없으면 이 성공 경로를 일반화하지 않는다. HTTP200 전체 응답을 부분 블록으로 잘라 성공으로 처리하거나, 길이만 맞는 파일을 릴리즈에 쓰지 않는다. 당시 `.local/` 수신 스크립트는 turn 한정 도구이며 hardcoded artifact/run ID를 그대로 재사용하지 않는다. 매번 현재 공식 metadata·provenance·전체 지문에서 시작한다.
 
 ## 완료 판정을 넓히지 않는 항목
+
+후속 운영 변경으로 기존 수동 다운로드 HTML은 종료했다. `/`와 `/downloads`의 인증 후410은 의도된 응답이며 API 장애나 TLS 실패가 아니다. 익명 edge는 계속 OTP로302 이동한다. 최신 런처 웹 배포와 도메인 구분은 [공개 배포 안내](PUBLIC_DOWNLOADS.ko.md)를 따른다. 위의 portal HTTP200은 종료 전 수집한 역사적 증거다.
 
 2026-10-31 현재 네이티브 Mac CI, Windows 검사, 인증 서버 경로·원본 게임 ZIP 전달의 통과는 각 검증 문서 범위에 한정된다. 사람이 실제 Mac에서 수행하는 이메일 OTP/브라우저 복귀·변경된 앱의 키체인 동의, Unity Metal 화면·오디오·입력, Windows↔Mac 크로스플레이, 기존 실제 v0.1.2 사용자 profile의 v0.1.3 자동 업데이트 완료, 전체 재부팅 후 autostart는 관측 증거 없이 완료로 기록하지 않는다. Mac Developer ID/공증과 Windows Authenticode 서명도 현재 없다.
 

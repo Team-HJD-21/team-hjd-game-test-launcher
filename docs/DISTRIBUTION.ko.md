@@ -54,7 +54,7 @@ python server/distribution_server.py --root D:/Private/TeamHJDDistribution `
 
 직접 접속 구성에서는 먼저 `--bind 127.0.0.1`로 로컬 HTTPS를 검증하고 명시적인 외부 공개 작업으로 방화벽·라우터·인증서를 구성한 뒤 다른 네트워크에서 인증 목록·다운로드를 확인합니다. 원시 Python 실행 명령은 방화벽/공유기/자동 시작을 설정하지 않습니다. `distribution-preflight.yml`도 이 직접 TCP8443 구성용이며 현재 Cloudflare의 익명 302 확인을 대신하지 않습니다.
 
-루트 목록·키·암호·사용자 감사 파일은 HTTP로 노출하지 않습니다. 현재 서버는 인증된 `/`, `/downloads`, `/catalog.json`, `/packages/<sha256>.zip`을 제공합니다. 다운로드 페이지도 서명된 catalog와 실제 패키지 크기/해시를 검증하며 업로드/원격 실행 기능은 없습니다. 잘못된 암호 시도는 제한합니다. TLS 없는 인터넷 HTTP는 허용하지 않으며 `--test-http`는 명시적 loopback 시험에만 사용합니다.
+루트 목록·키·암호·사용자 감사 파일은 HTTP로 노출하지 않습니다. 현재 서버는 인증된 `/catalog.json`, `/packages/<sha256>.zip` API를 제공합니다. 기존 수동 게임 다운로드 HTML인 `/`와 `/downloads`는 종료했으며, 인증 뒤 빈 HTTP410을 반환합니다. 다른 사이트로 이동시키거나 링크를 표시하지 않습니다. query가 붙은 경로는 기존처럼 HTTP404입니다. 런처의 Cloudflare 로그인과 비공개 게임 설치·업데이트 API는 같은 도메인에서 유지합니다. 업로드/원격 실행 기능은 없습니다. 잘못된 암호 시도는 제한합니다. TLS 없는 인터넷 HTTP는 허용하지 않으며 `--test-http`는 명시적 loopback 시험에만 사용합니다. 공개 런처 ZIP 배포와는 별도이며 [공개 배포 안내](PUBLIC_DOWNLOADS.ko.md)를 참고하세요.
 
 ## 로컬 검증
 
