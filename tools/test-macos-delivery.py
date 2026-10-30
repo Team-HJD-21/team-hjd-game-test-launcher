@@ -9,6 +9,7 @@ import shutil
 import signal
 import subprocess
 import time
+import uuid
 
 
 def load(path):
@@ -38,6 +39,34 @@ def stop_owned(root):
             return
         time.sleep(.1)
     raise AssertionError('The acceptance child did not exit')
+
+
+def prepare_failed_health_fixture(rejected, executable, fixture):
+    target = rejected / executable
+    shutil.copy2(fixture, target)
+    target.chmod(0o755)
+    flag = rejected / 'no-health.flag'
+    flag.write_text('Deliberately exit before writing a bootstrap health acknowledgment.\n')
+    flag.chmod(0o644)
+    manifest = load(rejected / '._teamhjd-receipt.json')
+    assert not any(file['path'] == flag.name for file in manifest['files']), 'Unexpected preexisting no-health fixture entry'
+    found = False
+    for file in manifest['files']:
+        if file['path'] == executable:
+            found = True
+            file.update(bytes=target.stat().st_size,
+                        sha256=hashlib.sha256(target.read_bytes()).hexdigest(), executableFile=True)
+    assert found, 'The failed-health fixture must replace a receipted client executable'
+    manifest['files'].append({'path': flag.name, 'bytes': flag.stat().st_size,
+                              'sha256': hashlib.sha256(flag.read_bytes()).hexdigest(), 'executableFile': False})
+    manifest['expandedBytes'] = sum(file['bytes'] for file in manifest['files'])
+    save(rejected / '._teamhjd-receipt.json', manifest)
+    probe = rejected.parent / ('no-health-probe-' + uuid.uuid4().hex + '.json')
+    assert not probe.exists(), 'A health probe must start without a stale acknowledgment'
+    result = subprocess.run([str(target), '--health-file', str(probe)], cwd=rejected, check=False, timeout=10)
+    assert result.returncode == 4, 'The failed-health fixture did not take its deliberate exit path'
+    assert not probe.exists(), 'The failed-health fixture unexpectedly acknowledged healthy startup'
+    print('PASS failed-health fixture exits with code 4 without an acknowledgment', flush=True)
 
 
 def main():
@@ -84,13 +113,7 @@ def main():
     # A fully receipted synthetic native process that never sends a frame ACK.
     # This tests the health check independently from hash/corruption rejection.
     fixture = Path('build-macos/LauncherFixtureGame').resolve()
-    shutil.copy2(fixture, rejected / executable)
-    manifest = load(rejected / '._teamhjd-receipt.json')
-    for file in manifest['files']:
-        if file['path'] == executable:
-            file['bytes'] = fixture.stat().st_size
-            file['sha256'] = hashlib.sha256(fixture.read_bytes()).hexdigest()
-    save(rejected / '._teamhjd-receipt.json', manifest)
+    prepare_failed_health_fixture(rejected, executable, fixture)
     save(runtime / 'queued-launcher.json', {'candidate': bad})
     recovered = launch()
     assert recovered['current'] == active, 'Failed candidate did not roll back'
@@ -98,7 +121,7 @@ def main():
     result = {'result': 'PASS', 'arch': args.arch, 'nativePackagedGUI': True,
               'interruptedInitialCopyRecovery': True,
               'nativeBootstrapSeedAndFrameAck': True, 'queuedPayloadActivation': True,
-              'failedNativeHealthRollback': True, 'humanEmailOTPTested': False,
+              'failedNativeFixtureExitWithoutAck': True, 'failedNativeHealthRollback': True, 'humanEmailOTPTested': False,
               'unityGameOrCrossPlatformMultiplayerTested': False}
     save(output / 'delivery-result.json', result)
     print('PASS native unpacked GUI, initial install, queued activation and failed-health rollback')

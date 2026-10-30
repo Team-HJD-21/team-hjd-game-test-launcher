@@ -149,11 +149,23 @@ jobs:
       - name: Keep validated native source provenance with final evidence
         if: ${{ inputs.native_run_id != '' }}
         run: cp "$RUNNER_TEMP/native-reuse-result.json" dist-macos/native-source-result.json
-      - name: Audit exact published bytes and verify native round trip
+      - name: Audit candidate bytes and verify complete native payload round trip
         run: |
           python tools/verify-macos.py --app dist-macos/work/portable/TeamHJDLauncher.app --payload dist-macos/TeamHJD-LauncherPayload-macOS-${{ matrix.arch }}.zip --portable dist-macos/TeamHJD-GameTestLauncher-macOS-${{ matrix.arch }}.zip --arch ${{ matrix.cmake_arch }} | tee dist-macos/audit-result.json
           build-macos/LauncherCoreTests --verify-payload dist-macos/TeamHJD-LauncherPayload-macOS-${{ matrix.arch }}.zip "$RUNNER_TEMP/roundtrip"
-          python tools/test-macos-delivery.py --app dist-macos/work/portable/TeamHJDLauncher.app --roundtrip "$RUNNER_TEMP/roundtrip" --arch ${{ matrix.arch }}
+      - name: Retain audited candidates before delivery acceptance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: macOS-candidate-${{ matrix.arch }}
+          path: |
+            dist-macos/*.zip
+            dist-macos/audit-result.json
+            dist-macos/native-source-result.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Verify native bootstrap activation and failed-health rollback
+        run: python tools/test-macos-delivery.py --app dist-macos/work/portable/TeamHJDLauncher.app --roundtrip "$RUNNER_TEMP/roundtrip" --arch ${{ matrix.arch }}
       - name: Retain verified public artifacts and acceptance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
