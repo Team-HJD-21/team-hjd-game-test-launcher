@@ -124,7 +124,8 @@ function setLanguage(value, persist = false) {
   document.documentElement.lang = language;
   languageControl.value = language;
   for (const node of document.querySelectorAll('[data-i18n]')) {
-    node.textContent = translations[language][node.dataset.i18n];
+    const text = translations[language][node.dataset.i18n] ?? translations.ko[node.dataset.i18n];
+    if (typeof text === 'string') node.textContent = text;
   }
   document.querySelector('meta[name="description"]').content = translations[language].intro;
   document.querySelector('.footer-links').setAttribute('aria-label', translations[language].footerNavigation);

@@ -253,3 +253,13 @@ Get-FileHash -LiteralPath '검증할-artifact.zip' -Algorithm SHA256
 2026-10-31 현재 네이티브 Mac CI, Windows 검사, 인증 서버 경로·원본 게임 ZIP 전달의 통과는 각 검증 문서 범위에 한정된다. 사람이 실제 Mac에서 수행하는 이메일 OTP/브라우저 복귀·변경된 앱의 키체인 동의, Unity Metal 화면·오디오·입력, Windows↔Mac 크로스플레이, 기존 실제 v0.1.2 사용자 profile의 v0.1.3 자동 업데이트 완료, 전체 재부팅 후 autostart는 관측 증거 없이 완료로 기록하지 않는다. Mac Developer ID/공증과 Windows Authenticode 서명도 현재 없다.
 
 새 사건은 날짜·OS/도구 버전·증상·최소 확인·원인 확실도·실제 수정·성공 증거·남은 한계를 같은 형식으로 추가한다. 개인정보, 원본 JWT, 인증 파일 내용, DPAPI/서명 키, 서명된 임시 URL은 증거 설명에도 포함하지 않는다.
+
+## 2026-10-31 — Pages 배포 후 FAQ 문구가 비고 스타일이 빠짐
+
+**환경·증상:** Windows11/PowerShell7.6.5, Chrome 연결 브라우저와 GitHub Pages. 브라우저 세부 버전은 미측정. 새 HTML에는 FAQ3개가 있었지만 화면에는 OS 이름·번호만 나오고 질문·답변이 비었다. 캐시 없는 HTTPS 요청의 세 파일은 새 소스와 일치했다.
+
+**최소 확인·원인:** 실제 브라우저에서 `.faq-item` 수, `[data-i18n="faqTitle"]`의 문구, FAQ summary의 계산된 스타일, HTML의 CSS/JS URL을 대조한다. 이전 JS가 새 번역 key를 알지 못해 빈 문자열로 만들고 이전 CSS가 새 class를 꾸미지 못하는 혼합과 증상이 일치했다. 브라우저 캐시와의 연관은 재로딩 대조로 확인했으며 CDN 내부 동작까지 확정하지 않는다.
+
+**수정·검증:** CSS/JS 내용 hash query를 HTML에 붙이고 공개 사이트 검사기가 hash 불일치를 거부하게 했다. `node tools/check-download-site.mjs --update-asset-versions`로 두 링크만 갱신한다. 번역은 key가 없어도 기존 HTML을 비우지 않고 한국어 fallback을 사용한다. 최종 배포 뒤 실제 브라우저에서 FAQ 질문·답변과 computed style까지 확인하며, HTTP200·DOM 항목 수·CI 성공만으로 완료 판정하지 않는다.
+
+**범위·한계:** 정적 웹 자산 캐시 경계의 수정이다. 기존 런처 ZIP·게임·인증 설정과 footer는 변경하지 않는다. HTML 자체가 남은 기존 탭은 새로고침이 필요할 수 있다. `.local/download-site-validation/faq-production.json`은 초기 파일 대조이며 최종 브라우저 표시 증거를 대신하지 않는다.

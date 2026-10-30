@@ -48,6 +48,8 @@ https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/downl
 
 ```powershell
 node --check website/app.js
+# CSS/JS를 수정한 경우 HTML의 content hash query도 갱신한다:
+node tools/check-download-site.mjs --update-asset-versions
 node tools/check-download-site.mjs
 gh workflow run download-site.yml --ref main
 # 위 dispatch가 만든 실제 run ID를 선택해 확인:
@@ -55,6 +57,8 @@ gh run list --workflow download-site.yml --branch main --limit 5 --json database
 ```
 
 프로덕션 반영 전 loopback preview에서 데스크톱·좁은 모바일, 언어3개, 이메일 수집 안내와 실제 metadata 표시를 확인한다. 대표 사이트에서는 푸터 메뉴의 링크와 언어 전달을 확인한다. 공식 latest 링크는 리다이렉트를 따라 실제 stable 태그의 파일명·크기와 대조한다. URL만 바뀌고 파일이 없는 상태를 성공으로 표시하지 않는다. Pages·대표 사이트 배포 성공, 새 도메인 TLS와 구 포털410/기존API 성공을 각각 구분해 증거를 남긴다.
+
+`styles.css`와 `app.js` 링크에는 정규화한 UTF-8 내용의 SHA256 앞12자리 `?v=`를 붙인다. 위 갱신 옵션은 index.html의 두 링크만 수정하며, CI의 기본 검사는 잘못된 hash를 거부한다. 브라우저에 남은 이전 CSS/번역 JS와 새 HTML이 섞여 FAQ가 비는 재발을 방지하기 위한 경계다. 배포 완료 뒤 기존 페이지를 연 브라우저에서도 새로고침하여 실제 문구·스타일을 확인한다.
 
 ## 유지보수 주의
 
