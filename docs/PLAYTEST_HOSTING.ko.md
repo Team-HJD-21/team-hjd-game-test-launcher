@@ -2,6 +2,8 @@
 
 게임을 한 번 게시하면 팀원은 런처에서 이메일 인증 후 목록을 받고 설치·실행·업데이트할 수 있습니다. 같은 버전을 다시 설치하지 않으며, 새 버전은 배포 목록을 통해 확인합니다. 원본 서버는 이 PC의 `127.0.0.1:8443`에서만 받고, 외부 연결은 Cloudflare Tunnel과 Access OTP를 거칩니다.
 
+릴리즈와 게임 발행의 순서는 [릴리즈 절차](RELEASING.ko.md), 같은 오류가 반복될 때의 최소 진단은 [장애 대응](TROUBLESHOOTING.ko.md)을 먼저 확인합니다. 발행 도구의 기본 root는 `.local/private-distribution`, hosting 도구는 `.local/production-distribution`이므로 운영 명령에는 의도한 **`-PrivateRoot`를 명시**합니다. 이 문서의 `D:/Private/...`는 예시 경로입니다.
+
 ## 시작과 자동 복구
 
 PowerShell 7.5 이상에서 프로젝트 폴더로 이동한 뒤 실행합니다. 먼저 설정만 확인할 수 있습니다. `-ValidateOnly`는 프로세스를 시작하거나 운영 파일을 쓰지 않습니다.
@@ -18,6 +20,8 @@ PowerShell 7.5 이상에서 프로젝트 폴더로 이동한 뒤 실행합니다
 로컬 관리 터널도 지원합니다. 토큰 파일이 없으면 `cloudflare/config.yml`과 `cloudflare/tunnel-credentials.json`을 사용합니다. helper는 `Get-Cloudflared.ps1`의 고정 버전·SHA-256이 일치해야 합니다.
 
 기본 실행은 origin·터널과 숨김 PowerShell 감시 프로세스를 시작합니다. 감시는 30초마다 확인해 종료된 구성 요소를 다시 시작합니다. 이미 실행 중인 프로세스는 저장한 PID·시작 시각·실행 파일·정확한 인수를 확인하고 재사용합니다. 다른 프로세스를 종료하거나 사용 중인 포트를 빼앗지 않습니다. 살아 있지만 listener가 없는 origin이나 상태가 충돌하는 프로세스는 자동 종료하지 않으며 비공개 로그를 확인해야 합니다. `-NoWatch`는 감시 없이 한 번 시작합니다.
+
+서버 코드를 변경한 뒤 같은 시작 명령을 실행하면 살아 있는 origin은 재사용됩니다. 코드 반영에는 소유권을 확인한 origin의 통제된 재시작과 외부 확인이 필요합니다. 토큰/서명 키/인증 기록을 지우거나 터널을 새로 만들어 재시작을 대신하지 않습니다.
 
 로그·상태는 private root의 `runtime-logs/`, `server-process.json`, `cloudflare/tunnel-process.json`, `hosting-monitor.json`에 남습니다. 터널 프로세스가 실행됐다는 결과는 외부 연결 성공의 증거와 별개이므로 공개 HTTPS 응답을 확인합니다. 감시 경고는 고정 메시지만 기록하며 원본 JWT·토큰·요청 URL은 저장하지 않습니다.
 
@@ -65,7 +69,7 @@ Windows가 로그인 후 Run 실행을 지연할 수 있습니다. 짧은 wrappe
 
 이메일이 들어 있는 HTML·CSV는 private root의 기존 접근 권한을 상속합니다. 파일에는 JWT·세션 해시·키·IP·원본 로그를 넣지 않습니다. 외부 스크립트·폰트·이미지·네트워크 API를 불러오지 않는 정적 HTML이며 사용자 텍스트는 HTML 이스케이프합니다. 이 폴더를 별도 웹 서버나 공개 저장소로 공개하지 않습니다.
 
-새 빌드는 기존 `Publish-Game.ps1`로 게시합니다. 운영자 암호와 개인 만료 초대는 관리·복구 경로로 계속 지원됩니다. [개인 초대 발행·회수](TESTER_INVITES.ko.md)는 별도 문서를 따릅니다. private root나 CSV, 토큰 파일을 공개 저장소·릴리스 ZIP에 넣지 않습니다.
+정본 ZIP이 있으면 `Publish-GameArchive.ps1 -LatestPointer ... -PrivateRoot ...`를 사용합니다. `Publish-Game.ps1`은 별도 게임의 압축 해제된 빌드를 새로 포장할 때 사용하며 전달받은 정본 ZIP을 다시 만들기 위한 도구가 아닙니다. 운영자 암호와 개인 만료 초대는 관리·복구 경로로 계속 지원됩니다. [개인 초대 발행·회수](TESTER_INVITES.ko.md)는 별도 문서를 따릅니다. private root나 CSV, 토큰 파일을 공개 저장소·릴리스 ZIP에 넣지 않습니다.
 
 ## 맥 게임 게시
 

@@ -2,11 +2,20 @@
 
 Windows x64 and macOS game playtest library, written in C++20 and Qt Quick. Public launcher updates come from this repository's GitHub Releases. Private games are distributed separately through an authenticated HTTPS server and a signed catalog. No game build, music, private log, credential or signing key belongs in this repository or its Releases.
 
+## Maintainers: start here
+
+- [Release runbook and completion checklist (Korean)](docs/RELEASING.ko.md): fresh output directories, native Mac build/reuse rules, draft upload/digest checks, publication and old-client acceptance.
+- [Troubleshooting and verified repairs (Korean)](docs/TROUBLESHOOTING.ko.md): known symptoms, minimum diagnostics, evidence and unresolved limits.
+- [Hosting and verified-user reports (Korean)](docs/PLAYTEST_HOSTING.ko.md): Tunnel, logon startup/recovery, local dashboard and email/timestamp reports.
+- [v0.1.3 acceptance and final artifact identities](docs/RELEASE_VALIDATION_0.1.3.md). Historical validation reports describe their own release, not the current server state.
+
+Read [AGENTS.md](AGENTS.md) before agent-led maintenance. Ignored local evidence is not the only source of the procedure.
+
 ## Players
 
 Download **TeamHJD-GameTestLauncher-Windows-x64.zip** from [Releases](https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest), extract it to a writable folder and run **TeamHJDLauncher.exe**. Keep the whole extracted folder together. Windows 10/11 x64 is the target; the first release was tested on Windows 11.
 
-On **macOS 12 or later**, download **TeamHJD-GameTestLauncher-macOS-arm64.zip** for Apple Silicon or **macOS-x64.zip** for Intel. Move **TeamHJDLauncher.app** to Applications and run it. See the [Mac player guide](docs/PLAYER_GUIDE_MACOS.ko.md), including the first-launch security approval for this ad hoc signed, unnotarized playtest distribution. The launcher automatically selects a compatible game package and refuses Windows games on macOS.
+On **macOS 12 or later**, download **TeamHJD-GameTestLauncher-macOS-arm64.zip** for Apple Silicon or **TeamHJD-GameTestLauncher-macOS-x64.zip** for Intel. Move **TeamHJDLauncher.app** to Applications and run it. See the [Mac player guide](docs/PLAYER_GUIDE_MACOS.ko.md), including the first-launch security approval for this ad hoc signed, unnotarized playtest distribution. The launcher automatically selects a compatible game package and refuses Windows games on macOS.
 
 Select **이메일로 시작** and verify the code sent to your email in the browser, then return to install and play. The default channel uses Cloudflare Access One-time PIN with no email allowlist. Verified email and authentication/access timestamps are kept in private operator storage. Session tokens are protected with Windows DPAPI or a Mac Keychain-held encryption key. Team-issued invitation files remain available for separately configured channels.
 
@@ -23,10 +32,13 @@ Requirements: Windows, Visual Studio 2022 C++ desktop tools/Windows SDK, PowerSh
 python tests/test_server.py
 ./tools/verify-local.ps1 -QtRoot C:/Qt/6.8.3/msvc2022_64
 ./tools/verify-bootstrap.ps1 -QtRoot C:/Qt/6.8.3/msvc2022_64
-./tools/package-windows.ps1 -QtRoot C:/Qt/6.8.3/msvc2022_64
+$outputRoot = Join-Path $PWD ('.local/releases/' + (Get-Date -Format yyyyMMdd-HHmmss) + '/dist')
+./tools/package-windows.ps1 -QtRoot C:/Qt/6.8.3/msvc2022_64 -OutputRoot $outputRoot
 ```
 
-Build artifacts live under `build/`, portable and update ZIPs under `dist/`, private test evidence under `.local/`. Packaging refuses to overwrite an existing bundle; preserve/move the old generated output before packaging another build.
+Cloudflare/JWT and authenticated portal acceptance requires the project server venv and pinned `server/requirements.txt`; see [Cloudflare setup](docs/CLOUDFLARE_ACCESS.ko.md). A crypto-free Python run can skip optional crypto tests and must not be reported as full authentication acceptance.
+
+Build artifacts live under `build/`, release packages should use a fresh `-OutputRoot` under `.local/releases/`, and private test evidence lives under `.local/`. Packaging refuses to overwrite an existing bundle. **Do not move, delete or overwrite the default `dist/` to make packaging succeed:** it may be the operator's live installation and pinned shortcut target. `build-windows.ps1 -Deploy` uses that default, so use the separate packaging command above on an operating host.
 
 Mac native builds use Qt **6.8.3 macOS**, CMake, Ninja and Xcode command-line tools. The `macos-release.yml` workflow builds and tests on Apple Silicon and Intel Mac runners, with a disposable test Keychain. Run `cmake -S . -B build-macos -G Ninja -DCMAKE_PREFIX_PATH=/path/to/Qt/6.8.3/macos -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0`, then `cmake --build build-macos`. `tools/package-macos.py` creates the app and architecture-specific update ZIP, and `tools/verify-macos.py` checks exact bytes, execution permissions, Mach-O dependencies and code signatures. Native tests that exercise Keychain require `TEAMHJD_TEST_KEYCHAIN_READY=1` after preparing a disposable unlocked Keychain. They refuse to use an unprepared personal Keychain.
 

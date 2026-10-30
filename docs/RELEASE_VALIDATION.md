@@ -1,5 +1,7 @@
 # 0.1.0 validation — 2026-10-29 KST
 
+Historical evidence for 0.1.0. Its server/deployment status describes that release's checks. For current maintenance use the [release runbook](RELEASING.ko.md), [hosting guide](PLAYTEST_HOSTING.ko.md) and [latest recorded 0.1.3 acceptance](RELEASE_VALIDATION_0.1.3.md).
+
 Environment: Windows 11 build 26200, PowerShell 7.6.5, MSVC 19.38.33145, CMake 3.31.6, Qt 6.8.3 MSVC x64, Python 3.13.3. This is a Windows 11 validation; Windows 10 and a second physical PC were not separately tested.
 
 ## Passed
