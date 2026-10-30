@@ -29,11 +29,13 @@ bool verifySignature(const QByteArray &payload, const QByteArray &signature, con
 struct Artifact { QString path, sha256; qint64 bytes = 0; };
 struct Game {
     QString id, name, description, version, executable, notes;
+    QString platform = QStringLiteral("windows-x64");
     QUrl packageUrl;
     QString sha256;
     qint64 bytes = 0, expandedBytes = 0;
     QList<Artifact> files;
     QJsonObject toJson() const;
+    bool supported() const;
     static Game parse(const QJsonObject &object, const QUrl &origin);
 };
 struct Catalog { QList<Game> games; qint64 sequence = 0; QDateTime expires; };

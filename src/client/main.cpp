@@ -15,7 +15,9 @@
 #include <QStyleHints>
 #include <QTimer>
 #include <QTextStream>
+#ifdef Q_OS_WIN
 #include <windows.h>
+#endif
 
 int main(int argc,char **argv) {
     QGuiApplication app(argc,argv); app.setOrganizationName("TeamHJD");app.setApplicationName("GameTestLauncher");app.setApplicationVersion(HJD_VERSION);
@@ -39,7 +41,14 @@ int main(int argc,char **argv) {
             return 64;
         }
     }
-    QDir().mkpath(data); QLockFile lock(data+"/client.lock"); if(!lock.tryLock(0)){MessageBoxW(nullptr,L"런처가 이미 실행 중입니다.",L"TeamHJD Game Test Launcher",MB_OK|MB_ICONINFORMATION);return 2;}
+    QDir().mkpath(data); QLockFile lock(data+"/client.lock"); if(!lock.tryLock(0)){
+#ifdef Q_OS_WIN
+        MessageBoxW(nullptr,L"런처가 이미 실행 중입니다.",L"TeamHJD Game Test Launcher",MB_OK|MB_ICONINFORMATION);
+#else
+        QTextStream(stderr)<<"TeamHJD launcher is already running.\n";
+#endif
+        return 2;
+    }
     Controller controller(data,parser.value("launcher-root"),parser.isSet("test-allow-loopback"));
     if(parser.isSet("test-update-from")){
         try{controller.setTestUpdateFrom(parser.value("test-update-from"));}

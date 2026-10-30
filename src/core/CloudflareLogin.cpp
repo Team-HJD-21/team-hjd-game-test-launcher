@@ -9,8 +9,14 @@
 #include <QProcessEnvironment>
 #include <QRegularExpression>
 #include <QUuid>
+#ifdef Q_OS_WIN
 #include <windows.h>
 #include <sddl.h>
+#elif defined(Q_OS_MACOS)
+#include <sys/stat.h>
+#include <unistd.h>
+#include <string.h>
+#endif
 
 #ifdef _MSC_VER
 #pragma comment(lib, "advapi32.lib")
@@ -22,10 +28,17 @@ constexpr qint64 maximumOutput = 128 * 1024;
 constexpr qint64 authenticationTimeoutMs = 5 * 60 * 1000;
 
 void erase(QByteArray &bytes) {
-    if(!bytes.isEmpty()) SecureZeroMemory(bytes.data(), size_t(bytes.size()));
+    if(!bytes.isEmpty()) {
+#ifdef Q_OS_WIN
+        SecureZeroMemory(bytes.data(),size_t(bytes.size()));
+#elif defined(Q_OS_MACOS)
+        explicit_bzero(bytes.data(),size_t(bytes.size()));
+#endif
+    }
     bytes.clear();
 }
 
+#ifdef Q_OS_WIN
 QString currentSid() {
     HANDLE handle{};
     if(!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &handle))
@@ -148,6 +161,48 @@ private:
     QString m_path, m_parent;
     bool m_owned = false;
 };
+#elif defined(Q_OS_MACOS)
+void removePlainScratchTree(const QString &directory) {
+    noLinks(directory);
+    const auto entries=QDir(directory).entryInfoList(QDir::AllEntries|QDir::NoDotAndDotDot|QDir::Hidden|QDir::System,QDir::NoSort);
+    for(const auto &entry:entries) {
+        noLinks(entry.absoluteFilePath());
+        if(entry.isDir())removePlainScratchTree(entry.absoluteFilePath());
+        else if(!QFile::remove(entry.absoluteFilePath()))fail(QStringLiteral("임시 인증 파일을 정리하지 못했습니다."));
+    }
+    if(!QDir().rmdir(directory))fail(QStringLiteral("임시 인증 폴더를 정리하지 못했습니다."));
+}
+class PrivateScratch {
+public:
+    explicit PrivateScratch(const QString &parent) {
+        if(parent.isEmpty()||!QDir::isAbsolutePath(parent))fail(QStringLiteral("인증 임시 폴더의 전체 경로가 필요합니다."));
+        m_parent=QDir::cleanPath(QFileInfo(parent).absoluteFilePath());
+        noLinks(m_parent);
+        if(!QDir().mkpath(m_parent))fail(QStringLiteral("인증 임시 폴더를 만들지 못했습니다."));
+        m_path=m_parent+"/login-"+QUuid::createUuid().toString(QUuid::Id128);
+        if(::mkdir(QFile::encodeName(m_path).constData(),0700)!=0)fail(QStringLiteral("보호된 인증 임시 폴더를 만들지 못했습니다."));
+        struct stat info{};
+        if(lstat(QFile::encodeName(m_path).constData(),&info)!=0||!S_ISDIR(info.st_mode)||info.st_uid!=getuid()||(info.st_mode&077)!=0)
+            fail(QStringLiteral("인증 임시 폴더 보호를 확인하지 못했습니다."));
+        m_device=info.st_dev;m_inode=info.st_ino;m_owned=true;
+    }
+    ~PrivateScratch(){try{remove();}catch(...) {}}
+    QString path() const{return m_path;}
+    void remove() {
+        if(!m_owned)return;
+        if(QFileInfo(m_path).dir().absolutePath()!=m_parent||!QFileInfo(m_path).fileName().startsWith("login-"))fail(QStringLiteral("인증 임시 폴더의 경로를 확인하지 못했습니다."));
+        noLinks(m_path);
+        struct stat info{};
+        if(lstat(QFile::encodeName(m_path).constData(),&info)!=0||!S_ISDIR(info.st_mode)||info.st_uid!=getuid()||info.st_dev!=m_device||info.st_ino!=m_inode)
+            fail(QStringLiteral("인증 임시 폴더의 소유 정보를 확인하지 못했습니다."));
+        removePlainScratchTree(m_path);m_owned=false;
+    }
+private:
+    QString m_path,m_parent;
+    dev_t m_device{};ino_t m_inode{};
+    bool m_owned=false;
+};
+#endif
 
 QJsonObject decodeObject(const QByteArray &value) {
     auto decoded = QByteArray::fromBase64Encoding(value, QByteArray::Base64UrlEncoding | QByteArray::AbortOnBase64DecodingErrors);
@@ -202,7 +257,7 @@ CloudflareSession CloudflareLogin::authenticate(const QUrl &application, const Q
        expectedIssuer.isEmpty() || expectedAudience.isEmpty())
         fail(QStringLiteral("이메일 인증 서버 설정이 올바르지 않습니다."));
     QFileInfo helper(helperExecutable);
-    if(!helper.isAbsolute() || !helper.isFile() || helper.fileName().compare("cloudflared.exe", Qt::CaseInsensitive) != 0)
+    if(!helper.isAbsolute() || !helper.isFile() || helper.fileName().compare(QString::fromLatin1(helperName), Qt::CaseInsensitive) != 0)
         fail(QStringLiteral("이메일 인증 구성 요소가 없습니다. 최신 런처로 복구해 주세요."));
     noLinks(helper.absoluteFilePath());
     if(fileHash(helper.absoluteFilePath(), &cancel) != QString::fromLatin1(helperSha256))

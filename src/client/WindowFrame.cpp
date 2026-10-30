@@ -1,6 +1,7 @@
 #include "WindowFrame.h"
 #include <QGuiApplication>
 #include <QQuickWindow>
+#ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
 #include <dwmapi.h>
@@ -57,3 +58,8 @@ bool WindowFrame::nativeEventFilter(const QByteArray &type,void *message,qintptr
     }
     return false;
 }
+#else
+WindowFrame::WindowFrame(QQuickWindow *window):m_window(window){}
+WindowFrame::~WindowFrame()=default;
+bool WindowFrame::nativeEventFilter(const QByteArray &,void *,qintptr *){return false;}
+#endif

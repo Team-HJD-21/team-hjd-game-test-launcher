@@ -101,6 +101,22 @@ class OperatorToolsTests(unittest.TestCase):
         self.run_ps(". (" + self.tools("HostingCommon.ps1") + ");$current=Get-Process -Id $PID;$state=@{pid=$PID;startedTicks='0'};if(Get-OwnedHostingProcess $state $current.Path @()){throw 'Stale PID was accepted'}")
         self.run_ps(". (" + self.tools("HostingCommon.ps1") + ");$current=Get-Process -Id $PID;$state=@{pid=$PID;startedTicks=$current.StartTime.ToUniversalTime().Ticks.ToString()};Get-OwnedHostingProcess $state (Join-Path $env:HJD_TOOL_TEST_ROOT 'different.exe') @()", good=False)
 
+    def test_mac_variant_preserves_windows_and_survives_windows_update(self):
+        self.catalog_fixture()
+        windows = self.payload()["games"][0]
+        self.run_ps("& (" + self.tools("Write-SignedCatalog.ps1") + ") -PrivateRoot $env:HJD_TOOL_TEST_ROOT -Game @{id='fixture';name='Fixture';version='1.0.0';platform='macos-universal';executable='Fixture.app/Contents/MacOS/Fixture';url='packages/mac.zip';sha256=('c'*64);bytes=21;files=@()}|Out-Null")
+        combined = self.payload()["games"][0]
+        self.assertEqual({k: v for k, v in combined.items() if k != 'platforms'}, windows)
+        mac = combined['platforms']['macos-universal']
+        self.assertEqual(mac['executable'], 'Fixture.app/Contents/MacOS/Fixture')
+        self.run_ps("& (" + self.tools("Write-SignedCatalog.ps1") + ") -PrivateRoot $env:HJD_TOOL_TEST_ROOT -Game @{id='fixture';name='Fixture';version='1.1.0';url='packages/new-windows.zip';files=@()}|Out-Null")
+        updated = self.payload()["games"][0]
+        self.assertEqual(updated['version'], '1.1.0')
+        self.assertEqual(updated['platforms']['macos-universal'], mac)
+        before = (self.private / 'catalog.json').read_bytes()
+        self.run_ps("& (" + self.tools("Write-SignedCatalog.ps1") + ") -PrivateRoot $env:HJD_TOOL_TEST_ROOT -Game @{id='missing';name='Fixture';platform='macos-universal'}", good=False)
+        self.assertEqual(before, (self.private / 'catalog.json').read_bytes())
+
     def test_verified_report_empty_and_explicit_csv(self):
         result = self.run_ps("& (" + self.tools("Get-VerifiedTesters.ps1") + ") -PrivateRoot $env:HJD_TOOL_TEST_ROOT -AsJson")
         self.assertEqual(json.loads(result.stdout), [])

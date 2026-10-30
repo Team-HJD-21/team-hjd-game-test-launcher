@@ -1,4 +1,5 @@
 #include "Core.h"
+#include "Platform.h"
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -33,6 +34,7 @@ void Store::activate(const QString &id,const QString &folder) {
     writeJson(gameRoot(id)+"/active.json",{{"current",folder},{"previous",old["current"]}});
 }
 void Store::install(const Game &g,const QString &archive,std::atomic_bool &cancel,const Progress &progress,bool repair) {
+    if(!g.supported())fail(QStringLiteral("이 운영체제에 맞는 게임 빌드가 아직 배포되지 않았습니다."));
     auto base=gameRoot(g.id); noLinks(base); QDir().mkpath(base+"/versions"); QLockFile lock(base+"/install.lock");
     if(!lock.tryLock(0)) fail(QStringLiteral("다른 설치 작업이 진행 중입니다."));
     if(QFileInfo::exists(base+"/uninstall-pending.json"))fail(QStringLiteral("이전 게임 삭제를 마친 뒤 다시 설치하세요. 게임 관리에서 삭제를 다시 선택할 수 있습니다."));
@@ -45,7 +47,7 @@ void Store::install(const Game &g,const QString &archive,std::atomic_bool &cance
     const auto folder=g.version+"-"+g.sha256.left(12)+"-"+QUuid::createUuid().toString(QUuid::Id128).left(8);
     const auto stage=base+"/versions/"+folder;
     auto receipt=inspectArchive(archive,stage,g.files,cancel,progress);
-    receipt["id"]=g.id;receipt["name"]=g.name;receipt["description"]=g.description;receipt["notes"]=g.notes;receipt["installedAt"]=QDateTime::currentDateTimeUtc().toString(Qt::ISODate); receipt["version"]=g.version; receipt["executable"]=g.executable; receipt["archiveSha256"]=g.sha256;
+    receipt["id"]=g.id;receipt["name"]=g.name;receipt["description"]=g.description;receipt["notes"]=g.notes;receipt["installedAt"]=QDateTime::currentDateTimeUtc().toString(Qt::ISODate); receipt["version"]=g.version; receipt["executable"]=g.executable; receipt["platform"]=g.platform; receipt["archiveSha256"]=g.sha256;
     writeJson(stage+"/._teamhjd-receipt.json",receipt);
     if(cancel) fail(QStringLiteral("취소했습니다."));
     activate(g.id,folder);
@@ -83,6 +85,8 @@ qint64 Store::launch(const QString &id) {
     auto base=gameRoot(id); QLockFile lock(base+"/install.lock"); if(!lock.tryLock(0)) fail(QStringLiteral("설치 작업이 진행 중입니다."));
     if(running(id)) fail(QStringLiteral("게임이 이미 실행 중입니다."));
     auto dir=currentDirectory(id); auto receipt=currentReceipt(id); auto exe=receipt["executable"].toString();
+    Game installed;installed.platform=receipt["platform"].toString("windows-x64");
+    if(!installed.supported())fail(QStringLiteral("이 운영체제에서 실행할 수 없는 게임입니다."));
     if(!safePath(exe)||!verifyTree(dir,receipt)) fail(QStringLiteral("게임 파일을 확인하지 못했습니다. 파일 복구를 실행하세요."));
     auto path=dir+"/"+exe; qint64 pid=0;
     if(!QProcess::startDetached(path,{},dir,&pid)) fail(QStringLiteral("게임을 시작하지 못했습니다."));
@@ -95,8 +99,8 @@ QString Store::stagePayload(const QString &version,const QString &hash,const QSt
     auto base=gameRoot("launcher"); QDir().mkpath(base+"/versions"); QLockFile lock(base+"/install.lock"); if(!lock.tryLock(0)) fail(QStringLiteral("런처 업데이트가 이미 진행 중입니다."));
     auto folder=version+"-"+hash.left(12)+"-"+QUuid::createUuid().toString(QUuid::Id128).left(8);
     auto dest=base+"/versions/"+folder; auto receipt=inspectArchive(archive,dest,{},cancel);
-    if(!QFileInfo::exists(dest+"/TeamHJDClient.exe")) fail(QStringLiteral("런처 실행 파일이 누락되었습니다."));
-    receipt["version"]=version; receipt["executable"]="TeamHJDClient.exe"; receipt["archiveSha256"]=hash;
+    if(!QFileInfo::exists(dest+"/"+clientExecutable())) fail(QStringLiteral("런처 실행 파일이 누락되었습니다."));
+    receipt["version"]=version; receipt["executable"]=clientExecutable(); receipt["archiveSha256"]=hash;
     writeJson(dest+"/._teamhjd-receipt.json",receipt); return folder;
 }
 }

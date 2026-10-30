@@ -59,12 +59,14 @@ QVariantList Controller::library() const {
 QVariantMap Controller::view() const {
     const auto *g=selected(); QString installed,folder,previousVersion; bool running=false,previous=false; QString localError;QJsonObject receipt;qint64 installedBytes=0;int versionCount=0;
     try { Store store(m_gamesRoot); receipt=store.currentReceipt(m_selected); installed=receipt["version"].toString(); folder=store.currentDirectory(m_selected); running=store.running(m_selected);auto prev=store.state(m_selected)["previous"].toString();previous=!prev.isEmpty();if(previous)previousVersion=readJson(m_gamesRoot+"/"+m_selected+"/versions/"+prev+"/._teamhjd-receipt.json")["version"].toString();versionCount=QDir(m_gamesRoot+"/"+m_selected+"/versions").entryList(QDir::Dirs|QDir::NoDotAndDotDot).size();for(const auto &version:QDir(m_gamesRoot+"/"+m_selected+"/versions").entryList(QDir::Dirs|QDir::NoDotAndDotDot)){auto rp=m_gamesRoot+"/"+m_selected+"/versions/"+version+"/._teamhjd-receipt.json";if(QFileInfo::exists(rp)){auto r=readJson(rp);for(auto f:r["files"].toArray())installedBytes+=f.toObject()["bytes"].toInteger();}} } catch(const std::exception &e){localError=exceptionText(e);}
-    bool installedOk=!installed.isEmpty(); bool update=g&&installedOk&&(g->version!=installed||g->sha256!=receipt["archiveSha256"].toString());
+    bool compatible=!g||g->supported();
+    bool installedOk=!installed.isEmpty(); bool update=g&&compatible&&installedOk&&(g->version!=installed||g->sha256!=receipt["archiveSha256"].toString());
     QString action=running?QStringLiteral("게임 실행 중"):installedOk?update&&m_online?QStringLiteral("업데이트"):QStringLiteral("플레이"):needsLogin()?QStringLiteral("이메일로 시작"):m_config.server.isEmpty()?QStringLiteral("초대 파일로 연결"):!g?QStringLiteral("자동 연결 대기"):QStringLiteral("설치");
     QString status=m_busy&&!m_background?m_phase:running?QStringLiteral("게임을 실행하고 있어요"):m_online?update?QStringLiteral("새 버전이 있어요 · 업데이트를 눌러 적용하세요"):installedOk?QStringLiteral("플레이할 준비가 되었어요"):QStringLiteral("게임을 설치하고 테스트에 참여하세요"):installedOk?QStringLiteral("오프라인 · 설치된 버전으로 플레이할 수 있어요"):m_config.server.isEmpty()?QStringLiteral("팀에서 받은 초대 파일을 가져오세요"):QStringLiteral("서버 연결을 확인하세요");
     if(needsLogin()&&!installedOk&&!m_busy)status=QStringLiteral("이메일 인증 후 테스트에 참여할 수 있어요");
     if(!m_status.isEmpty()&&!m_busy&&!running) status=m_status;
-    return {{"name",g?g->name:receipt["name"].toString(QStringLiteral("Hose for Hire"))},{"description",g?g->description:receipt["description"].toString(QStringLiteral("함께 출동하고, 함께 해결하세요.\nTeamHJD의 다음 플레이테스트가 여기에서 시작됩니다."))},{"notes",g?g->notes:receipt["notes"].toString(QStringLiteral("이메일로 인증하면 최신 테스트 빌드와 변경사항을 확인할 수 있습니다.\n\n인증은 브라우저에서 진행됩니다. 설치와 업데이트, 실행은 런처에서 한 번에 관리하세요."))},{"latest",g?g->version:QString()},{"installed",installed},{"installedAt",receipt["installedAt"].toString()},{"installedSize",sizeText(installedBytes)},{"versionCount",versionCount},{"previousVersion",previousVersion},{"canUninstall",versionCount>0||QFileInfo::exists(m_gamesRoot+"/"+m_selected+"/uninstall-pending.json")},{"canCancel",!m_deleting},{"folder",folder},{"online",m_online},{"running",running},{"previous",previous},{"busy",m_busy&&!m_background},{"working",m_busy},{"checking",m_busy&&m_background},{"progress",m_progress},{"transfer",m_transfer},{"action",action},{"status",status},{"error",!m_error.isEmpty()?m_error:localError},{"hasServer",!m_config.server.isEmpty()},{"canPlay",installedOk&&!running&&(!m_busy||m_background)},{"updateAvailable",update},{"updateMessage",m_updateMessage},{"launcherUpdate",!m_updateAsset.isEmpty()},{"cloudflare",m_cloudflare},{"needsLogin",needsLogin()},{"authExpires",m_authExpires.toString(Qt::ISODate)},{"serverHost",m_config.server.host()},{"size",g?sizeText(g->bytes):QString()}};
+    if(g&&!compatible&&!needsLogin()&&!m_busy){action=QStringLiteral("지원 빌드 준비 중");status=QStringLiteral("이 운영체제용 게임 빌드가 아직 배포되지 않았어요.");}
+    return {{"compatible",compatible},{"gamePlatform",g?g->platform:QString()},{"name",g?g->name:receipt["name"].toString(QStringLiteral("Hose for Hire"))},{"description",g?g->description:receipt["description"].toString(QStringLiteral("함께 출동하고, 함께 해결하세요.\nTeamHJD의 다음 플레이테스트가 여기에서 시작됩니다."))},{"notes",g?g->notes:receipt["notes"].toString(QStringLiteral("이메일로 인증하면 최신 테스트 빌드와 변경사항을 확인할 수 있습니다.\n\n인증은 브라우저에서 진행됩니다. 설치와 업데이트, 실행은 런처에서 한 번에 관리하세요."))},{"latest",g?g->version:QString()},{"installed",installed},{"installedAt",receipt["installedAt"].toString()},{"installedSize",sizeText(installedBytes)},{"versionCount",versionCount},{"previousVersion",previousVersion},{"canUninstall",versionCount>0||QFileInfo::exists(m_gamesRoot+"/"+m_selected+"/uninstall-pending.json")},{"canCancel",!m_deleting},{"folder",folder},{"online",m_online},{"running",running},{"previous",previous},{"busy",m_busy&&!m_background},{"working",m_busy},{"checking",m_busy&&m_background},{"progress",m_progress},{"transfer",m_transfer},{"action",action},{"status",status},{"error",!m_error.isEmpty()?m_error:localError},{"hasServer",!m_config.server.isEmpty()},{"canPlay",installedOk&&!running&&(!m_busy||m_background)},{"updateAvailable",update},{"updateMessage",m_updateMessage},{"launcherUpdate",!m_updateAsset.isEmpty()},{"cloudflare",m_cloudflare},{"needsLogin",needsLogin()},{"authExpires",m_authExpires.toString(Qt::ISODate)},{"serverHost",m_config.server.host()},{"size",g?sizeText(g->bytes):QString()}};
 }
 void Controller::selectGame(const QString &id){if(m_busy)return; if(id==m_selected)return; m_selected=id;m_status.clear();m_error.clear();emit changed();if(!m_config.server.isEmpty())refresh();}
 bool Controller::deferDuringCheck(std::function<void()> action){if(m_busy&&m_background){m_cancel=true;QTimer::singleShot(125,this,std::move(action));return true;}return false;}
@@ -92,8 +94,12 @@ void Controller::refresh() {
 void Controller::login(){
     if(deferDuringCheck([this]{login();}))return;
     if(m_busy||!m_cloudflare)return;
-    auto helper=QCoreApplication::applicationDirPath()+"/cloudflared.exe";
+    auto helper=QCoreApplication::applicationDirPath()+"/"+CloudflareLogin::helperName;
+#ifdef Q_OS_MACOS
+    helper=QDir::cleanPath(QCoreApplication::applicationDirPath()+"/../Helpers/cloudflared");
+#else
     if(!QFileInfo::exists(helper))helper=QCoreApplication::applicationDirPath()+"/../.deps/cloudflared/2026.10.5/cloudflared.exe";
+#endif
     auto config=std::make_shared<NetConfig>(m_config);config->password.clear();config->caPem.clear();
     auto session=std::make_shared<CloudflareSession>();auto catalog=std::make_shared<Catalog>();auto raw=std::make_shared<QByteArray>();
     auto key=m_key;auto minimum=m_minSequence;m_phase=QStringLiteral("브라우저에서 이메일을 인증해 주세요");
@@ -118,6 +124,7 @@ void Controller::primary(){
     try{
         Store store(m_gamesRoot);if(store.running(m_selected))return;
         auto receipt=store.currentReceipt(m_selected);auto *game=selected();
+        if(game&&!game->supported()&&!needsLogin())fail(QStringLiteral("이 운영체제용 게임 빌드를 기다려 주세요."));
         if(receipt["version"].toString().isEmpty()){
             if(needsLogin()){emit requestLogin();return;}
             if(m_config.server.isEmpty()){emit requestInvite();return;}
@@ -153,7 +160,13 @@ void Controller::repair(){if(deferDuringCheck([this]{repair();}))return;if(m_bus
 void Controller::uninstall(){if(deferDuringCheck([this]{uninstall();}))return;if(m_busy)return;auto root=m_gamesRoot,id=m_selected,downloads=m_dataRoot+"/downloads";QString latestHash=selected()?selected()->sha256:QString();m_deleting=true;m_phase=QStringLiteral("게임 파일을 삭제하는 중");work([root,id,downloads,latestHash]{QSet<QString> hashes;if(!latestHash.isEmpty())hashes.insert(latestHash);auto base=root+"/"+id+"/versions";for(const auto &version:QDir(base).entryList(QDir::Dirs|QDir::NoDotAndDotDot)){auto p=base+"/"+version+"/._teamhjd-receipt.json";if(QFileInfo::exists(p))hashes.insert(readJson(p)["archiveSha256"].toString());}Store(root).uninstall(id);for(const auto &hash:hashes){static QRegularExpression valid("^[a-f0-9]{64}$");if(valid.match(hash).hasMatch()){auto cache=downloads+"/"+hash+".part";noLinks(cache);QFile::remove(cache);}}},[this,id](const QString &e){m_deleting=false;m_error=e;m_updateHolds.remove(id);if(e.isEmpty()){m_status=QStringLiteral("게임을 삭제했어요. 저장 데이터와 테스트 로그는 유지했어요.");emit toast(QStringLiteral("게임 삭제 완료"),QStringLiteral("설치 파일과 보관 버전을 정리했어요. 필요할 때 다시 설치할 수 있어요."),"success");}else emit toast(QStringLiteral("삭제를 마치지 못했어요"),e,"error");});}
 void Controller::rollback(){if(deferDuringCheck([this]{rollback();}))return;if(m_busy)return;auto root=m_gamesRoot,id=m_selected;m_phase=QStringLiteral("이전 버전을 확인하는 중");work([root,id]{Store(root).rollback(id);},[this](const QString &e){m_error=e;if(e.isEmpty()){m_status=QStringLiteral("이전 버전으로 복원했어요");if(selected())m_updateHolds[m_selected]=selected()->sha256;try{save();}catch(const Error&){} }emit toast(e.isEmpty()?QStringLiteral("이전 버전으로 복원했어요"):QStringLiteral("복원을 마치지 못했어요"),e,e.isEmpty()?"success":"error");});}
 void Controller::cancel(){m_cancel=true;m_phase=QStringLiteral("안전하게 취소하는 중");emit changed();}
-void Controller::openFolder(const QString &which){QString p;try{if(which=="game")p=Store(m_gamesRoot).currentDirectory(m_selected);else if(which=="logs")p=QDir::homePath()+"/AppData/LocalLow/DefaultCompany/Hose for Hire/PlaytestLogs";else if(which=="downloads")p=m_dataRoot+"/downloads";else p=m_gamesRoot;if(p.isEmpty()||!QFileInfo::exists(p)){m_error=QStringLiteral("아직 폴더가 없습니다.");emit changed();return;}QDesktopServices::openUrl(QUrl::fromLocalFile(p));}catch(const std::exception &e){m_error=exceptionText(e);emit changed();}}
+void Controller::openFolder(const QString &which){QString p;try{if(which=="game")p=Store(m_gamesRoot).currentDirectory(m_selected);else if(which=="logs"){
+#ifdef Q_OS_MACOS
+    p=QDir::homePath()+"/Library/Application Support/DefaultCompany/Hose for Hire/PlaytestLogs";
+#else
+    p=QDir::homePath()+"/AppData/LocalLow/DefaultCompany/Hose for Hire/PlaytestLogs";
+#endif
+    }else if(which=="downloads")p=m_dataRoot+"/downloads";else p=m_gamesRoot;if(p.isEmpty()||!QFileInfo::exists(p)){m_error=QStringLiteral("아직 폴더가 없습니다.");emit changed();return;}QDesktopServices::openUrl(QUrl::fromLocalFile(p));}catch(const std::exception &e){m_error=exceptionText(e);emit changed();}}
 bool Controller::saveSettings(const QString &url,const QString &password,const QString &key,const QString &root,bool reduced){
     if(m_busy)return false;
     try{QUrl server(url.trimmed());if(!server.path().endsWith('/'))server.setPath(server.path()+'/');if(!allowedServer(server,m_config.testLoopback))fail(QStringLiteral("HTTPS 서버 주소를 입력하세요."));
@@ -198,8 +211,8 @@ void Controller::checkLauncherUpdate(){
         try{writeJson(path,{{"checkedAt",QDateTime::currentSecsSinceEpoch()}});}catch(const Error&){}
         auto tag=(*result)["tag_name"].toString();if(tag.startsWith('v'))tag.remove(0,1);
         if(!safeVersion(tag)||QVersionNumber::fromString(tag)<=QVersionNumber::fromString(m_testUpdateFrom.isEmpty()?version():m_testUpdateFrom)){m_updateMessage=QStringLiteral("최신 런처");return;}
-        for(auto v:(*result)["assets"].toArray()){auto a=v.toObject();auto url=QUrl(a["browser_download_url"].toString());auto digest=a["digest"].toString();auto expected=QStringLiteral("/Team-HJD-21/team-hjd-game-test-launcher/releases/download/v%1/TeamHJD-LauncherPayload-Windows-x64.zip").arg(tag);
-            if(a["name"].toString()=="TeamHJD-LauncherPayload-Windows-x64.zip"&&url.scheme()=="https"&&url.host()=="github.com"&&url.path()==expected&&digest.startsWith("sha256:")&&digest.size()==71){m_updateAsset=a;m_updateVersion=tag;m_updateMessage=QStringLiteral("런처 %1 업데이트").arg(tag);break;}
+        for(auto v:(*result)["assets"].toArray()){auto a=v.toObject();auto url=QUrl(a["browser_download_url"].toString());auto digest=a["digest"].toString();auto expected=QStringLiteral("/Team-HJD-21/team-hjd-game-test-launcher/releases/download/v%1/%2").arg(tag,launcherPayloadName());
+            if(a["name"].toString()==launcherPayloadName()&&url.scheme()=="https"&&url.host()=="github.com"&&url.path()==expected&&digest.startsWith("sha256:")&&digest.size()==71){m_updateAsset=a;m_updateVersion=tag;m_updateMessage=QStringLiteral("런처 %1 업데이트").arg(tag);break;}
         }
         if(!m_updateAsset.isEmpty())QTimer::singleShot(300,this,&Controller::applyLauncherUpdate);
     });

@@ -1,5 +1,6 @@
 #pragma once
 #include "core/Core.h"
+#include "core/Platform.h"
 #include <QFuture>
 #include <QObject>
 #include <QTimer>
@@ -15,6 +16,7 @@ class Controller : public QObject {
     Q_PROPERTY(QString installRoot READ installRoot NOTIFY settingsChanged)
     Q_PROPERTY(bool reduceMotion READ reduceMotion NOTIFY settingsChanged)
     Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(QString platform READ platform CONSTANT)
 public:
     Controller(QString dataRoot,QString launcherRoot,bool testLoopback,QObject *parent=nullptr);
     ~Controller() override;
@@ -25,6 +27,7 @@ public:
     QString installRoot() const { return m_gamesRoot; }
     bool reduceMotion() const { return m_reduceMotion; }
     QString version() const { return QStringLiteral(HJD_VERSION); }
+    QString platform() const { return hjd::platformLabel(); }
     // Only changes the update comparison for an explicitly isolated test run.
     // It never changes the reported version, update source, digest or TLS rules.
     void setTestUpdateFrom(const QString &version);
