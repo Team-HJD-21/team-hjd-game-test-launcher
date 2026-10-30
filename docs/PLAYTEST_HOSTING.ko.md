@@ -69,6 +69,8 @@ Windows가 로그인 후 Run 실행을 지연할 수 있습니다. 짧은 wrappe
 
 ## 맥 게임 게시
 
+테스터에게 [게임 다운로드 페이지](https://playtest.teamhjd.com/downloads)를 전달하면 이메일 인증 후 Windows 또는 macOS 원본 ZIP을 선택해 직접 설치할 수 있습니다. 이 페이지와 패키지 모두 같은 Cloudflare Access 인증을 요구합니다. 페이지는 서명된 카탈로그와 패키지 해시·크기를 검증하며, 읽기 전용입니다. 서버에는 업로드나 원격 실행 기능이 추가되지 않습니다.
+
 Windows 정본 `Builds/latest.json`과 별도로 받은 `Builds/latest-macos.json`을 지정합니다. 포인터의 `platform`과 실제 `.app/Contents/MacOS/실행파일` 경로를 읽어 기존 ZIP의 크기·SHA256·모든 파일·실행권한을 확인합니다. 원본 게임을 다시 빌드하거나 ZIP을 바꾸지 않습니다.
 
 ```powershell

@@ -2,6 +2,7 @@ import base64
 from datetime import datetime, timedelta, timezone
 import hashlib
 import http.client
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,8 @@ import sys
 import time
 import unittest
 import uuid
+
+HAS_PORTAL_CRYPTO = importlib.util.find_spec("cryptography") is not None
 
 
 class ServerTests(unittest.TestCase):
@@ -33,6 +36,7 @@ class ServerTests(unittest.TestCase):
     def setUp(self):
         self.tokens = []
         self.write_registry([])
+        (self.root / "catalog.json").write_text('{"fixture":true}')
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             self.port = sock.getsockname()[1]
@@ -85,8 +89,108 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request("/catalog.json")[0], 200)
 
     def test_private_routes_are_hidden(self):
-        for p in ["/auth.json", "/invite.json", "/testers.json", "/team-invites/tester.hjdinvite", "/publisher.dpapi", "/../auth.json", "/%2e%2e/auth.json", "/", "/catalog.json?password=secret"]:
+        for p in ["/auth.json", "/invite.json", "/testers.json", "/team-invites/tester.hjdinvite", "/publisher.dpapi", "/../auth.json", "/%2e%2e/auth.json", "/catalog.json?password=secret"]:
             self.assertEqual(self.request(p)[0], 404, p)
+
+    def portal_games(self, name='Hose <script>alert(1)</script> & "Hire"'):
+        windows = b"synthetic Windows ZIP bytes"
+        mac = b"synthetic macOS ZIP bytes"
+        result = []
+        for platform, data in (("windows-x64", windows), ("macos-universal", mac)):
+            checksum = hashlib.sha256(data).hexdigest()
+            (self.root / "packages" / (checksum + ".zip")).write_bytes(data)
+            result.append({"id": "hose-for-hire", "name": name, "version": "0.1.0-alpha.24", "platform": platform,
+                           "url": f"packages/{checksum}.zip", "sha256": checksum, "bytes": len(data),
+                           "notes": "PRIVATE_NOTES_SENTINEL", "files": []})
+        result[0]["platforms"] = {"macos-universal": result[1]}
+        return result
+
+    def sign_portal(self, games, **changes):
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec, utils
+        now = datetime.now(timezone.utc)
+        catalog = {"schema": 1, "sequence": 1, "issuedAt": (now - timedelta(minutes=1)).isoformat(),
+                   "expiresAt": (now + timedelta(days=1)).isoformat(), "games": games, **changes}
+        payload = json.dumps(catalog, ensure_ascii=False, separators=(",", ":")).encode()
+        # The fixture public key is the generator point, i.e. private scalar 1.
+        signature = ec.derive_private_key(1, ec.SECP256R1()).sign(payload, ec.ECDSA(hashes.SHA256()))
+        r, s = utils.decode_dss_signature(signature)
+        envelope = {"payload": base64.b64encode(payload).decode(), "signature": base64.b64encode(r.to_bytes(32) + s.to_bytes(32)).decode()}
+        (self.root / "catalog.json").write_text(json.dumps(envelope), encoding="utf-8")
+        return envelope
+
+    @unittest.skipUnless(HAS_PORTAL_CRYPTO, "Use server-venv for signed download-page tests")
+    def test_download_page_auth_platforms_and_headers(self):
+        games = self.portal_games()
+        self.sign_portal([games[0]])
+        invite = json.loads((self.root / "invite.json").read_text())
+        invite["accessToken"] = "PRIVATE_TOKEN_SENTINEL"
+        invite["email"] = "private@example.test"
+        (self.root / "invite.json").write_text(json.dumps(invite))
+        for route in ("/", "/downloads"):
+            self.assertEqual(self.request(route, auth=False)[0], 401)
+            status, headers, data = self.request(route)
+            self.assertEqual(status, 200)
+            page = data.decode()
+            for metadata in games:
+                self.assertIn(f'href="/{metadata["url"]}"', page)
+            self.assertIn("Windows 64비트", page)
+            self.assertIn("macOS · Apple Silicon / Intel", page)
+            self.assertIn("HoseForHire.app", page)
+            self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", page)
+            for forbidden in ("<script>", "PRIVATE_TOKEN_SENTINEL", "PRIVATE_NOTES_SENTINEL", "private@example.test", self.public_key):
+                self.assertNotIn(forbidden, page)
+            self.assertEqual(headers["Cache-Control"], "no-store")
+            self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+            self.assertEqual(headers["Referrer-Policy"], "no-referrer")
+            style = page.split("<style>", 1)[1].split("</style>", 1)[0]
+            expected_style = base64.b64encode(hashlib.sha256(style.encode()).digest()).decode()
+            self.assertIn("default-src 'none'", headers["Content-Security-Policy"])
+            self.assertIn("style-src 'sha256-" + expected_style + "'", headers["Content-Security-Policy"])
+        self.assertEqual(self.request("/downloads", method="HEAD")[2], b"")
+        self.assertEqual(self.request("/downloads", {"Range": "bytes=0-"})[0], 416)
+        self.assertEqual(self.request("/downloads?token=secret")[0], 404)
+
+    @unittest.skipUnless(HAS_PORTAL_CRYPTO, "Use server-venv for signed download-page tests")
+    def test_download_page_rejects_signature_and_validity(self):
+        games = self.portal_games()
+        envelope = self.sign_portal([games[0]])
+        envelope["signature"] = base64.b64encode(b"0" * 64).decode()
+        (self.root / "catalog.json").write_text(json.dumps(envelope))
+        self.assertEqual(self.request("/downloads")[0], 503)
+        self.sign_portal([games[0]], expiresAt=(datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat())
+        self.assertEqual(self.request("/downloads")[0], 503)
+        self.sign_portal([games[0]])
+        (self.root / "invite.json").unlink()
+        self.assertEqual(self.request("/downloads")[0], 503)
+        self.assertEqual(self.request("/catalog.json")[0], 200, "Page failure must not change legacy API behavior")
+
+    @unittest.skipUnless(HAS_PORTAL_CRYPTO, "Use server-venv for signed download-page tests")
+    def test_download_page_rejects_unsafe_metadata(self):
+        for field, value in (("url", "https://evil.invalid/packages/x.zip"), ("url", "packages/../auth.json"),
+                             ("url", "/packages/" + "a" * 64 + ".zip"), ("platform", "javascript:alert(1)"),
+                             ("sha256", "A" * 64), ("bytes", True)):
+            games = self.portal_games()
+            games[1][field] = value
+            self.sign_portal([games[0]])
+            with self.subTest(field=field, value=value):
+                self.assertEqual(self.request("/downloads")[0], 503)
+        games = self.portal_games()
+        games[1]["id"] = "other-game"
+        self.sign_portal([games[0]])
+        self.assertEqual(self.request("/downloads")[0], 503)
+
+    @unittest.skipUnless(HAS_PORTAL_CRYPTO, "Use server-venv for signed download-page tests")
+    def test_download_page_rechecks_actual_packages(self):
+        games = self.portal_games()
+        self.sign_portal([games[0]])
+        self.assertEqual(self.request("/downloads")[0], 200)
+        package = self.root / games[1]["url"]
+        original = package.read_bytes()
+        package.write_bytes(b"X" * len(original))
+        self.assertEqual(self.request("/downloads")[0], 503, "Cached package verification must be invalidated after same-size tampering")
+        package.write_bytes(original[:-1])
+        self.assertEqual(self.request("/downloads")[0], 503)
 
     def test_package_and_resume(self):
         status, headers, data = self.request(self.package)
@@ -234,7 +338,7 @@ class ServerTests(unittest.TestCase):
 if __name__ == "__main__":
     # Each test restarts only its own synthetic server; live reload is tested within one process.
     suite = unittest.TestSuite()
-    for name in ["test_catalog_requires_password", "test_private_routes_are_hidden", "test_package_and_resume", "test_invalid_ranges", "test_head", "test_valid_tester_token", "test_expired_tester_token", "test_revoked_tester_token", "test_wrong_tester_secret", "test_malformed_tester_tokens", "test_live_registry_reload", "test_missing_or_invalid_registry_fails_closed", "test_registry_bounds_and_utc_expiry", "test_invite_tools_roundtrip_and_metadata", "test_invite_tools_limits_and_lock", "test_password_throttle"]:
+    for name in ["test_catalog_requires_password", "test_private_routes_are_hidden", "test_package_and_resume", "test_invalid_ranges", "test_head", "test_valid_tester_token", "test_expired_tester_token", "test_revoked_tester_token", "test_wrong_tester_secret", "test_malformed_tester_tokens", "test_live_registry_reload", "test_missing_or_invalid_registry_fails_closed", "test_registry_bounds_and_utc_expiry", "test_invite_tools_roundtrip_and_metadata", "test_invite_tools_limits_and_lock", "test_password_throttle", "test_download_page_auth_platforms_and_headers", "test_download_page_rejects_signature_and_validity", "test_download_page_rejects_unsafe_metadata", "test_download_page_rechecks_actual_packages"]:
         suite.addTest(ServerTests(name))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     raise SystemExit(not result.wasSuccessful())

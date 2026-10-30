@@ -4,11 +4,14 @@ import argparse
 import base64
 import hashlib
 import hmac
+from html import escape
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 import ssl
+import stat
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -22,6 +25,135 @@ else:
 TESTER_TOKEN_PATTERN = re.compile(rb"hjd1\.([0-9a-f]{16})\.[A-Za-z0-9_-]{43}")
 TESTER_REGISTRY_MAX_BYTES = 2 * 1024 * 1024
 TESTER_REGISTRY_MAX_COUNT = 2000
+
+PORTAL_STYLE = """body{margin:0;background:#171b1e;color:#e8ece9;font:16px system-ui,sans-serif;line-height:1.6}main{max-width:880px;margin:auto;padding:36px 24px}header{border-bottom:1px solid #354047;padding-bottom:24px}h1{font-size:28px;margin:6px 0}h2{font-size:20px}p{color:#b8c2c8}.brand{color:#eac966;font-size:13px;letter-spacing:2px}.game{background:#22292e;border:1px solid #354047;border-radius:14px;padding:24px;margin:24px 0}.links{display:flex;flex-wrap:wrap;gap:12px}a{display:inline-block;background:#eac966;color:#171b1e;text-decoration:none;border-radius:7px;padding:12px 18px;font-weight:650}small{display:block;color:#aab6bd;margin-top:8px}li{margin:10px 0}code{overflow-wrap:anywhere}footer{border-top:1px solid #354047;margin-top:32px;padding-top:16px;color:#aab6bd;font-size:13px}"""
+PORTAL_CSP = ("default-src 'none'; style-src 'sha256-" + base64.b64encode(hashlib.sha256(PORTAL_STYLE.encode()).digest()).decode()
+              + "'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+
+
+class DownloadPortal:
+    """Authenticated, script-free view of cryptographically verified local releases."""
+    labels = {"windows-x64": "Windows 64비트", "macos-universal": "macOS · Apple Silicon / Intel",
+              "macos-arm64": "macOS · Apple Silicon", "macos-x64": "macOS · Intel"}
+
+    def __init__(self, root: Path):
+        self.root = root
+        self.hash_cache = {}
+        self.cache_lock = threading.Lock()
+
+    def plain_file(self, relative: str) -> Path:
+        target = self.root / relative
+        current = target
+        while current != self.root.parent:
+            if current.is_symlink() or (hasattr(current, "is_junction") and current.is_junction()):
+                raise ValueError("Linked portal file")
+            current = current.parent
+        if not target.is_file() or not target.resolve().is_relative_to(self.root):
+            raise ValueError("Missing portal file")
+        return target
+
+    def read_bounded(self, relative: str, maximum: int) -> bytes:
+        with self.plain_file(relative).open("rb") as source:
+            result = source.read(maximum + 1)
+        if len(result) > maximum:
+            raise ValueError("Oversized portal metadata")
+        return result
+
+    def verify_package(self, metadata: dict) -> str:
+        checksum = metadata.get("sha256")
+        size = metadata.get("bytes")
+        if (not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum)
+                or type(size) is not int or not 0 < size <= 10 * 1024**3
+                or metadata.get("url") != f"packages/{checksum}.zip"):
+            raise ValueError("Invalid portal package metadata")
+        relative = f"packages/{checksum}.zip"
+        target = self.plain_file(relative)
+        with target.open("rb") as source:
+            info = os.fstat(source.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size != size:
+                raise ValueError("Portal package size mismatch")
+            identity = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+            with self.cache_lock:
+                cached = self.hash_cache.get(checksum) == identity
+            if not cached:
+                actual = hashlib.file_digest(source, "sha256").hexdigest()
+                after = os.fstat(source.fileno())
+                if (actual != checksum or identity != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)):
+                    raise ValueError("Portal package digest mismatch")
+                with self.cache_lock:
+                    if len(self.hash_cache) >= 16:
+                        self.hash_cache.clear()
+                    self.hash_cache[checksum] = identity
+        return "/" + relative
+
+    def render(self) -> bytes:
+        # Legacy password/catalog routes retain their standard-library-only
+        # behavior. Only this optional dynamic page needs signature verification.
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec, utils
+        invite = json.loads(self.read_bounded("invite.json", 256 * 1024).decode("utf-8-sig"))
+        key = invite.get("publisherKey")
+        if not isinstance(key, str) or not key.startswith("p256:"):
+            raise ValueError("Missing portal public key")
+        point = base64.b64decode(key[5:], validate=True)
+        if len(point) != 64:
+            raise ValueError("Invalid portal public key")
+        public = ec.EllipticCurvePublicNumbers(int.from_bytes(point[:32]), int.from_bytes(point[32:]), ec.SECP256R1()).public_key()
+        envelope = json.loads(self.read_bounded("catalog.json", 32 * 1024 * 1024).decode("utf-8-sig"))
+        payload = base64.b64decode(envelope["payload"], validate=True)
+        signature = base64.b64decode(envelope["signature"], validate=True)
+        if len(signature) != 64:
+            raise ValueError("Invalid portal signature")
+        public.verify(utils.encode_dss_signature(int.from_bytes(signature[:32]), int.from_bytes(signature[32:])), payload, ec.ECDSA(hashes.SHA256()))
+        catalog = json.loads(payload)
+        issued = datetime.fromisoformat(catalog["issuedAt"].replace("Z", "+00:00"))
+        expires = datetime.fromisoformat(catalog["expiresAt"].replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        if (type(catalog.get("schema")) is not int or catalog["schema"] != 1
+                or type(catalog.get("sequence")) is not int or not 0 <= catalog["sequence"] <= 2**53 - 1
+                or issued.tzinfo is None or expires.tzinfo is None
+                or issued.utcoffset() != timedelta(0) or expires.utcoffset() != timedelta(0)
+                or not issued < expires or expires - issued > timedelta(days=8)
+                or issued > now + timedelta(minutes=5) or expires <= now):
+            raise ValueError("Invalid portal catalog validity")
+        games = catalog.get("games")
+        if not isinstance(games, list) or not 0 < len(games) <= 100:
+            raise ValueError("Invalid portal game count")
+        cards = []
+        seen = set()
+        for game in games:
+            game_id, name = game.get("id"), game.get("name")
+            if (not isinstance(game_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", game_id)
+                    or game_id == "launcher" or game_id in seen or not isinstance(name, str) or not 0 < len(name) <= 120):
+                raise ValueError("Invalid portal game")
+            seen.add(game_id)
+            variants = game.get("platforms", {})
+            if not isinstance(variants, dict) or len(variants) > 3 or any(platform not in self.labels or platform == "windows-x64" for platform in variants):
+                raise ValueError("Invalid portal variants")
+            candidates = [(game.get("platform", "windows-x64"), game), *variants.items()]
+            links = []
+            platforms = set()
+            for platform, metadata in candidates:
+                if (platform not in self.labels or platform in platforms or not isinstance(metadata, dict)
+                        or metadata.get("platform", platform) != platform or metadata.get("id") != game_id
+                        or metadata.get("name") != name or (metadata is not game and "platforms" in metadata)):
+                    raise ValueError("Invalid portal platform")
+                platforms.add(platform)
+                version = metadata.get("version")
+                if not isinstance(version, str) or not re.fullmatch(r"[0-9][A-Za-z0-9._-]{0,79}", version) or version.endswith("."):
+                    raise ValueError("Invalid portal version")
+                url = self.verify_package(metadata)
+                filename = f"{game_id}-{version}-{platform}.zip"
+                links.append(f'<div><a href="{url}" download="{filename}">{escape(self.labels[platform])} 다운로드</a><small>{escape(version)} · {metadata["bytes"] / 1024**2:.1f} MB</small></div>')
+            cards.append(f'<section class="game"><h2>{escape(name)}</h2><div class="links">{"".join(links)}</div></section>')
+        page = ('<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+                f'<title>TeamHJD · 게임 다운로드</title><style>{PORTAL_STYLE}</style></head><body><main><header><div class="brand">TEAMHJD PLAYTEST</div>'
+                '<h1>게임 다운로드</h1><p>이메일 인증을 마친 테스터를 위한 배포입니다. 내 컴퓨터에 맞는 ZIP을 선택하세요.</p></header>'
+                + ''.join(cards) + '<section><h2>실행 방법</h2><ol><li>ZIP을 내려받아 압축을 완전히 풉니다. Windows에서는 게임 실행 파일을 실행하세요.</li>'
+                '<li>맥에서는 압축을 푼 <strong>HoseForHire.app</strong>을 실행하세요. 실행이 차단되면 공식 배포 파일을 확인한 뒤 시스템 설정 → 개인정보 보호 및 보안에서 이 앱의 <strong>그래도 열기</strong>를 선택하세요. 전체 보안 설정은 끄지 마세요.</li>'
+                '<li>다음 빌드는 이 페이지에서 다시 받거나 런처의 업데이트 기능으로 적용할 수 있습니다. 함께 플레이할 팀원은 같은 BUILD 번호를 사용하세요.</li></ol></section>'
+                '<footer>서명된 배포 목록과 ZIP의 SHA-256·용량을 확인했습니다. 이 페이지에는 인증 토큰이나 접속자 정보가 포함되지 않습니다.</footer></main></body></html>')
+        return page.encode("utf-8")
 
 
 def tester_token_authorized(root: Path, token: bytes) -> bool:
@@ -122,6 +254,7 @@ def serve(args):
     attempts_lock = threading.Lock()
     slots = threading.BoundedSemaphore(12)
     cloudflare = CloudflareAccess(root)
+    portal = DownloadPortal(root)
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -216,6 +349,29 @@ def serve(args):
                 self.reject(404)
                 return
             path = request.path
+            if path in ("/", "/downloads"):
+                if self.headers.get("Range"):
+                    self.reject(416)
+                    return
+                try:
+                    body = portal.render()
+                except Exception:
+                    # Missing dependencies, invalid signatures or local files
+                    # fail closed. No metadata, claims or exception text leaks.
+                    self.reject(503)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Security-Policy", PORTAL_CSP)
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Referrer-Policy", "no-referrer")
+                self.send_header("X-Frame-Options", "DENY")
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(body)
+                return
             if path == "/catalog.json":
                 target = root / "catalog.json"
             elif re.fullmatch(r"/packages/[0-9a-f]{64}\.zip", path):
