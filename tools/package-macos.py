@@ -48,6 +48,7 @@ def owned_remove(path, owner):
         path.unlink()
 
 def deploy(app, qt, arch):
+    app = app.resolve(strict=True)
     print(f'Deploying Qt into {app.name}', flush=True)
     info_path = app / 'Contents/Info.plist'
     info = plistlib.loads(info_path.read_bytes())
@@ -116,11 +117,14 @@ def deploy(app, qt, arch):
         relative = os.path.relpath(frameworks, binary.parent)
         rpath = '@loader_path' if relative == '.' else '@loader_path/' + relative
         existing = re.findall(r'cmd LC_RPATH\s+cmdsize \d+\s+path (.*?) \(offset', run('otool', '-l', binary))
+        retained = []
         for previous in existing:
             local = previous.replace('@loader_path', str(binary.parent)).replace('@executable_path', str(app / 'Contents/MacOS'))
             if not previous.startswith(('/System/Library/', '/usr/lib/')) and (not local.startswith('/') or not Path(local).resolve().is_relative_to(app.resolve())):
                 run('install_name_tool', '-delete_rpath', previous, binary)
-        if rpath not in existing:
+            else:
+                retained.append(previous)
+        if rpath not in retained:
             run('install_name_tool', '-add_rpath', rpath, binary)
         binary.chmod(0o755)
         run('codesign', '--force', '--sign', '-', '--timestamp=none', binary)
