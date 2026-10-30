@@ -263,3 +263,13 @@ Get-FileHash -LiteralPath '검증할-artifact.zip' -Algorithm SHA256
 **수정·검증:** CSS/JS 내용 hash query를 HTML에 붙이고 공개 사이트 검사기가 hash 불일치를 거부하게 했다. `node tools/check-download-site.mjs --update-asset-versions`로 두 링크만 갱신한다. 번역은 key가 없어도 기존 HTML을 비우지 않고 한국어 fallback을 사용한다. 최종 배포 뒤 실제 브라우저에서 FAQ 질문·답변과 computed style까지 확인하며, HTTP200·DOM 항목 수·CI 성공만으로 완료 판정하지 않는다.
 
 **범위·한계:** 정적 웹 자산 캐시 경계의 수정이다. 기존 런처 ZIP·게임·인증 설정과 footer는 변경하지 않는다. HTML 자체가 남은 기존 탭은 새로고침이 필요할 수 있다. `.local/download-site-validation/faq-production.json`은 초기 파일 대조이며 최종 브라우저 표시 증거를 대신하지 않는다.
+
+## 2026-10-31 — 관리 화면에서 중지한 서버가 곧 다시 켜짐을 방지
+
+**환경·증상:** Windows11/PowerShell7.6.5/Python3.13.3, 기존30초 자동 복구 감시. origin만 종료하면 감시가 복구하는 설계이므로 수동 중지와 충돌한다. 이는 감시의 의도된 동작이며 인증·게임 파일 손상이 아니다.
+
+**수정:** `Stop-PlaytestHosting.ps1`에서 시작 잠금과 전체 소유권을 먼저 확인한 후 감시 → origin → 터널을 중지한다. `127.0.0.1:8844` 관리 서비스와 HKCU 로그인 자동 시작은 유지한다. 재시작/자동 시작 등록은 `hosting-launch.json`의 기존 Python·helper·토큰 파일 경로·포트를 보존한다. 관리 API는 정확한 Host·Origin·256bit capability·POST를 요구하고, 개인정보 GET은 HttpOnly/SameSite cookie를 요구한다. Open 도구의 브라우저 인계는60초·1회다.
+
+**성공 증거:** 합성 관리/CSRF/설정 보존/소유 프로세스 중지8개와 기존 대시보드2개 통과. 실제 관리 버튼의 재시작 후 origin·터널·감시는 새 PID로 실행되고 관리 서비스 PID는 유지됐다. 기본 로그인 자동 시작도 유지됐다. 기존 클라이언트 인증으로 외부 catalog200/원본 일치, 게임 Range206/정본4096bytes 일치를 확인했다. 인증정보·개인 이메일은 검증 출력에 넣지 않았다. 상세 기록은 비공개 `.local/control-dashboard-validation/`에 둔다.
+
+**남은 한계:** 브라우저 자동 검수의 재시작 직후 CDP snapshot timeout은 새 탭에서 정상 화면을 확인한 사실과 구분한다. 실제 재부팅·로그온·절전 복구는 이번 작업에서 재현하지 않았다. 최근5분 요청은 현재 온라인 상태나 게임 플레이 수가 아니다. 관리 token/일회용 URL/생성 HTML을 공개하거나 UI 편의를 위해 제어 인증을 제거하지 않는다.

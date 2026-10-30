@@ -8,6 +8,7 @@ param(
     [ValidatePattern('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')][string]$TunnelId='888292a7-043a-468f-bba1-4b914592bfff',
     [ValidateRange(1024,65535)][int]$Port=8443,
     [switch]$NoWatch,
+    [switch]$NoDashboardControl,
     [switch]$ValidateOnly,
     [switch]$Monitor
 )
@@ -72,6 +73,10 @@ function Start-OwnedTunnel {
 function Ensure-HostingRuntime([bool]$CheckCatalog){
     $runtimeLock=Open-HostingLock (Join-Path $root 'hosting-start.lock')
     try{
+        $launch=@{PrivateRoot=$root;CloudflaredPath=$helper;TunnelId=$TunnelId;Port=$Port}
+        if($managed){$launch.TokenFile=$tokenPath}
+        $launch.PythonPath=$originPlan.Python
+        Write-HostingJson (Join-Path $root 'hosting-launch.json') $launch
         if($CheckCatalog){& (Join-Path $PSScriptRoot 'Renew-DistributionCatalog.ps1') -PrivateRoot $root|Out-Null}
         $origin=& (Join-Path $PSScriptRoot 'Start-Distribution.ps1') @originArguments
         $tunnel=Start-OwnedTunnel
@@ -81,6 +86,11 @@ function Ensure-HostingRuntime([bool]$CheckCatalog){
 function Update-PrivateDashboard {
     try{& (Join-Path $PSScriptRoot 'Update-HostingDashboard.ps1') -PrivateRoot $root|Out-Null}
     catch{Write-Warning ([DateTime]::UtcNow.ToString('o')+' Private dashboard refresh failed; hosting continues.')}
+}
+function Ensure-PrivateDashboardControl {
+    if($NoDashboardControl){return}
+    try{& (Join-Path $PSScriptRoot 'Start-HostingDashboardControl.ps1') -PrivateRoot $root -GamePort $Port|Out-Null}
+    catch{Write-Warning 'Private dashboard control is unavailable; hosting continues.'}
 }
 if($Monitor){
     $monitorLock=Open-HostingLock (Join-Path $root 'hosting-monitor.lock')
@@ -95,6 +105,7 @@ if($Monitor){
                 # Do not persist raw exception text, claims, tokens or request URLs.
                 Write-Warning ([DateTime]::UtcNow.ToString('o')+' Hosting check failed; inspect private state and component logs. Retrying in 30 seconds.')
             }
+            Ensure-PrivateDashboardControl
             Update-PrivateDashboard
             Start-Sleep -Seconds 30
         }
@@ -122,5 +133,6 @@ if(-not $NoWatch){
         $runtime|Add-Member NoteProperty MonitorPid $existing.Id
     }finally{$startLock.Dispose()}
 }
+Ensure-PrivateDashboardControl
 Update-PrivateDashboard
 $runtime
