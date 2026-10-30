@@ -1,6 +1,6 @@
 # 맥에서 플레이테스트 시작하기
 
-게임을 바로 받아 수동 설치하려면 [이메일 인증 다운로드 페이지](https://playtest.teamhjd.com/downloads)에서 **macOS · Apple Silicon / Intel 다운로드**를 선택하세요. ZIP을 완전히 풀어 `HoseForHire.app`을 실행합니다. 현재 이 경로는 런처의 맥 배포 파일 준비와 별개로 사용할 수 있습니다. 수동 설치한 게임은 런처가 설치한 게임으로 자동 등록되지 않습니다.
+게임을 바로 받아 수동 설치하려면 [이메일 인증 다운로드 페이지](https://playtest.teamhjd.com/downloads)에서 **macOS · Apple Silicon / Intel 다운로드**를 선택하세요. ZIP을 완전히 풀어 `HoseForHire.app`을 실행합니다. 런처에서 설치·업데이트를 관리하려면 아래 순서로 시작하세요. 수동 설치한 게임은 런처가 설치한 게임으로 자동 등록되지 않습니다.
 
 macOS 12 이상에서 사용할 수 있습니다. Apple 메뉴 → 이 Mac에 관하여에서 칩을 확인해 Apple Silicon(M1 이상)은 `macOS-arm64.zip`, Intel은 `macOS-x64.zip` 런처를 받으세요. 게임은 같은 테스트 버전·통신 규약의 플랫폼별 패키지를 자동 선택합니다. Windows 실행 파일을 맥에 설치하지 않습니다.
 
