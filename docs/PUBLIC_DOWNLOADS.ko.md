@@ -57,3 +57,12 @@ gh run list --workflow download-site.yml --branch main --limit 5 --json database
 새 런처 Release마다 사이트의 버전 문자열을 수동 변경하거나 전체 런처를 다시 빌드하지 않는다. 사이트 코드 변경은 Pages 배포, 서버의 포털 종료 코드는 소유권을 검증한 origin 재시작이 각각 필요하다. 이미 공개한 v0.1.3 ZIP/태그를 문서 링크 변경 때문에 덮어쓰지 않는다. 예전 ZIP에 동봉된 수동 다운로드 페이지 안내는 당시 운영 기록이며 최신 웹 가이드를 우선한다.
 
 브랜드 색·로고·footer는 대표 사이트를 기준으로 한다. 사업자정보·정책·관련 사이트 메뉴를 포함한 동일 footer를 유지하고, 복사한 상대 경로는 대표 사이트의 올바른 절대 URL로 연결한다. 사업자정보나 정책이 바뀌면 함께 대조한다. 상세 Mac 첫 실행 승인과 ZIP 전체 보관·안정된 bootstrap 고정 안내는 사용 가이드에 유지한다. 사이트 공개 성공을 Mac 게임 플레이·크로스플레이 검증으로 확대하지 않는다.
+
+## 2026-10-31 배포 확인
+
+- 최종 다운로드 페이지 소스 `2267825c220c2cf58529f16268834f223a9b1eae`, [Pages 실행 41117691445](https://github.com/Team-HJD-21/team-hjd-game-test-launcher/actions/runs/41117691445) 성공. 실제 HTTPS200의 HTML이 검수한 파일과 정확히 일치했고 HTTP301→HTTPS, 인증서 approved·HTTPS 강제를 확인했다.
+- 대표 사이트 소스 `6710a3f2639ce714d108b7e02cfe451a051452a3`, [배포 41116542479](https://github.com/Team-HJD-21/team-hjd-site/actions/runs/41116542479) 성공. 생성 프로필을 포함한8개 페이지의 footer만 연결했고, 실제 메인 footer 링크를 눌러 새 사이트에 진입했다. 기존 GitHub Notify·팀 개발 문서는 유지됐다.
+- 최종 화면은 데스크톱1278px, 모바일390px에서 확인했다. 모바일 한국어·English·简体中文 모두 가로 넘침이나 누락된 번역이 없었다. 실제 API에서 v0.1.3/게시일 표시, 세 다운로드 버튼, 이메일 수집 안내, 메인과 같은 사업자정보·정책·관련 사이트 메뉴 및 Escape 닫기를 확인했다.
+- 세 latest ZIP 링크는 공식 CDN의200과 GitHub metadata 크기(Windows51,371,973 / ARM60,753,121 / Intel66,788,026 bytes)를 대조했다. 이는 링크와 배포 파일 검증이며 새 Mac 게임 플레이 검증은 아니다. 기존 v0.1.3 ZIP·태그는 변경하지 않았다.
+- 포털 종료 회귀20개와 Cloudflare 인증·감사 회귀13개가 통과했다. 실제 인증 GET/HEAD의 `/`·`/downloads`는 본문과 redirect 없는410, 기존 catalog는200/원본 동일, 게임 이어받기는206/정본4096bytes 동일이었다. 익명 catalog의 기존 Access302도 유지됐다. 이 확인을 PC 재부팅·절전 복구 검증으로 확대하지 않는다.
+- 상세 비공개 증거는 `.local/download-site-validation/`의 `final-production.json`, `portal-retirement-production.json`, `latest-portable-links.json`, `final-desktop.png`, `final-mobile.png`에 보관한다. 인증정보·개인 이메일·서명 다운로드 URL은 기록하지 않았다.
