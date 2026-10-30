@@ -35,18 +35,43 @@ void Controller::load() {
     m_config.server=QUrl(channel::server);m_key=channel::publisherKey;m_cloudflare=true;
     if(!QFileInfo::exists(m_dataRoot+"/settings.json")) return;
     auto o=readJson(m_dataRoot+"/settings.json");
-    m_config.server=QUrl(o["server"].toString()); m_config.password=unprotect(QByteArray::fromBase64(o["passwordBlob"].toString().toLatin1())); m_config.caPem=QByteArray::fromBase64(o["certificate"].toString().toLatin1());
+    m_config.server=QUrl(o["server"].toString());
+#ifdef Q_OS_MACOS
+    // Updated ad hoc apps can need Keychain consent. Show the first frame and
+    // acknowledge bootstrap health before any potentially interactive lookup.
+    m_pendingPassword=QByteArray::fromBase64(o["passwordBlob"].toString().toLatin1());
+#else
+    m_config.password=unprotect(QByteArray::fromBase64(o["passwordBlob"].toString().toLatin1()));
+#endif
+    m_config.caPem=QByteArray::fromBase64(o["certificate"].toString().toLatin1());
     m_key=o["publisherKey"].toString(); m_gamesRoot=o["gamesRoot"].toString(m_gamesRoot); m_reduceMotion=o["reduceMotion"].toBool(m_reduceMotion); m_minSequence=o["sequence"].toInteger();
     m_updateHolds=o["updateHolds"].toObject();
     m_inviteInfo=o["inviteInfo"].toObject();
     m_cloudflare=m_config.server==QUrl(channel::server)&&m_key==channel::publisherKey;
     if(m_cloudflare&&!o["cloudflareBlob"].toString().isEmpty()){
+#ifdef Q_OS_MACOS
+        m_pendingSession=QByteArray::fromBase64(o["cloudflareBlob"].toString().toLatin1());
+#else
         try{auto session=CloudflareLogin::inspect(unprotect(QByteArray::fromBase64(o["cloudflareBlob"].toString().toLatin1())),channel::issuer,channel::audience);m_config.cloudflareToken=session.jwt;m_authExpires=session.expires;}catch(const Error&){m_config.cloudflareToken.clear();}
+#endif
     }
     if(!allowedServer(m_config.server,m_config.testLoopback)) fail(QStringLiteral("저장된 서버 주소가 올바르지 않습니다."));
     if(QFileInfo::exists(m_dataRoot+"/catalog-cache.json")) {
         try {m_catalog=verifyCatalog(readFile(m_dataRoot+"/catalog-cache.json"),m_key,m_config.server,m_minSequence,false); if(!m_catalog.games.isEmpty()) m_selected=m_catalog.games.first().id;} catch(const Error&) {m_catalog={};}
     }
+}
+void Controller::restoreCredentials(){
+#ifdef Q_OS_MACOS
+    try{
+        m_config.password=unprotect(m_pendingPassword);m_pendingPassword.clear();
+        if(!m_pendingSession.isEmpty()){
+            auto session=CloudflareLogin::inspect(unprotect(m_pendingSession),channel::issuer,channel::audience);
+            m_config.cloudflareToken=session.jwt;m_authExpires=session.expires;
+        }
+        m_pendingSession.clear();emit changed();
+        if(!m_config.server.isEmpty())refresh();
+    }catch(const Error &e){m_pendingPassword.clear();m_pendingSession.clear();m_config.cloudflareToken.clear();m_error=exceptionText(e);emit changed();}
+#endif
 }
 void Controller::save(){writeJson(m_dataRoot+"/settings.json",{{"server",m_config.server.toString()},{"passwordBlob",QString::fromLatin1(protect(m_config.password).toBase64())},{"cloudflareBlob",m_config.cloudflareToken.isEmpty()?QString():QString::fromLatin1(protect(m_config.cloudflareToken).toBase64())},{"certificate",QString::fromLatin1(m_config.caPem.toBase64())},{"publisherKey",m_key},{"gamesRoot",m_gamesRoot},{"reduceMotion",m_reduceMotion},{"sequence",m_minSequence},{"updateHolds",m_updateHolds},{"inviteInfo",m_inviteInfo}});}
 bool Controller::needsLogin() const{return m_cloudflare&&(m_config.cloudflareToken.isEmpty()||m_authExpires<=QDateTime::currentDateTimeUtc().addSecs(60));}

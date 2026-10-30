@@ -110,7 +110,7 @@ private:T value;
 class SecretBytes {
 public:
     QByteArray bytes;
-    ~SecretBytes(){if(!bytes.isEmpty())explicit_bzero(bytes.data(),size_t(bytes.size()));}
+    ~SecretBytes(){volatile char *memory=bytes.data();for(qsizetype i=0;i<bytes.size();++i)memory[i]=0;}
 };
 CFMutableDictionaryRef dictionary(){return CFDictionaryCreateMutable(kCFAllocatorDefault,0,&kCFTypeDictionaryKeyCallBacks,&kCFTypeDictionaryValueCallBacks);}
 CFDataRef cfData(const QByteArray &bytes){return CFDataCreate(kCFAllocatorDefault,reinterpret_cast<const UInt8*>(bytes.constData()),CFIndex(bytes.size()));}

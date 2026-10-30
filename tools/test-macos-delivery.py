@@ -55,6 +55,9 @@ def main():
     assert (output / 'macos-ui.png').stat().st_size > 10_000
     runtime = Path.home() / 'Library/Application Support/TeamHJD' / ('LauncherRuntime-macos-' + args.arch)
     assert not runtime.exists(), 'Bootstrap fixture requires a clean disposable runner'
+    partial = runtime / 'launcher/versions/0.1.3-seed'
+    partial.mkdir(parents=True)
+    (partial / 'interrupted-copy.txt').write_text('Incomplete prior first-use attempt, retain for diagnosis.')
     bootstrap = args.app.resolve() / 'Contents/MacOS/TeamHJDLauncher'
 
     def launch():
@@ -90,6 +93,7 @@ def main():
     assert recovered['current'] == active, 'Failed candidate did not roll back'
     stop_owned(runtime)
     result = {'result': 'PASS', 'arch': args.arch, 'nativePackagedGUI': True,
+              'interruptedInitialCopyRecovery': True,
               'nativeBootstrapSeedAndFrameAck': True, 'queuedPayloadActivation': True,
               'failedNativeHealthRollback': True, 'humanEmailOTPTested': False,
               'unityGameOrCrossPlatformMultiplayerTested': False}

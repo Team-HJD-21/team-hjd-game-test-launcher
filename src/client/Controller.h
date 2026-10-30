@@ -31,6 +31,7 @@ public:
     // Only changes the update comparison for an explicitly isolated test run.
     // It never changes the reported version, update source, digest or TLS rules.
     void setTestUpdateFrom(const QString &version);
+    void restoreCredentials();
     Q_INVOKABLE void selectGame(const QString &id);
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void primary();
@@ -90,4 +91,7 @@ private:
     QJsonObject m_inviteInfo;
     bool m_cloudflare=false;
     QDateTime m_authExpires;
+#ifdef Q_OS_MACOS
+    QByteArray m_pendingPassword,m_pendingSession;
+#endif
 };

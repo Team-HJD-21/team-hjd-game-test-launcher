@@ -63,7 +63,11 @@ int main(int argc,char **argv) {
     if(window&&parser.isSet("window-size")){auto parts=parser.value("window-size").split('x');if(parts.size()==2)window->resize(parts[0].toInt(),parts[1].toInt());}
     if(window&&parser.isSet("review-ui")){auto mode=parser.value("review-ui");QTimer::singleShot(700,&app,[window,mode]{window->setProperty("reviewMode",mode);});}
     bool acknowledged=false;auto health=parser.value("health-file");
-    if(window&&!health.isEmpty())QObject::connect(window,&QQuickWindow::frameSwapped,&app,[&]{if(acknowledged)return;acknowledged=true;try{hjd::writeJson(health,{{"pid",QCoreApplication::applicationPid()},{"version",HJD_VERSION}});}catch(const hjd::Error&){}},Qt::QueuedConnection);
+    if(window)QObject::connect(window,&QQuickWindow::frameSwapped,&app,[&]{
+        if(acknowledged)return;acknowledged=true;
+        if(!health.isEmpty())try{hjd::writeJson(health,{{"pid",QCoreApplication::applicationPid()},{"version",HJD_VERSION}});}catch(const hjd::Error&){}
+        QTimer::singleShot(0,&controller,&Controller::restoreCredentials);
+    },Qt::QueuedConnection);
     if(window&&parser.isSet("capture")){auto target=parser.value("capture");QTimer::singleShot(2500,&app,[window,target]{QDir().mkpath(QFileInfo(target).absolutePath());window->grabWindow().save(target);});}
     bool ok=false;int duration=parser.value("quit-after-ms").toInt(&ok);if(ok&&duration>0)QTimer::singleShot(duration,&app,&QCoreApplication::quit);
     return app.exec();

@@ -48,6 +48,9 @@ def deploy(app, qt, arch):
     info.update(LSMinimumSystemVersion='12.0', NSHighResolutionCapable=True)
     info_path.write_bytes(plistlib.dumps(info))
     run(qt / 'bin/macdeployqt', app, f'-qmldir={ROOT / "qml"}', '-always-overwrite')
+    # Explicit app-relative paths remain valid after converting frameworks into
+    # ordinary dylibs; Qt must not fall back to its SDK/framework prefix.
+    (app / 'Contents/Resources/qt.conf').write_text('[Paths]\nPlugins=PlugIns\nQmlImports=Resources/qml\n', encoding='utf-8')
     frameworks = app / 'Contents/Frameworks'
     # The verified ZIP installer deliberately rejects symlinks. Convert Qt's
     # versioned frameworks to ordinary dylibs, preserving their binary resources

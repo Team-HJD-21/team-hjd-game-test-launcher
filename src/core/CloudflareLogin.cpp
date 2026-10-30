@@ -32,7 +32,7 @@ void erase(QByteArray &bytes) {
 #ifdef Q_OS_WIN
         SecureZeroMemory(bytes.data(),size_t(bytes.size()));
 #elif defined(Q_OS_MACOS)
-        explicit_bzero(bytes.data(),size_t(bytes.size()));
+        volatile char *memory=bytes.data();for(qsizetype i=0;i<bytes.size();++i)memory[i]=0;
 #endif
     }
     bytes.clear();

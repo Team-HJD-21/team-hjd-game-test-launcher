@@ -36,12 +36,13 @@ void seedRuntime(const QString &root){
     auto receipt=readJson(seed+"/._teamhjd-receipt.json");
     if(receipt["executable"].toString()!=clientExecutable()||!verifyTree(seed,receipt))fail(QStringLiteral("런처 설치 파일을 확인하지 못했습니다. 공식 ZIP을 다시 받아 주세요."));
     auto version=receipt["version"].toString();if(!safeVersion(version))fail(QStringLiteral("설치 버전 정보가 올바르지 않습니다."));
-    auto folder=version+"-seed",target=root+"/launcher/versions/"+folder;
+    // Each attempt has its own immutable directory. A crash or full disk may
+    // leave an incomplete copy, but the next launch can start a fresh attempt.
+    auto folder=version+"-seed-"+QUuid::createUuid().toString(QUuid::Id128).left(8),target=root+"/launcher/versions/"+folder;
     noLinks(target);
-    if(QFileInfo::exists(target)){
-        if(!verifyTree(target,receipt))fail(QStringLiteral("초기 런처 복사를 완료하지 못했습니다. 운영자에게 문의하세요."));
-    }else{
-        QDir().mkpath(target);
+    if(QFileInfo::exists(target))fail(QStringLiteral("초기 런처 준비 폴더가 이미 있습니다."));
+    {
+        if(!QDir().mkpath(target))fail(QStringLiteral("런처 저장 폴더를 만들지 못했습니다."));
         for(const auto &entry:receipt["files"].toArray()){
             const auto relative=entry.toObject()["path"].toString();
             auto source=seed+"/"+relative,destination=target+"/"+relative;

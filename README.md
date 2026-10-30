@@ -1,12 +1,14 @@
 # TeamHJD Game Test Launcher
 
-Windows x64 game playtest library, written in C++20 and Qt Quick. Public launcher updates come from this repository's GitHub Releases. Private games are distributed separately through an authenticated HTTPS server and a signed catalog. No game build, music, private log, credential or signing key belongs in this repository or its Releases.
+Windows x64 and macOS game playtest library, written in C++20 and Qt Quick. Public launcher updates come from this repository's GitHub Releases. Private games are distributed separately through an authenticated HTTPS server and a signed catalog. No game build, music, private log, credential or signing key belongs in this repository or its Releases.
 
 ## Players
 
 Download **TeamHJD-GameTestLauncher-Windows-x64.zip** from [Releases](https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest), extract it to a writable folder and run **TeamHJDLauncher.exe**. Keep the whole extracted folder together. Windows 10/11 x64 is the target; the first release was tested on Windows 11.
 
-Select **이메일로 시작** and verify the code sent to your email in the browser, then return to install and play. The default channel uses Cloudflare Access One-time PIN with no email allowlist. Verified email and authentication/access timestamps are kept in private operator storage. Session tokens are protected with Windows DPAPI. Team-issued invitation files remain available for separately configured channels.
+On **macOS 12 or later**, download **TeamHJD-GameTestLauncher-macOS-arm64.zip** for Apple Silicon or **macOS-x64.zip** for Intel. Move **TeamHJDLauncher.app** to Applications and run it. See the [Mac player guide](docs/PLAYER_GUIDE_MACOS.ko.md), including the first-launch security approval for this ad hoc signed, unnotarized playtest distribution. The launcher automatically selects a compatible game package and refuses Windows games on macOS.
+
+Select **이메일로 시작** and verify the code sent to your email in the browser, then return to install and play. The default channel uses Cloudflare Access One-time PIN with no email allowlist. Verified email and authentication/access timestamps are kept in private operator storage. Session tokens are protected with Windows DPAPI or a Mac Keychain-held encryption key. Team-issued invitation files remain available for separately configured channels.
 
 Latest game versions are checked automatically. When a new version is available, choose **업데이트** to download and apply it, or **현재 버전 플레이** to keep playing the installed version. Opening the launcher or exiting a game does not start a game update. An identical verified package is reused rather than installed again. The launcher prepares its own update for the next launch. Games remain playable offline. The game menu includes repair, rollback, version/change information and uninstall. AppData saves and external playtest logs are preserved.
 
@@ -26,6 +28,8 @@ python tests/test_server.py
 
 Build artifacts live under `build/`, portable and update ZIPs under `dist/`, private test evidence under `.local/`. Packaging refuses to overwrite an existing bundle; preserve/move the old generated output before packaging another build.
 
+Mac native builds use Qt **6.8.3 macOS**, CMake, Ninja and Xcode command-line tools. The `macos-release.yml` workflow builds and tests on Apple Silicon and Intel Mac runners, with a disposable test Keychain. Run `cmake -S . -B build-macos -G Ninja -DCMAKE_PREFIX_PATH=/path/to/Qt/6.8.3/macos -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0`, then `cmake --build build-macos`. `tools/package-macos.py` creates the app and architecture-specific update ZIP, and `tools/verify-macos.py` checks exact bytes, execution permissions, Mach-O dependencies and code signatures. Native tests that exercise Keychain require `TEAMHJD_TEST_KEYCHAIN_READY=1` after preparing a disposable unlocked Keychain. They refuse to use an unprepared personal Keychain.
+
 The Qt DLLs are dynamically linked. Compatible modified libraries can be used by running `launcher/versions/<version>/TeamHJDClient.exe` directly, or by rebuilding this application. The bootstrap's local file receipts protect managed updates; direct client execution permits library replacement and bypasses only this local launcher receipt check. Signed game validation remains active. See [third-party notices](THIRD_PARTY_NOTICES.md) and [Qt license texts](licenses/Qt). Unmodified Qt source is available from the [exact Qt 6.8.3 source distribution](https://download.qt.io/archive/qt/6.8/6.8.3/single/).
 
 ## Operators
@@ -38,4 +42,4 @@ The server exposes read-only catalog/package routes. It has no upload, remote ex
 
 ## Release status
 
-Version 0.1.2 makes game updates explicit, keeps the installed version playable, and fixes the native maximize-button crash. Operators can open the private local server dashboard with `tools/Open-HostingDashboard.ps1`. See [release verification](docs/RELEASE_VALIDATION_0.1.2.md). No Authenticode certificate is configured. The small stable bootstrap is replaced with a closed portable-bundle update when its own compatibility contract changes; ordinary client/Qt updates use the automatic versioned payload flow. Unselected games are checked when selected. Old versions remain available until game deletion; disk use is shown in version information.
+Version 0.1.3 adds native Apple Silicon and Intel launchers and signed per-platform game variants. It retains 0.1.2's explicit game updates, old-version play and maximize crash fix. Operators can open the private local server dashboard with `tools/Open-HostingDashboard.ps1`. No Authenticode or Apple Developer ID certificate is configured. The small stable bootstrap is replaced with a closed portable-bundle update when its own compatibility contract changes; ordinary client/Qt updates use the automatic versioned payload flow. Mac managed versions are stored in the user's Application Support directory so updating does not modify the signed app in Applications. Unselected games are checked when selected. Old versions remain available until game deletion; disk use is shown in version information.

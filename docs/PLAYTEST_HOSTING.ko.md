@@ -66,3 +66,16 @@ Windows가 로그인 후 Run 실행을 지연할 수 있습니다. 짧은 wrappe
 이메일이 들어 있는 HTML·CSV는 private root의 기존 접근 권한을 상속합니다. 파일에는 JWT·세션 해시·키·IP·원본 로그를 넣지 않습니다. 외부 스크립트·폰트·이미지·네트워크 API를 불러오지 않는 정적 HTML이며 사용자 텍스트는 HTML 이스케이프합니다. 이 폴더를 별도 웹 서버나 공개 저장소로 공개하지 않습니다.
 
 새 빌드는 기존 `Publish-Game.ps1`로 게시합니다. 운영자 암호와 개인 만료 초대는 관리·복구 경로로 계속 지원됩니다. [개인 초대 발행·회수](TESTER_INVITES.ko.md)는 별도 문서를 따릅니다. private root나 CSV, 토큰 파일을 공개 저장소·릴리스 ZIP에 넣지 않습니다.
+
+## 맥 게임 게시
+
+Windows 정본 `Builds/latest.json`과 별도로 받은 `Builds/latest-macos.json`을 지정합니다. 포인터의 `platform`과 실제 `.app/Contents/MacOS/실행파일` 경로를 읽어 기존 ZIP의 크기·SHA256·모든 파일·실행권한을 확인합니다. 원본 게임을 다시 빌드하거나 ZIP을 바꾸지 않습니다.
+
+```powershell
+./tools/Publish-GameArchive.ps1 -LatestPointer D:/Game/Builds/latest-macos.json -PrivateRoot D:/Private/TeamHJDDistribution -VerifyOnly
+./tools/Publish-GameArchive.ps1 -LatestPointer D:/Game/Builds/latest-macos.json -PrivateRoot D:/Private/TeamHJDDistribution
+```
+
+같은 게임의 서명된 `platforms.macos-universal` 항목으로 저장하므로 기존 Windows 패키지·ID·버전은 보존됩니다. 기존 Windows 0.1.2 런처도 기존 항목을 계속 읽습니다. 맥 런처는 실제 CPU에 맞는 항목을 자동 선택하며 지원 빌드가 없으면 설치를 차단합니다. 나중에 Windows 버전을 게시해도 별도로 게시한 맥 항목은 남습니다. 두 운영체제의 BUILD 번호·통신 규약이 함께 테스트할 버전인지 운영자가 확인해야 합니다.
+
+이 서버는 게임 다운로드 서버입니다. 실제 게임에서 방을 열고 친구가 접속하는 멀티플레이 호스트의 실행·네트워크 설정은 별개입니다.
