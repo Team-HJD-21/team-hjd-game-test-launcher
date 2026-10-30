@@ -29,7 +29,11 @@ https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/downl
 
 이 `latest/download/<고정 파일명>` 계약은 [GitHub 공식 안내](https://docs.github.com/en/repositories/releasing-projects-on-github/linking-to-releases)를 따른다. 새 stable Release는 이 세 portable ZIP을 **모두** 포함해야 한다. 자동 업데이트용 `LauncherPayload-*`는 웹 다운로드 버튼으로 제공하지 않는다. 파일명을 변경하거나 일부 플랫폼을 생략하면 최신 링크가 깨질 수 있으므로 [릴리즈 체크리스트](RELEASING.ko.md)를 따른다.
 
-페이지에는 제품명, 플레이테스트용 런처라는 짧은 소개, 이메일 인증 후 설치·실행·업데이트·파일 관리를 할 수 있다는 설명과 간단한 실행 안내를 둔다. 세 다운로드 버튼과 버전·게시일, **런처의 이메일 인증 시 인증된 이메일 주소와 인증·접속 시각이 수집·보관된다**는 안내를 유지한다. 마케팅 문구·앱 모형·큰 단계별 카드·FAQ는 추가하지 않는다. 사용자는 2026-10-31에 처음의 긴 설명을 줄이되, 한 줄뿐인 소개보다는 조금 보강하고 푸터는 메인과 동일하게 맞추도록 요청했다.
+페이지에는 제품명, 플레이테스트용 런처라는 짧은 소개, 이메일 인증 후 설치·실행·업데이트·파일 관리를 할 수 있다는 설명과 간단한 실행 안내를 둔다. 세 다운로드 버튼과 버전·게시일, **런처의 이메일 인증 시 인증된 이메일 주소와 인증·접속 시각이 수집·보관된다**는 안내를 유지한다. 마케팅 문구·앱 모형·큰 단계별 카드는 추가하지 않는다. 사용자는 2026-10-31에 짧은 설명 보강과 메인과 동일한 푸터를 요청한 뒤, 서명 관련 첫 실행 FAQ를 추가하도록 요청했다.
+
+다운로드 아래 첫 실행 FAQ는 Windows SmartScreen, macOS 개발자 확인·공증 경고, 계속 차단되거나 손상·악성코드 경고가 있는 경우의 세 접이식 항목이다. 공식 배포처를 신뢰하는 경우의 앱별 실행 절차만 안내한다. Windows 게시자 서명 없음과 macOS ad hoc 서명/Developer ID·공증 없음을 혼동하지 않는다. 운영체제 전체 보호 해제·quarantine 일괄 제거·백신 예외·관리자 실행을 해결책으로 권하지 않는다. 서명 정책이 바뀌면 FAQ도 함께 수정한다. 절차 근거는 [Microsoft 첫 배포 안내](https://learn.microsoft.com/windows/apps/package-and-deploy/publish-first-app#step-6-handle-smartscreen-for-new-apps), [SmartScreen 정책·평판](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation), [Apple 앱 안전하게 열기](https://support.apple.com/ko-kr/102445)다. FAQ의 화면 검수와 실제 각 OS의 경고 재현·해제 검증은 구분한다.
+
+2026-10-31 FAQ 추가 검수: Node 구문·공개 사이트 경계 검사 통과. Chrome의 데스크톱1278px과 모바일390px에서 세 FAQ와 한국어·English·简体中文의 번역 누락/가로 넘침 없음, 마우스 펼침과 Enter 접기·펼치기를 확인했다. Windows·macOS 보호 설정이나 릴리즈 ZIP은 변경하지 않았으며, 실제 경고 창을 이 작업에서 재현·승인한 것은 아니다.
 
 페이지 JS는 공개 latest API에서 stable 태그, 정확한 세 파일명·공식 URL·크기를 검증하고 버전·게시일을 `textContent`로 표시한다. 토큰/쿠키를 GitHub API에 보내지 않으며 **이 웹페이지 자체는** 이메일이나 로그를 수집하지 않는다. 위 수집 안내의 대상은 런처의 이메일 인증이다. API 제한·오프라인·JS 비활성화가 있어도 기본 다운로드 링크는 HTML에 남아 작동한다. 버전 표시를 얻기 위해 비공개 인증정보를 브라우저에 넣지 않는다.
 

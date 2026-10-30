@@ -42,6 +42,45 @@
     </section>
     <p class="run-hint" data-i18n="runHint">ZIP 파일을 푼 뒤 TeamHJDLauncher를 실행하세요.</p>
     <p class="collection-notice" data-i18n="collectionNotice">런처의 이메일 인증 시 인증된 이메일 주소와 인증·접속 시각이 수집·보관됩니다.</p>
+    <section class="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title" data-i18n="faqTitle">첫 실행 FAQ</h2>
+      <p class="faq-intro" data-i18n="faqIntro">현재 테스트 배포본은 Windows 게시자 서명과 Apple Developer ID 서명·공증이 없어, 처음 실행할 때 보안 경고가 나타날 수 있습니다.</p>
+      <p class="faq-trust" data-i18n="faqTrust">이 페이지에서 연결한 공식 GitHub 파일을 받았고 출처를 신뢰하는 경우에만 아래 절차를 진행하세요.</p>
+      <div class="faq-list">
+        <details class="faq-item" id="faq-windows">
+          <summary><span class="faq-platform">Windows</span><span class="faq-question" data-i18n="faqWindowsQuestion">‘Windows의 PC 보호’가 표시되나요?</span><span class="faq-toggle" aria-hidden="true">+</span></summary>
+          <div class="faq-answer">
+            <ol>
+              <li><span data-i18n="faqWindowsStep1">ZIP 전체를 일반 폴더에 푼 뒤, 그 안의 TeamHJDLauncher.exe를 실행하세요.</span></li>
+              <li><span data-i18n="faqWindowsStep2">SmartScreen 경고 창에서 ‘추가 정보’를 누르세요.</span></li>
+              <li><span data-i18n="faqWindowsStep3">앱 이름이 TeamHJDLauncher.exe인지 확인하고, 실행하려면 ‘실행’을 선택하세요.</span></li>
+            </ol>
+            <p class="faq-note" data-i18n="faqWindowsNote">게시자가 ‘알 수 없는 게시자’로 표시될 수 있습니다. ‘실행’ 버튼이 없거나 Smart App Control·조직 정책으로 차단되면 아래 공통 안내를 확인하세요.</p>
+            <a class="faq-source" href="https://learn.microsoft.com/windows/apps/package-and-deploy/publish-first-app#step-6-handle-smartscreen-for-new-apps" target="_blank" rel="noopener noreferrer" data-i18n="faqMicrosoft">Microsoft 안내 ↗</a>
+          </div>
+        </details>
+        <details class="faq-item" id="faq-macos">
+          <summary><span class="faq-platform">macOS</span><span class="faq-question" data-i18n="faqMacQuestion">개발자를 확인할 수 없어 열리지 않나요?</span><span class="faq-toggle" aria-hidden="true">+</span></summary>
+          <div class="faq-answer">
+            <ol>
+              <li><span data-i18n="faqMacStep1">ZIP을 풀고 TeamHJDLauncher.app을 응용 프로그램 폴더로 옮긴 뒤 한 번 실행하세요. 개발자 확인·Apple 검사 관련 경고가 뜨면 닫으세요.</span></li>
+              <li><span data-i18n="faqMacStep2">macOS 13 이상은 ‘시스템 설정 → 개인정보 보호 및 보안’을 여세요. macOS 12는 ‘시스템 환경설정 → 보안 및 개인 정보 보호 → 일반’에서 확인하세요.</span></li>
+              <li><span data-i18n="faqMacStep3">TeamHJDLauncher의 차단 안내 옆 ‘그래도 열기’를 누르고, 확인 창에서 ‘열기’를 선택하세요. Mac에서 인증을 요청하면 해당 시스템 창에서 승인하세요.</span></li>
+            </ol>
+            <p class="faq-note" data-i18n="faqMacNote">‘그래도 열기’가 보이지 않으면 앱을 다시 한 번 실행한 직후 설정을 확인하세요. OS 버전에 따라 문구와 버튼 위치가 다를 수 있습니다.</p>
+            <a class="faq-source" href="https://support.apple.com/ko-kr/102445" target="_blank" rel="noopener noreferrer" data-i18n="faqApple">Apple 안내 ↗</a>
+          </div>
+        </details>
+        <details class="faq-item" id="faq-blocked">
+          <summary><span class="faq-platform" data-i18n="faqCommon">공통</span><span class="faq-question" data-i18n="faqBlockedQuestion">계속 차단되거나 ‘손상됨’ 경고가 뜨나요?</span><span class="faq-toggle" aria-hidden="true">+</span></summary>
+          <div class="faq-answer">
+            <p data-i18n="faqBlockedDamage">‘악성코드’, ‘컴퓨터를 손상시킴’, ‘앱이 손상됨’ 경고는 단순한 개발자 확인 경고와 다릅니다. 실행을 중단하고 이 페이지에서 새로 받은 파일로도 같은 경고가 뜨는지 확인한 뒤 문의해 주세요.</p>
+            <p data-i18n="faqBlockedPolicy">실행 버튼이 없거나 회사·학교 PC의 정책으로 차단되면 담당 관리자에게 문의하세요. 백신·SmartScreen·Gatekeeper 전체를 끄는 방식은 사용하지 마세요.</p>
+            <a class="faq-source" href="https://teamhjd.com/privacy/index.html#email" data-i18n="faqContact">경고 화면과 OS 버전을 첨부해 문의하기 ↗</a>
+          </div>
+        </details>
+      </div>
+    </section>
   </main>
   <footer class="shell footer">
     <div class="footer-brand"><a class="wordmark" href="https://teamhjd.com/#home"><img src="assets/teamhjd-wordmark.png" width="486" height="98" alt="TeamHJD"></a><p class="footer-tagline">Happy Journey of Developers.</p></div>
