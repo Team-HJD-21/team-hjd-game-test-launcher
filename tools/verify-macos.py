@@ -138,7 +138,7 @@ def native_audit(app: Path, arch: str) -> int:
             dependency = line.strip().split(" (", 1)[0]
             if dependency.startswith(("/System/Library/", "/usr/lib/")):
                 continue
-            require(dependency.startswith(("@rpath/", "@loader_path/", "@executable_path/")), "Mach-O depends on a build-machine library")
+            require(dependency.startswith(("@rpath/", "@loader_path/", "@executable_path/")), f"Mach-O {path.relative_to(app)} depends on build-machine library: {dependency}")
             require(PurePosixPath(dependency).name in names, "Bundled Mach-O dependency missing")
             require(".framework/Versions/" not in dependency, "Framework symlink dependency was not flattened")
         load_commands = run("/usr/bin/otool", "-l", str(path)).splitlines()
@@ -146,7 +146,7 @@ def native_audit(app: Path, arch: str) -> int:
             if line.strip() == "cmd LC_RPATH":
                 require(index + 2 < len(load_commands), "Malformed Mach-O LC_RPATH")
                 rpath = load_commands[index + 2].strip().removeprefix("path ").split(" (offset ", 1)[0]
-                require(rpath.startswith(("@loader_path", "@executable_path", "/System/Library/", "/usr/lib/")), "Build-machine runtime search path remains")
+                require(rpath.startswith(("@loader_path", "@executable_path", "/System/Library/", "/usr/lib/")), f"Build-machine runtime search path in {path.relative_to(app)}: {rpath}")
     require(count >= 3, "Expected client, bootstrap and helper Mach-O files")
     return count
 

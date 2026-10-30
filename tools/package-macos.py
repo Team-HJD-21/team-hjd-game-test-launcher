@@ -53,7 +53,10 @@ def deploy(app, qt, arch):
     info = plistlib.loads(info_path.read_bytes())
     info.update(LSMinimumSystemVersion='12.0', NSHighResolutionCapable=True)
     info_path.write_bytes(plistlib.dumps(info))
-    run(qt / 'bin/macdeployqt', app, f'-qmldir={ROOT / "qml"}', '-always-overwrite')
+    deploy_args = [qt / 'bin/macdeployqt', app, '-always-overwrite']
+    if app.name == 'TeamHJDClient.app':
+        deploy_args.append(f'-qmldir={ROOT / "qml"}')
+    run(*deploy_args)
     # Explicit app-relative paths remain valid after converting frameworks into
     # ordinary dylibs; Qt must not fall back to its SDK/framework prefix.
     (app / 'Contents/Resources/qt.conf').write_text('[Paths]\nPlugins=PlugIns\nQmlImports=Resources/qml\n', encoding='utf-8')
@@ -79,6 +82,14 @@ def deploy(app, qt, arch):
     files = [p for p in app.rglob('*') if p.is_file()]
     binaries = [p for p in files if macho(p)]
     print(f'Rewriting and signing {len(binaries)} native libraries in {app.name}', flush=True)
+    install_names = {}
+    for binary in binaries:
+        # QML plugins can carry absolute SDK LC_ID_DYLIB names as well as the
+        # framework libraries. Normalize every dylib ID and every consumer.
+        identifiers = run('otool', '-D', binary).splitlines()[1:]
+        if identifiers:
+            relative = os.path.relpath(binary, frameworks)
+            install_names[identifiers[0].strip()] = '@rpath/' + relative
     native_arch = 'x86_64' if arch == 'x64' else 'arm64'
     for index, binary in enumerate(binaries):
         if index % 20 == 0:
@@ -93,15 +104,22 @@ def deploy(app, qt, arch):
         for reference in references:
             old = reference.strip().split(' (compatibility version', 1)[0]
             match = re.search(r'(Qt[^/]+)\.framework/(?:Versions/[^/]+/)?\1$', old)
+            new = install_names.get(old)
             if match:
                 new = f'@rpath/{match[1]}.dylib'
                 assert (frameworks / f'{match[1]}.dylib').is_file()
+            if new and new != old:
                 run('install_name_tool', '-change', old, new, binary)
-        if binary.parent == frameworks and binary.suffix == '.dylib':
-            run('install_name_tool', '-id', '@rpath/' + binary.name, binary)
+        identifiers = run('otool', '-D', binary).splitlines()[1:]
+        if identifiers:
+            run('install_name_tool', '-id', '@rpath/' + os.path.relpath(binary, frameworks), binary)
         relative = os.path.relpath(frameworks, binary.parent)
         rpath = '@loader_path' if relative == '.' else '@loader_path/' + relative
         existing = re.findall(r'cmd LC_RPATH\s+cmdsize \d+\s+path (.*?) \(offset', run('otool', '-l', binary))
+        for previous in existing:
+            local = previous.replace('@loader_path', str(binary.parent)).replace('@executable_path', str(app / 'Contents/MacOS'))
+            if not previous.startswith(('/System/Library/', '/usr/lib/')) and (not local.startswith('/') or not Path(local).resolve().is_relative_to(app.resolve())):
+                run('install_name_tool', '-delete_rpath', previous, binary)
         if rpath not in existing:
             run('install_name_tool', '-add_rpath', rpath, binary)
         binary.chmod(0o755)
