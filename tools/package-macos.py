@@ -25,7 +25,12 @@ HELPERS = {
 }
 
 def run(*args):
-    return subprocess.check_output([str(x) for x in args], text=True, stderr=subprocess.STDOUT)
+    try:
+        return subprocess.check_output([str(x) for x in args], text=True, stderr=subprocess.STDOUT,
+                                       timeout=240 if Path(str(args[0])).name == 'macdeployqt' else 60)
+    except subprocess.CalledProcessError as error:
+        print(error.output, flush=True)
+        raise
 
 def digest(path):
     with path.open('rb') as source:
@@ -43,6 +48,7 @@ def owned_remove(path, owner):
         path.unlink()
 
 def deploy(app, qt, arch):
+    print(f'Deploying Qt into {app.name}', flush=True)
     info_path = app / 'Contents/Info.plist'
     info = plistlib.loads(info_path.read_bytes())
     info.update(LSMinimumSystemVersion='12.0', NSHighResolutionCapable=True)
@@ -72,8 +78,11 @@ def deploy(app, qt, arch):
                 shutil.copy2(target, link)
     files = [p for p in app.rglob('*') if p.is_file()]
     binaries = [p for p in files if macho(p)]
+    print(f'Rewriting and signing {len(binaries)} native libraries in {app.name}', flush=True)
     native_arch = 'x86_64' if arch == 'x64' else 'arm64'
-    for binary in binaries:
+    for index, binary in enumerate(binaries):
+        if index % 20 == 0:
+            print(f'Native library {index + 1}/{len(binaries)}', flush=True)
         arches = run('lipo', '-archs', binary).strip().split()
         assert native_arch in arches, f'Wrong architecture: {binary.name}'
         if len(arches) > 1:
@@ -102,6 +111,7 @@ def deploy(app, qt, arch):
         path.chmod(0o755 if path.is_dir() or path.stat().st_mode & 0o111 else 0o644)
 
 def add_helper(client, arch, workspace):
+    print(f'Downloading exact official authentication helper ({arch})', flush=True)
     upstream_arch, archive_hash, binary_hash = HELPERS[arch]
     asset = f'cloudflared-darwin-{upstream_arch}.tgz'
     archive = workspace / asset
@@ -168,6 +178,7 @@ def main():
     deploy(client, args.qt, args.arch)
     deploy(launcher, args.qt, args.arch)
     provenance = add_helper(client, args.arch, workspace)
+    print('Signing client app and generating payload manifest', flush=True)
     run('codesign', '--force', '--sign', '-', '--timestamp=none', client)
     licenses = payload / 'licenses'
     shutil.copytree(ROOT / 'licenses/Qt', licenses / 'Qt')
@@ -179,6 +190,7 @@ def main():
     for path in payload.rglob('*'):
         path.chmod(0o755 if path.is_dir() or path.stat().st_mode & 0o111 else 0o644)
     manifest = receipt(payload, version)
+    print(f'Compressing {len(manifest["files"])} payload files', flush=True)
     zip_tree(payload, args.output / f'TeamHJD-LauncherPayload-macOS-{args.arch}.zip')
     write_json(payload / '._teamhjd-receipt.json', manifest)
     shutil.copytree(payload, launcher / 'Contents/Resources/seed', symlinks=False)
@@ -186,6 +198,7 @@ def main():
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', portable)
     run('codesign', '--force', '--sign', '-', '--timestamp=none', launcher)
     run('codesign', '--verify', '--deep', '--strict', launcher)
+    print('Compressing complete portable app', flush=True)
     zip_tree(portable, args.output / f'TeamHJD-GameTestLauncher-macOS-{args.arch}.zip')
     print(f'Packaged macOS {args.arch} {version}; {len(manifest["files"])} verified payload files; no game or credentials.')
 

@@ -111,9 +111,14 @@ try{
             $catalogTone=if($expires -gt [DateTimeOffset]::UtcNow){'ok'}else{'warn'}
             $rows=[Text.StringBuilder]::new()
             foreach($game in $catalog.games){
-                $bytes=[long]$game.bytes;if($bytes -lt 0){throw 'Invalid package size'}
-                $totalBytes+=$bytes;$gameCount++
-                [void]$rows.Append('<tr><td><strong>'+(ConvertTo-DashboardHtml $game.name)+'</strong><small>'+(ConvertTo-DashboardHtml $game.id)+'</small></td><td>'+(ConvertTo-DashboardHtml $game.version)+'</td><td class="number">'+(ConvertTo-DashboardHtml $bytes.ToString('N0',[Globalization.CultureInfo]::InvariantCulture))+' bytes</td></tr>')
+                $gameCount++
+                $variants=@(@{data=$game;label='Windows x64'})
+                if($game.platforms){foreach($platform in $game.platforms.Keys){$variants+=@{data=$game.platforms[$platform];label=[string]$platform}}}
+                foreach($variant in $variants){
+                    $data=$variant.data;$bytes=[long]$data.bytes;if($bytes -lt 0){throw 'Invalid package size'}
+                    $totalBytes+=$bytes
+                    [void]$rows.Append('<tr><td><strong>'+(ConvertTo-DashboardHtml $data.name)+'</strong><small>'+(ConvertTo-DashboardHtml $game.id)+' · '+(ConvertTo-DashboardHtml $variant.label)+'</small></td><td>'+(ConvertTo-DashboardHtml $data.version)+'</td><td class="number">'+(ConvertTo-DashboardHtml $bytes.ToString('N0',[Globalization.CultureInfo]::InvariantCulture))+' bytes</td></tr>')
+                }
             }
             $gameRows=$rows.ToString()
         }
