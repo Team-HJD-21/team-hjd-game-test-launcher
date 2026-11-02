@@ -1,0 +1,5 @@
+**/*.svg text eol=lf
+manifest.json text eol=lf
+preview.html text eol=lf
+**/*.png binary
+**/*.ico binary

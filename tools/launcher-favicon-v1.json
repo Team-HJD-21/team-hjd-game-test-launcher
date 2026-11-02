@@ -1,0 +1,49 @@
+{
+  "version": "1.0.0",
+  "sourceRepository": "Team-HJD-21/team-hjd-site",
+  "sourceCommit": "22c596ac6ea86edd5e0f7adee07875c49e0e449a",
+  "sourceManifest": "assets/favicons/v1/manifest.json",
+  "sourceSha256": "da8f7548c8c8751bb6a009d0fffbb2c5be53346c73620290603ea2a133440a18",
+  "id": "launcher",
+  "name": "Game Test Launcher",
+  "host": "testlauncher.teamhjd.com",
+  "feature": "Play",
+  "files": {
+    "favicon.svg": {
+      "bytes": 57488,
+      "sha256": "4ebf8a5f2fb9efd05646c95eaa48baf00e4f7c57ef311afc10b4bbe7584dc33a"
+    },
+    "favicon-16.png": {
+      "bytes": 751,
+      "sha256": "907c6a21b94cf1d369c4806fb77236cdc7cb3e8ca5310ee0d2de3edffaa76f55"
+    },
+    "favicon-32.png": {
+      "bytes": 2016,
+      "sha256": "049232deb9ec656a4aad7486084e47a1aaba05c570e395872ca50f07cb6aaaec"
+    },
+    "favicon-48.png": {
+      "bytes": 3626,
+      "sha256": "5e3cd8ffebb2d7a09d6970226974a64ab17c3917f6ec0f1a882e5b30f0b2433e"
+    },
+    "favicon-64.png": {
+      "bytes": 5790,
+      "sha256": "3381e9950f19413af9cedcb81b6c65fb533043fc77f8af916a30c3f7e5eed24b"
+    },
+    "apple-touch-icon.png": {
+      "bytes": 31578,
+      "sha256": "6cf664aee7fcb74c3e8767afe40a0547292ab8c748086ea2259c474d2a6da961"
+    },
+    "favicon-192.png": {
+      "bytes": 34796,
+      "sha256": "d238800632b36810ce0917dc4546f19c3c4d09ccdb6d9f2630137a0657f05ab2"
+    },
+    "favicon-512.png": {
+      "bytes": 172317,
+      "sha256": "a4a4645f788abc3ff53cf8eb76a30973e4d5ad571b5dfd1e6dbbf2d2e8414a08"
+    },
+    "favicon.ico": {
+      "bytes": 6447,
+      "sha256": "9c94f49ad8751e6ef0d433fbff1c4139263be702d8c670cc9cd449382d22dfee"
+    }
+  }
+}

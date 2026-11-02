@@ -41,7 +41,7 @@ https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/downl
 
 ## 소스와 배포
 
-- 런처 저장소 `website/`: HTML/CSS/JS, robots, 도메인 표기와 기존 회사 로고 두 개. 게임 파일이나 스크린샷 원본은 넣지 않는다.
+- 런처 저장소 `website/`: HTML/CSS/JS, robots, 도메인 표기, 기존 회사 로고 두 개와 아래 공통 파비콘 배포본. 게임 파일이나 스크린샷 원본은 넣지 않는다.
 - `tools/check-download-site.mjs`: 공개 파일 allowlist, 세 최신 portable 링크, 비공개/업데이터 링크 유입, 토큰 없는 metadata rendering 검증.
 - `.github/workflows/download-site.yml`: `website/` 관련 main push 또는 수동 실행으로 검사한 **website 폴더만** GitHub Pages 배포. 기존 native Mac 릴리즈 workflow와 별개다.
 - Pages custom domain은 **런처 저장소**에 `testlauncher.teamhjd.com`. 대표 사이트 저장소 `team-hjd-site`의 `cname=teamhjd.com`을 덮어쓰지 않는다.
@@ -79,6 +79,14 @@ gh run list --workflow download-site.yml --branch main --limit 5 --json database
 - 검증: 실제 메인/로컬 화면에서 선택한 공통 token·글꼴·행간·header/logo·footer/business의 색/간격/크기 및 정규화한 footer13개 링크가 일치했다. 다운로드 페이지390px에서 한국어·English·简体中文의 번역 누락/가로 넘침 없음, 언어 선택·선택 상태·Escape 닫기와 FAQ Enter 동작을 확인했다. Node 구문·공개 파일/최신 다운로드 계약·정적 자산 content hash 검사를 통과했다.
 
 다음 디자인 동기화도 최신 메인 채팅과 remote SHA를 먼저 확인한다. 동일 이름의 CSS 앞쪽 규칙만 보거나 예전 작업 폴더의 footer를 복사한 것으로 완료하지 않는다. 관련 사이트 대상 도메인의 운영·DNS 변경은 그 담당 작업과 별도로 조율하며, 이 페이지를 맞추기 위해 임의 수정하지 않는다.
+
+## 공통 브라우저 파비콘 v1
+
+회사 채팅에서 배정한 `launcher` 변형을 `website/assets/favicons/v1/launcher/`에 원본 바이트 그대로 복사한다. 원형 손그림 로켓과 좌상단 연두 배지의 재생 삼각형을 사용한다. 회사 기준은 [favicon-brand.md](https://github.com/Team-HJD-21/team-hjd-site/blob/22c596ac6ea86edd5e0f7adee07875c49e0e449a/scripts/favicon-brand.md), 원본은 같은 커밋의 `assets/favicons/v1/launcher/`와 `manifest.json`이다.
+
+`tools/launcher-favicon-v1.json`에는 그 커밋의 런처 변형9개 파일의 크기·SHA256을 보관한다. 공개 사이트 검사는 크기/해시, PNG 치수, ICO16/32/48 엔트리의 원본 PNG 일치, head의 ICO→PNG32→SVG 및 Apple touch180 선언과 구형 favicon 중복 여부를 확인한다. 상위 `.gitattributes`의 SVG LF·PNG/ICO binary 규칙을 같이 유지한다. 새로운 렌더러 설치나 그림 재생성은 필요하지 않다.
+
+배포 뒤 SVG의 `image/svg+xml`, PNG의 `image/png`, ICO의 `image/x-icon` 또는 `image/vnd.microsoft.icon` 응답과 실제9개 자산 해시를 확인한다. 버전 경로로 기존 브라우저 캐시와 구분하되 모든 브라우저의 기존 아이콘 캐시가 즉시 바뀐다고 주장하지 않는다. 원본 v1을 덮어쓰지 않고 디자인 개정은 새 버전 경로로 협의한다. 페이지 헤더 로고·런처 EXE/앱 아이콘·게임 인증/API·최신 stable 다운로드 선택은 이 작업 범위에 포함하지 않는다.
 
 ## 2026-10-31 배포 확인
 

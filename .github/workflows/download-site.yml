@@ -5,6 +5,7 @@ on:
     paths:
       - website/**
       - tools/check-download-site.mjs
+      - tools/launcher-favicon-v1.json
       - .github/workflows/download-site.yml
   workflow_dispatch:
 permissions:
