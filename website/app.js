@@ -6,7 +6,7 @@ const assetNames = [
 ];
 const translations = {
   ko: {
-    skip: '다운로드로 바로 가기', language: '언어',
+    skip: '다운로드로 바로 가기', language: '언어', headerHome: '회사 홈페이지',
     intro: 'TeamHJD의 게임 플레이테스트를 위한 런처입니다.',
     details: '이메일 인증 후 테스트 게임을 설치하고 실행할 수 있습니다. 새 버전 확인과 업데이트, 설치 파일 관리도 런처에서 진행할 수 있습니다.',
     windowsRequirement: 'Windows 10 / 11 · x64', macRequirement: 'macOS 12 이상', download: '다운로드',
@@ -39,7 +39,7 @@ const translations = {
     related: '관련 사이트', teamDocs: '팀 개발 문서', footerNavigation: '하단 메뉴'
   },
   en: {
-    skip: 'Skip to downloads', language: 'Language',
+    skip: 'Skip to downloads', language: 'Language', headerHome: 'Company website',
     intro: 'A launcher for TeamHJD game playtests.',
     details: 'Verify your email to install and run test games. The launcher also lets you check for new versions, apply updates and manage installed files.',
     windowsRequirement: 'Windows 10 / 11 · x64', macRequirement: 'macOS 12 or later', download: 'Download',
@@ -72,7 +72,7 @@ const translations = {
     related: 'Related sites', teamDocs: 'Team documentation', footerNavigation: 'Footer navigation'
   },
   'zh-CN': {
-    skip: '跳转到下载', language: '语言',
+    skip: '跳转到下载', language: '语言', headerHome: '公司主页',
     intro: '用于 TeamHJD 游戏测试的启动器。',
     details: '通过邮箱验证后，即可安装并运行测试游戏。您还可以在启动器中检查新版本、更新游戏和管理安装文件。',
     windowsRequirement: 'Windows 10 / 11 · x64', macRequirement: 'macOS 12 或更高版本', download: '下载',
@@ -107,7 +107,8 @@ const translations = {
 };
 let release = null;
 let language = 'ko';
-const languageControl = document.querySelector('#language');
+const languageControl = document.querySelector('#language-switcher');
+const languageLabels = {ko:'한국어', en:'English', 'zh-CN':'简体中文'};
 
 function showRelease() {
   if (!release) return;
@@ -122,7 +123,10 @@ function showRelease() {
 function setLanguage(value, persist = false) {
   language = Object.hasOwn(translations, value) ? value : 'ko';
   document.documentElement.lang = language;
-  languageControl.value = language;
+  document.querySelector('#current-language').textContent = languageLabels[language];
+  for (const button of languageControl.querySelectorAll('[data-language]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.language === language));
+  }
   for (const node of document.querySelectorAll('[data-i18n]')) {
     const text = translations[language][node.dataset.i18n] ?? translations.ko[node.dataset.i18n];
     if (typeof text === 'string') node.textContent = text;
@@ -149,20 +153,36 @@ if (!initialLanguage) {
   try { initialLanguage = localStorage.getItem('teamhjd-launcher-language'); } catch { /* Keep Korean default. */ }
 }
 setLanguage(initialLanguage);
-languageControl.addEventListener('change', event => setLanguage(event.target.value, true));
+for (const button of languageControl.querySelectorAll('[data-language]')) {
+  button.addEventListener('click', () => {
+    setLanguage(button.dataset.language, true);
+    languageControl.open = false;
+    languageControl.querySelector('summary').focus();
+  });
+}
 
 const relatedSites = document.querySelector('#related-sites');
+const dropdowns = [languageControl, relatedSites];
+for (const dropdown of dropdowns) {
+  dropdown.addEventListener('toggle', () => {
+    if (dropdown.open) for (const other of dropdowns) if (other !== dropdown) other.open = false;
+  });
+  dropdown.addEventListener('focusout', event => {
+    if (event.relatedTarget && !dropdown.contains(event.relatedTarget)) dropdown.open = false;
+  });
+}
 document.addEventListener('click', event => {
-  if (relatedSites.open && !relatedSites.contains(event.target)) relatedSites.open = false;
-});
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && relatedSites.open) {
-    relatedSites.open = false;
-    relatedSites.querySelector('summary').focus();
+  for (const dropdown of dropdowns) {
+    if (dropdown.open && !dropdown.contains(event.target)) dropdown.open = false;
   }
 });
-relatedSites.addEventListener('focusout', event => {
-  if (event.relatedTarget && !relatedSites.contains(event.relatedTarget)) relatedSites.open = false;
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') for (const dropdown of dropdowns) {
+    if (dropdown.open) {
+      dropdown.open = false;
+      dropdown.querySelector('summary').focus();
+    }
+  }
 });
 
 async function loadRelease() {

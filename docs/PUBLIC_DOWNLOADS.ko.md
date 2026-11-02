@@ -2,7 +2,7 @@
 
 ## 역할과 진입점
 
-`https://testlauncher.teamhjd.com/`은 Windows x64, Apple Silicon Mac, Intel Mac용 **공개 런처 ZIP**을 받는 정적 페이지다. 대표 사이트 `https://teamhjd.com/`에서는 **푸터 → 관련 사이트 → Game Test Launcher**에만 연결한다. 기존 GitHub Notify·팀 개발 문서 항목, header·hero·본문은 보존한다. 한국어/English/简体中文의 `?lang=ko/en/zh-CN` 선택을 전달한다.
+`https://testlauncher.teamhjd.com/`은 Windows x64, Apple Silicon Mac, Intel Mac용 **공개 런처 ZIP**을 받는 정적 페이지다. 대표 사이트 `https://teamhjd.com/`에서는 **푸터 → 관련 사이트 → Game Test Launcher**에만 연결한다. 메인의 현재 관련 사이트 항목, header·hero·본문은 보존한다. 한국어/English/简体中文의 `?lang=ko/en/zh-CN` 선택을 전달한다.
 
 푸터만을 진입 링크로 제공하는 것은 접근 인증 정책이 아니다. 다운로드 페이지는 공개이며 주소를 알면 직접 열 수 있다. 검색 노출은 `noindex,nofollow`로 억제하고 sitemap에는 넣지 않는다. 공개 런처를 받는 데 이메일 인증을 요구하지 않는다. **비공개 게임 설치·업데이트는 런처에서 기존 이메일 인증을 거친다.**
 
@@ -46,7 +46,7 @@ https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/downl
 - `.github/workflows/download-site.yml`: `website/` 관련 main push 또는 수동 실행으로 검사한 **website 폴더만** GitHub Pages 배포. 기존 native Mac 릴리즈 workflow와 별개다.
 - Pages custom domain은 **런처 저장소**에 `testlauncher.teamhjd.com`. 대표 사이트 저장소 `team-hjd-site`의 `cname=teamhjd.com`을 덮어쓰지 않는다.
 - Cloudflare DNS의 새 `testlauncher` CNAME → `team-hjd-21.github.io`, DNS only. 인증서 승인 뒤 이 Pages 사이트의 HTTPS 강제를 켜고 실제 HTTPS/HTTP→HTTPS 응답을 검증한다. 메일/MX/TXT/다른 호스트는 변경하지 않는다.
-- 대표 사이트 footer는 별도 `Team-HJD-21/team-hjd-site` 저장소다. 최신 remote main을 기준으로 변경하고, `scripts/render-team.mjs`로 팀 프로필 footer를 재생성한 뒤 기존 check/test/build를 실행한다. 이전 로컬 clone에 없던 GitHub Notify 항목을 덮어쓰지 않는다.
+- 대표 사이트 footer는 별도 `Team-HJD-21/team-hjd-site` 저장소다. 최신 remote main과 `teamhjd.com` 채팅의 배포 기준을 확인한다. 메인 footer 변경은 해당 저장소에서 `scripts/render-team.mjs`로 팀 프로필을 재생성한 뒤 기존 check/test/build를 실행한다. 이전 clone의 메뉴를 최신 main에 덮어쓰거나, 최신 main에서 제거한 항목을 다시 넣지 않는다.
 
 ```powershell
 node --check website/app.js
@@ -67,6 +67,18 @@ gh run list --workflow download-site.yml --branch main --limit 5 --json database
 새 런처 Release마다 사이트의 버전 문자열을 수동 변경하거나 전체 런처를 다시 빌드하지 않는다. 사이트 코드 변경은 Pages 배포, 서버의 포털 종료 코드는 소유권을 검증한 origin 재시작이 각각 필요하다. 이미 공개한 v0.1.3 ZIP/태그를 문서 링크 변경 때문에 덮어쓰지 않는다. 예전 ZIP에 동봉된 수동 다운로드 페이지 안내는 당시 운영 기록이며 최신 웹 가이드를 우선한다.
 
 브랜드 색·로고·footer는 대표 사이트를 기준으로 한다. 사업자정보·정책·관련 사이트 메뉴를 포함한 동일 footer를 유지하고, 복사한 상대 경로는 대표 사이트의 올바른 절대 URL로 연결한다. 사업자정보나 정책이 바뀌면 함께 대조한다. 상세 Mac 첫 실행 승인과 ZIP 전체 보관·안정된 bootstrap 고정 안내는 사용 가이드에 유지한다. 사이트 공개 성공을 Mac 게임 플레이·크로스플레이 검증으로 확대하지 않는다.
+
+## 2026-11-03 공통 디자인 동기화
+
+사용자 요청으로 WebSites-GithubIO의 `teamhjd.com` 채팅에 직접 문의했고, 답변과 실제 배포 원본 `Team-HJD-21/team-hjd-site@434e60024be1c53d3a508628553b867e7ff13a4e`를 기준으로 맞췄다. 이 작업은 런처의 `website/`만 수정하며 대표 사이트나 게임 API/운영 대시보드를 재배포하지 않는다.
+
+- 공통 토큰: 배경 `#080f17`, 표면 `#13202c`, 본문 `#f3f0e8`, 보조 `#a2afab`, 경계선 `#2c3b48`, 강조 `#d9eea6`. Pretendard/Noto Sans KR/system 기본16px·행간1.7을 사용한다. 앞부분의 옛 녹색 토큰만 복사하지 않고 메인 CSS의 뒤쪽 재정의까지 확인한다.
+- header/footer 폭1180px, 상세 본문1100px. PC 좌우28px·모바일22px, header 로고158px·모바일132px, footer 로고140px. 헤더 언어 선택은 지구본과 같은 SVG chevron을 쓰는 한국어/English/简体中文 메뉴다. 선택 상태, 외부 클릭·포커스 이동·Escape 닫기, 키보드 탐색을 유지한다.
+- 푸터 배경 `#060c13`, PC padding36px·위쪽 반경24px, 모바일 padding28px22px·반경22px. 사업자정보는 반경14px의 배경 면으로 묶고 메인과 같은 정책 간격25px를 적용한다. 링크에 일괄 화살표를 붙이지 않는다. 관련 사이트는 팀 개발 문서 / Game Test Launcher / Threadle / PixelPin / 겜붕이의 노트의5개이며, 과거 GitHub Notify를 복원하지 않는다.
+- 소개·다운로드·이메일 수집 안내·첫 실행 FAQ는 유지한다. 다운로드 카드·FAQ는 메인의 배경 면/모서리/호버/터치/포커스 형식을 따르며 동작 줄이기 설정을 존중한다. 고정 dark 디자인이고 테마 전환은 추가하지 않는다.
+- 검증: 실제 메인/로컬 화면에서 선택한 공통 token·글꼴·행간·header/logo·footer/business의 색/간격/크기 및 정규화한 footer13개 링크가 일치했다. 다운로드 페이지390px에서 한국어·English·简体中文의 번역 누락/가로 넘침 없음, 언어 선택·선택 상태·Escape 닫기와 FAQ Enter 동작을 확인했다. Node 구문·공개 파일/최신 다운로드 계약·정적 자산 content hash 검사를 통과했다.
+
+다음 디자인 동기화도 최신 메인 채팅과 remote SHA를 먼저 확인한다. 동일 이름의 CSS 앞쪽 규칙만 보거나 예전 작업 폴더의 footer를 복사한 것으로 완료하지 않는다. 관련 사이트 대상 도메인의 운영·DNS 변경은 그 담당 작업과 별도로 조율하며, 이 페이지를 맞추기 위해 임의 수정하지 않는다.
 
 ## 2026-10-31 배포 확인
 
