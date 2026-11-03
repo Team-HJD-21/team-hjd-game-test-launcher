@@ -43,7 +43,7 @@ ApplicationWindow {
     property string reviewMode: ""
     property bool advancedSettings: false
     property bool uiReady: false
-    readonly property bool blockingFlow: !!v.updateGate || (v.needsLogin && !v.offlineMode) || !!v.authenticating
+    readonly property bool blockingFlow: !!v.updateGate || (v.needsLogin && !v.offlineMode) || !!v.authenticating || loginNotice.opened || updateNotice.opened
     function syncGates() {
         if(!uiReady) return
         if(v.updateGate) {
@@ -51,7 +51,7 @@ ApplicationWindow {
             updateNotice.open()
         } else {
             updateNotice.close()
-            if(v.needsLogin && !v.offlineMode) loginNotice.open()
+            if((v.needsLogin && !v.offlineMode) || v.authenticating) loginNotice.open()
             else loginNotice.close()
         }
     }
@@ -378,7 +378,7 @@ ApplicationWindow {
     Popup {
         id: loginNotice
         anchors.centerIn: Overlay.overlay; width: Math.min(520,window.width-60)
-        modal: true; focus: true; padding: 28; closePolicy: v.needsLogin && !v.offlineMode ? Popup.NoAutoClose : Popup.CloseOnEscape
+        modal: true; focus: true; padding: 28; closePolicy: v.authenticating || (v.needsLogin && !v.offlineMode) ? Popup.NoAutoClose : Popup.CloseOnEscape
         Overlay.modal: Rectangle { color: "#B0000000" }
         background: Rectangle { color: "#20262B"; radius: 9; border.color: "#48525B" }
         contentItem: ColumnLayout {
