@@ -45,8 +45,9 @@ public:
     Q_INVOKABLE bool saveSettings(const QString &url,const QString &password,const QString &key,const QString &root,bool reduced);
     Q_INVOKABLE QVariantMap importInvite(const QUrl &file);
     Q_INVOKABLE QString localPath(const QUrl &url) const { return url.toLocalFile(); }
-    Q_INVOKABLE void checkLauncherUpdate();
+    Q_INVOKABLE void checkLauncherUpdate(bool force=false);
     Q_INVOKABLE void applyLauncherUpdate();
+    Q_INVOKABLE void continueOffline();
     Q_INVOKABLE void showLicenses();
     Q_INVOKABLE bool canClose() const { return !m_busy||m_background; }
 signals:
@@ -91,6 +92,8 @@ private:
     QJsonObject m_inviteInfo;
     bool m_cloudflare=false;
     bool m_hadSession=false,m_checkingServer=false,m_authNoticeShown=false;
+    bool m_offlineMode=false,m_authenticating=false;
+    QString m_updateGate,m_updateError;
     QDateTime m_authExpires;
 #ifdef Q_OS_MACOS
     QByteArray m_pendingPassword,m_pendingSession;

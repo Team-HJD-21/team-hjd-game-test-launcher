@@ -42,6 +42,20 @@ ApplicationWindow {
     property int nextNotice: 0
     property string reviewMode: ""
     property bool advancedSettings: false
+    property bool uiReady: false
+    readonly property bool blockingFlow: !!v.updateGate || (v.needsLogin && !v.offlineMode) || !!v.authenticating
+    function syncGates() {
+        if(!uiReady) return
+        if(v.updateGate) {
+            loginNotice.close(); settings.close(); helpDialog.close(); fileMenu.close(); viewMenu.close(); helpMenu.close(); gameMenu.close()
+            updateNotice.open()
+        } else {
+            updateNotice.close()
+            if(v.needsLogin && !v.offlineMode) loginNotice.open()
+            else loginNotice.close()
+        }
+    }
+    onVChanged: syncGates()
     onReviewModeChanged: {
         if(reviewMode==="login") loginNotice.open()
         else if(reviewMode==="settings") settings.open()
@@ -67,17 +81,17 @@ ApplicationWindow {
     }
     function removeToast(uid) { for(var i=0;i<toastModel.count;i++) if(toastModel.get(i).uid===uid) { toastModel.remove(i); return } }
     onClosing: function(close) { if (!launcher.canClose()) { close.accepted = false; closeNotice.open() } }
-    Component.onCompleted: entering = false
+    Component.onCompleted: { entering = false; uiReady=true; syncGates() }
     function connectInvite(file) { var result=launcher.importInvite(file);if(result.applied){settings.close();return}if(result.server){settings.open();serverField.text=result.server;keyField.text=result.key} }
     Connections { target: launcher; function onRequestSettings() { settings.open() } function onRequestInvite() { inviteDialog.open() } function onRequestLogin() { loginNotice.open() } function onInviteAccepted() {settings.close();passwordField.text=""} function onToast(title, message, tone) { window.notify(title, message, tone) } }
     DropArea {
-        id: inviteDrop;anchors.fill: parent
+        id: inviteDrop;anchors.fill: parent; enabled: !window.blockingFlow
         onDropped: function(drop) {if(drop.hasUrls&&drop.urls.length===1){var path=drop.urls[0].toString().toLowerCase();if(path.endsWith(".hjdinvite")||path.endsWith(".json")){window.connectInvite(drop.urls[0]);drop.acceptProposedAction()}}}
     }
     Rectangle { z:100;anchors.fill: parent;anchors.margins: 5;visible: inviteDrop.containsDrag;color: "#D01B2429";border.color: "#E8C76A";border.width: 2;radius: 7;Label {anchors.centerIn: parent;text: "초대 파일을 여기에 놓아 주세요";color: "#F0E4BD";font.pixelSize: 22;font.bold: true} }
-    Shortcut { sequence: "Ctrl+,"; onActivated: settings.open() }
-    Shortcut { sequence: "Ctrl+B"; onActivated: window.sidebarVisible=!window.sidebarVisible }
-    Shortcut { sequence: "F1"; onActivated: helpDialog.open() }
+    Shortcut { sequence: "Ctrl+,"; enabled: !window.blockingFlow; onActivated: settings.open() }
+    Shortcut { sequence: "Ctrl+B"; enabled: !window.blockingFlow; onActivated: window.sidebarVisible=!window.sidebarVisible }
+    Shortcut { sequence: "F1"; enabled: !window.blockingFlow; onActivated: helpDialog.open() }
     Shortcut { sequence: "Alt+F4"; onActivated: window.close() }
 
     component Field: TextField {
@@ -214,7 +228,7 @@ ApplicationWindow {
             Label { text: "플레이테스트"; font.pixelSize: 16; font.bold: true; color: "#E8EBE8" }
             Item { Layout.fillWidth: true }
             Rectangle { width: 6; height: 6; radius: 3; color: v.online ? "#8CBD9E" : v.needsLogin ? "#E8C76A" : "#7B8389" }
-            Caption { text: v.connectionLabel; font.pixelSize: 11; Accessible.description: v.connectionDetail }
+            Caption { text: v.offlineMode ? "오프라인 플레이" : v.connectionLabel; font.pixelSize: 11; Accessible.description: v.connectionDetail }
         }
         RowLayout {
             visible: v.needsLogin; Layout.fillWidth: true; Layout.bottomMargin: 16; spacing: 12
@@ -341,20 +355,47 @@ ApplicationWindow {
         contentItem: ColumnLayout { spacing: 20; Label { text: "작업을 마친 뒤 종료할 수 있어요"; color: "#F0F0EA"; font.bold: true } Caption { text: "다운로드나 설치 중에는 취소를 누른 뒤 창을 닫아 주세요."; Layout.fillWidth: true } ActionButton { text: "확인"; Layout.alignment: Qt.AlignRight; onClicked: closeNotice.close() } }
     }
     Popup {
+        id: updateNotice
+        anchors.centerIn: Overlay.overlay; width: Math.min(520,window.width-60)
+        modal: true; focus: true; padding: 28; closePolicy: Popup.NoAutoClose
+        Overlay.modal: Rectangle { color: "#CC000000" }
+        background: Rectangle { color: "#20262B"; radius: 9; border.color: "#776941" }
+        contentItem: ColumnLayout {
+            spacing: 18
+            Label { text: v.updateGate==="ready" ? "런처 업데이트 준비 완료" : v.updateGate==="error" ? "런처 업데이트를 확인해 주세요" : v.updateGate==="downloading" ? "런처를 업데이트하고 있어요" : "런처 업데이트 확인 중"; color: "#F0F0EA"; font.pixelSize: 21; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            Caption { text: v.updateGate==="ready" ? "검증된 새 버전을 준비했습니다. 런처를 종료한 뒤 다시 실행하면 자동 적용됩니다." : v.updateGate==="error" ? v.updateError : v.updateGate==="downloading" ? "v"+v.updateVersion+"을 다운로드하고 파일을 검증합니다. 완료될 때까지 다른 기능은 사용할 수 없습니다." : "이메일 인증과 별개로 최신 런처를 먼저 확인합니다."; Layout.fillWidth: true; lineHeight: 1.5 }
+            BusyIndicator { running: v.updateGate==="checking"; visible: running; Layout.alignment: Qt.AlignHCenter }
+            ProgressBar { visible: v.updateGate==="downloading"; Layout.fillWidth: true; value: v.progress; indeterminate: v.progress<=0 }
+            Caption { visible: v.updateGate==="downloading"; text: v.transfer || "업데이트 파일 준비 중"; Layout.fillWidth: true }
+            Caption { visible: v.updateGate==="error" && v.canPlay; text: "연결을 확인할 수 없어도 설치된 게임은 오프라인으로 플레이할 수 있습니다."; Layout.fillWidth: true }
+            RowLayout { Layout.fillWidth: true; Item { Layout.fillWidth: true }
+                ActionButton { text: "오프라인 플레이"; visible: v.updateGate==="error" && v.canPlay; onClicked: launcher.continueOffline() }
+                ActionButton { text: "런처 종료"; visible: v.updateGate==="ready" || v.updateGate==="error"; onClicked: window.close() }
+                ActionButton { text: "다시 확인"; prominent: true; visible: v.updateGate==="error"; onClicked: launcher.checkLauncherUpdate(true) }
+            }
+        }
+    }
+    Popup {
         id: loginNotice
         anchors.centerIn: Overlay.overlay; width: Math.min(520,window.width-60)
-        modal: true; focus: true; padding: 28; closePolicy: Popup.CloseOnEscape
+        modal: true; focus: true; padding: 28; closePolicy: v.needsLogin && !v.offlineMode ? Popup.NoAutoClose : Popup.CloseOnEscape
         Overlay.modal: Rectangle { color: "#B0000000" }
         background: Rectangle { color: "#20262B"; radius: 9; border.color: "#48525B" }
         contentItem: ColumnLayout {
             spacing: 18
-            Label { text: "이메일로 테스트 참여"; color: "#F0F0EA"; font.pixelSize: 21; font.bold: true }
-            Caption { text: "브라우저에서 이메일로 받은 일회용 코드를 입력하면 연결됩니다. 인증을 마친 뒤 런처로 돌아오세요."; Layout.fillWidth: true; lineHeight: 1.5 }
+            Label { text: v.hadEmailSession ? "이메일 재인증이 필요해요" : "이메일로 테스트 참여"; color: "#F0F0EA"; font.pixelSize: 21; font.bold: true }
+            Caption { text: v.authenticating ? "브라우저에서 인증을 진행하고 있습니다. 완료되면 서버 연결과 게임 목록을 확인합니다." : v.hadEmailSession ? "저장된 이메일 인증이 만료되었거나 확인되지 않습니다. 브라우저에서 다시 인증해 주세요." : "브라우저에서 이메일로 받은 일회용 코드를 입력하면 연결됩니다. 인증을 마친 뒤 런처로 돌아오세요."; Layout.fillWidth: true; lineHeight: 1.5 }
+            BusyIndicator { running: !!v.authenticating; visible: running; Layout.alignment: Qt.AlignHCenter }
+            Caption { text: v.error; visible: !!v.error; color: "#ED9B7E"; Layout.fillWidth: true }
             Rectangle { Layout.fillWidth: true; implicitHeight: privacyText.implicitHeight+28; radius: 5; color: "#171C20"; border.color: "#333D44"
                 Caption { id: privacyText; anchors.fill: parent; anchors.margins: 14; text: "TeamHJD는 테스트 운영을 위해 인증된 이메일, 최초·최근 인증 시각, 최근 접속 시각과 인증 횟수를 비공개 서버에 저장합니다. 이메일 주소별 참여 제한은 없습니다."; lineHeight: 1.55 }
             }
             Caption { text: window.isMac ? "연결 정보는 macOS 키체인으로 보호합니다. 인증은 Cloudflare Access에서 처리합니다." : "연결 정보는 이 PC의 Windows 계정으로 암호화해 보관합니다. 인증은 Cloudflare Access에서 처리합니다."; Layout.fillWidth: true; lineHeight: 1.5 }
-            RowLayout { Layout.fillWidth: true; Item {Layout.fillWidth: true} ActionButton { text: "취소"; onClicked: loginNotice.close() } ActionButton { text: "브라우저에서 인증"; prominent: true; onClicked: {loginNotice.close();launcher.login()} } }
+            RowLayout { Layout.fillWidth: true; Item {Layout.fillWidth: true}
+                ActionButton { text: "오프라인 플레이"; visible: !!v.canPlay; enabled: !v.working; onClicked: {loginNotice.close();launcher.continueOffline()} }
+                ActionButton { text: v.authenticating ? "인증 취소" : v.needsLogin && !v.offlineMode ? "런처 종료" : "닫기"; onClicked: {if(v.authenticating)launcher.cancel();else if(v.needsLogin&&!v.offlineMode)window.close();else loginNotice.close()} }
+                ActionButton { text: "브라우저에서 인증"; prominent: true; enabled: !v.working; onClicked: launcher.login() }
+            }
         }
     }
     Popup {

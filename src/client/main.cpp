@@ -1,5 +1,6 @@
 #include "Controller.h"
 #include "WindowFrame.h"
+#include "ManagedLauncherRoot.h"
 #include <QCommandLineParser>
 #include <QCommandLineOption>
 #include <QDir>
@@ -49,7 +50,9 @@ int main(int argc,char **argv) {
 #endif
         return 2;
     }
-    Controller controller(data,parser.value("launcher-root"),parser.isSet("test-allow-loopback"));
+    auto launcherRoot=parser.value("launcher-root");
+    if(launcherRoot.isEmpty())launcherRoot=managedLauncherRoot(QCoreApplication::applicationFilePath());
+    Controller controller(data,launcherRoot,parser.isSet("test-allow-loopback"));
     if(parser.isSet("test-update-from")){
         try{controller.setTestUpdateFrom(parser.value("test-update-from"));}
         catch(const hjd::Error &error){QTextStream(stderr)<<error.what()<<'\n';return 64;}
