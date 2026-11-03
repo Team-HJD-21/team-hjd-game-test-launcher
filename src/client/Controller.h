@@ -90,6 +90,7 @@ private:
     bool m_hasPendingCa=false;
     QJsonObject m_inviteInfo;
     bool m_cloudflare=false;
+    bool m_hadSession=false,m_checkingServer=false,m_authNoticeShown=false;
     QDateTime m_authExpires;
 #ifdef Q_OS_MACOS
     QByteArray m_pendingPassword,m_pendingSession;

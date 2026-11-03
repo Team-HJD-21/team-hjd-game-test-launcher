@@ -1,5 +1,6 @@
 #include "Controller.h"
 #include "DefaultChannel.h"
+#include "ConnectionState.h"
 #include "core/CloudflareLogin.h"
 #include <QDateTime>
 #include <QCoreApplication>
@@ -49,6 +50,7 @@ void Controller::load() {
     m_inviteInfo=o["inviteInfo"].toObject();
     m_cloudflare=m_config.server==QUrl(channel::server)&&m_key==channel::publisherKey;
     if(m_cloudflare&&!o["cloudflareBlob"].toString().isEmpty()){
+        m_hadSession=true;
 #ifdef Q_OS_MACOS
         m_pendingSession=QByteArray::fromBase64(o["cloudflareBlob"].toString().toLatin1());
 #else
@@ -84,14 +86,17 @@ QVariantList Controller::library() const {
 QVariantMap Controller::view() const {
     const auto *g=selected(); QString installed,folder,previousVersion; bool running=false,previous=false; QString localError;QJsonObject receipt;qint64 installedBytes=0;int versionCount=0;
     try { Store store(m_gamesRoot); receipt=store.currentReceipt(m_selected); installed=receipt["version"].toString(); folder=store.currentDirectory(m_selected); running=store.running(m_selected);auto prev=store.state(m_selected)["previous"].toString();previous=!prev.isEmpty();if(previous)previousVersion=readJson(m_gamesRoot+"/"+m_selected+"/versions/"+prev+"/._teamhjd-receipt.json")["version"].toString();versionCount=QDir(m_gamesRoot+"/"+m_selected+"/versions").entryList(QDir::Dirs|QDir::NoDotAndDotDot).size();for(const auto &version:QDir(m_gamesRoot+"/"+m_selected+"/versions").entryList(QDir::Dirs|QDir::NoDotAndDotDot)){auto rp=m_gamesRoot+"/"+m_selected+"/versions/"+version+"/._teamhjd-receipt.json";if(QFileInfo::exists(rp)){auto r=readJson(rp);for(auto f:r["files"].toArray())installedBytes+=f.toObject()["bytes"].toInteger();}} } catch(const std::exception &e){localError=exceptionText(e);}
+    const bool loginRequired=needsLogin();
+    const bool online=m_online&&!loginRequired;
+    const auto connection=connectionState(!m_config.server.isEmpty(),loginRequired,m_hadSession,m_checkingServer,online,m_lastRefresh>0);
     bool compatible=!g||g->supported();
     bool installedOk=!installed.isEmpty(); bool update=g&&compatible&&installedOk&&(g->version!=installed||g->sha256!=receipt["archiveSha256"].toString());
-    QString action=running?QStringLiteral("게임 실행 중"):installedOk?update&&m_online?QStringLiteral("업데이트"):QStringLiteral("플레이"):needsLogin()?QStringLiteral("이메일로 시작"):m_config.server.isEmpty()?QStringLiteral("초대 파일로 연결"):!g?QStringLiteral("자동 연결 대기"):QStringLiteral("설치");
-    QString status=m_busy&&!m_background?m_phase:running?QStringLiteral("게임을 실행하고 있어요"):m_online?update?QStringLiteral("새 버전이 있어요 · 업데이트를 눌러 적용하세요"):installedOk?QStringLiteral("플레이할 준비가 되었어요"):QStringLiteral("게임을 설치하고 테스트에 참여하세요"):installedOk?QStringLiteral("오프라인 · 설치된 버전으로 플레이할 수 있어요"):m_config.server.isEmpty()?QStringLiteral("팀에서 받은 초대 파일을 가져오세요"):QStringLiteral("서버 연결을 확인하세요");
+    QString action=running?QStringLiteral("게임 실행 중"):installedOk?update&&online?QStringLiteral("업데이트"):QStringLiteral("플레이"):needsLogin()?QStringLiteral("이메일로 시작"):m_config.server.isEmpty()?QStringLiteral("초대 파일로 연결"):!g?QStringLiteral("자동 연결 대기"):QStringLiteral("설치");
+    QString status=m_busy&&!m_background?m_phase:running?QStringLiteral("게임을 실행하고 있어요"):online?update?QStringLiteral("새 버전이 있어요 · 업데이트를 눌러 적용하세요"):installedOk?QStringLiteral("플레이할 준비가 되었어요"):QStringLiteral("게임을 설치하고 테스트에 참여하세요"):installedOk?QStringLiteral("오프라인 · 설치된 버전으로 플레이할 수 있어요"):m_config.server.isEmpty()?QStringLiteral("팀에서 받은 초대 파일을 가져오세요"):QStringLiteral("서버 연결을 확인하세요");
     if(needsLogin()&&!installedOk&&!m_busy)status=QStringLiteral("이메일 인증 후 테스트에 참여할 수 있어요");
     if(!m_status.isEmpty()&&!m_busy&&!running) status=m_status;
     if(g&&!compatible&&!needsLogin()&&!m_busy){action=QStringLiteral("지원 빌드 준비 중");status=QStringLiteral("이 운영체제용 게임 빌드가 아직 배포되지 않았어요.");}
-    return {{"compatible",compatible},{"gamePlatform",g?g->platform:QString()},{"name",g?g->name:receipt["name"].toString(QStringLiteral("Hose for Hire"))},{"description",g?g->description:receipt["description"].toString(QStringLiteral("함께 출동하고, 함께 해결하세요.\nTeamHJD의 다음 플레이테스트가 여기에서 시작됩니다."))},{"notes",g?g->notes:receipt["notes"].toString(QStringLiteral("이메일로 인증하면 최신 테스트 빌드와 변경사항을 확인할 수 있습니다.\n\n인증은 브라우저에서 진행됩니다. 설치와 업데이트, 실행은 런처에서 한 번에 관리하세요."))},{"latest",g?g->version:QString()},{"installed",installed},{"installedAt",receipt["installedAt"].toString()},{"installedSize",sizeText(installedBytes)},{"versionCount",versionCount},{"previousVersion",previousVersion},{"canUninstall",versionCount>0||QFileInfo::exists(m_gamesRoot+"/"+m_selected+"/uninstall-pending.json")},{"canCancel",!m_deleting},{"folder",folder},{"online",m_online},{"running",running},{"previous",previous},{"busy",m_busy&&!m_background},{"working",m_busy},{"checking",m_busy&&m_background},{"progress",m_progress},{"transfer",m_transfer},{"action",action},{"status",status},{"error",!m_error.isEmpty()?m_error:localError},{"hasServer",!m_config.server.isEmpty()},{"canPlay",installedOk&&!running&&(!m_busy||m_background)},{"updateAvailable",update},{"updateMessage",m_updateMessage},{"launcherUpdate",!m_updateAsset.isEmpty()},{"cloudflare",m_cloudflare},{"needsLogin",needsLogin()},{"authExpires",m_authExpires.toString(Qt::ISODate)},{"serverHost",m_config.server.host()},{"size",g?sizeText(g->bytes):QString()}};
+    return {{"connectionState",connection.id},{"connectionLabel",connection.label},{"connectionDetail",connection.detail},{"hadEmailSession",m_hadSession},{"compatible",compatible},{"gamePlatform",g?g->platform:QString()},{"name",g?g->name:receipt["name"].toString(QStringLiteral("Hose for Hire"))},{"description",g?g->description:receipt["description"].toString(QStringLiteral("함께 출동하고, 함께 해결하세요.\nTeamHJD의 다음 플레이테스트가 여기에서 시작됩니다."))},{"notes",g?g->notes:receipt["notes"].toString(QStringLiteral("이메일로 인증하면 최신 테스트 빌드와 변경사항을 확인할 수 있습니다.\n\n인증은 브라우저에서 진행됩니다. 설치와 업데이트, 실행은 런처에서 한 번에 관리하세요."))},{"latest",g?g->version:QString()},{"installed",installed},{"installedAt",receipt["installedAt"].toString()},{"installedSize",sizeText(installedBytes)},{"versionCount",versionCount},{"previousVersion",previousVersion},{"canUninstall",versionCount>0||QFileInfo::exists(m_gamesRoot+"/"+m_selected+"/uninstall-pending.json")},{"canCancel",!m_deleting},{"folder",folder},{"online",online},{"running",running},{"previous",previous},{"busy",m_busy&&!m_background},{"working",m_busy},{"checking",m_busy&&m_background},{"progress",m_progress},{"transfer",m_transfer},{"action",action},{"status",status},{"error",!m_error.isEmpty()?m_error:localError},{"hasServer",!m_config.server.isEmpty()},{"canPlay",installedOk&&!running&&(!m_busy||m_background)},{"updateAvailable",update},{"updateMessage",m_updateMessage},{"launcherUpdate",!m_updateAsset.isEmpty()},{"cloudflare",m_cloudflare},{"needsLogin",needsLogin()},{"authExpires",m_authExpires.toString(Qt::ISODate)},{"serverHost",m_config.server.host()},{"size",g?sizeText(g->bytes):QString()}};
 }
 void Controller::selectGame(const QString &id){if(m_busy)return; if(id==m_selected)return; m_selected=id;m_status.clear();m_error.clear();emit changed();if(!m_config.server.isEmpty())refresh();}
 bool Controller::deferDuringCheck(std::function<void()> action){if(m_busy&&m_background){m_cancel=true;QTimer::singleShot(125,this,std::move(action));return true;}return false;}
@@ -103,13 +108,15 @@ void Controller::work(std::function<void()> job,std::function<void(const QString
 }
 void Controller::updateProgress(qint64 done,qint64 total,const QString &phase){QMetaObject::invokeMethod(this,[this,done,total,phase]{m_phase=phase;m_progress=total?double(done)/double(total):0;auto elapsed=qMax<qint64>(1,QDateTime::currentMSecsSinceEpoch()-m_progressStart);m_transfer=sizeText(done)+" / "+sizeText(total)+QStringLiteral("  ·  ")+sizeText(done*1000/elapsed)+"/s";emit changed();},Qt::QueuedConnection);}
 void Controller::refresh() {
-    if(m_busy)return;if(needsLogin()){m_online=false;m_lastRefresh=QDateTime::currentSecsSinceEpoch();emit changed();checkLauncherUpdate();return;}if(m_config.server.isEmpty()){emit requestSettings();return;}
-    m_lastRefresh=QDateTime::currentSecsSinceEpoch();m_background=true;
+    if(m_busy)return;if(needsLogin()){m_online=false;m_lastRefresh=QDateTime::currentSecsSinceEpoch();if(m_hadSession&&!m_authNoticeShown){m_authNoticeShown=true;emit toast(QStringLiteral("이메일 재인증이 필요해요"),QStringLiteral("이메일 인증이 만료되었거나 확인되지 않습니다. 다시 인증하면 서버에 연결됩니다."),"warning");}emit changed();checkLauncherUpdate();return;}if(m_config.server.isEmpty()){emit requestSettings();return;}
+    m_lastRefresh=QDateTime::currentSecsSinceEpoch();m_background=true;m_checkingServer=true;
     auto cfg=m_config;auto key=m_key;auto minimum=m_minSequence;auto result=std::make_shared<Catalog>();auto raw=std::make_shared<QByteArray>();m_phase=QStringLiteral("테스트 서버에 연결하는 중");
     work([this,cfg,key,minimum,result,raw]{*raw=Http::get(cfg.server.resolved(QUrl("catalog.json")),cfg,m_cancel);*result=verifyCatalog(*raw,key,cfg.server,minimum);},[this,result,raw](const QString &error){
+        m_checkingServer=false;
         if(error==QStringLiteral("취소했습니다.")){m_error.clear();return;}
         bool wasOnline=m_online;m_online=error.isEmpty();m_error=error;if(m_cloudflare&&error.contains(QStringLiteral("이메일 인증"))){m_config.cloudflareToken.clear();try{save();}catch(const Error&){} }
-        if(wasOnline&&!m_online)emit toast(QStringLiteral("서버 연결이 끊겼어요"),QStringLiteral("자동으로 다시 연결할게요. 설치된 게임은 계속 플레이할 수 있어요."),"warning");
+        if(needsLogin()&&m_hadSession&&!m_authNoticeShown){m_authNoticeShown=true;emit toast(QStringLiteral("이메일 재인증이 필요해요"),QStringLiteral("이메일 인증을 갱신하면 다시 연결됩니다."),"warning");}
+        else if(wasOnline&&!m_online)emit toast(QStringLiteral("서버 연결이 끊겼어요"),QStringLiteral("자동으로 다시 연결할게요. 설치된 게임은 계속 플레이할 수 있어요."),"warning");
         if(!wasOnline&&m_online)emit toast(QStringLiteral("테스트 서버 연결됨"),QStringLiteral("최신 테스트 버전을 자동으로 확인하고 있어요."),"success");
         if(error.isEmpty()){m_catalog=*result;m_minSequence=result->sequence;if(!selected()&&!result->games.isEmpty())m_selected=result->games.first().id;try{atomicWrite(m_dataRoot+"/catalog-cache.json",*raw);save();}catch(const std::exception &e){m_error=exceptionText(e);}}
         try{if(m_online&&selected()){auto receipt=Store(m_gamesRoot).currentReceipt(m_selected);auto installed=receipt["version"].toString();if(!installed.isEmpty()&&(installed!=selected()->version||receipt["archiveSha256"].toString()!=selected()->sha256)&&m_updateNotices[m_selected].toString()!=selected()->sha256){m_updateNotices[m_selected]=selected()->sha256;emit toast(QStringLiteral("새 게임 버전이 있어요"),selected()->version+QStringLiteral(" · 업데이트 버튼을 눌러 적용하세요."),"info");}}}catch(const Error&){}
@@ -139,7 +146,7 @@ void Controller::login(){
         m_error=error;
         if(!error.isEmpty()){emit toast(QStringLiteral("이메일 연결을 완료하지 못했어요"),error,error.contains(QStringLiteral("취소"))?"info":"error");return;}
         auto previous=m_config;auto previousExpires=m_authExpires;
-        try{m_config=*config;m_authExpires=session->expires;save();atomicWrite(m_dataRoot+"/catalog-cache.json",*raw);m_catalog=*catalog;m_minSequence=catalog->sequence;m_online=true;m_lastRefresh=QDateTime::currentSecsSinceEpoch();if(!selected()&&!catalog->games.isEmpty())m_selected=catalog->games.first().id;save();emit settingsChanged();emit toast(QStringLiteral("이메일 인증 완료"),QStringLiteral("게임을 설치하고 테스트에 참여하세요."),"success");}
+        try{m_config=*config;m_authExpires=session->expires;save();atomicWrite(m_dataRoot+"/catalog-cache.json",*raw);m_catalog=*catalog;m_minSequence=catalog->sequence;m_online=true;m_hadSession=true;m_authNoticeShown=false;m_lastRefresh=QDateTime::currentSecsSinceEpoch();if(!selected()&&!catalog->games.isEmpty())m_selected=catalog->games.first().id;save();emit settingsChanged();emit toast(QStringLiteral("이메일 인증 완료"),QStringLiteral("게임을 설치하고 테스트에 참여하세요."),"success");}
         catch(const std::exception &e){m_config=previous;m_authExpires=previousExpires;m_online=false;m_error=exceptionText(e);emit toast(QStringLiteral("인증 정보를 저장하지 못했어요"),m_error,"error");}
     });
 }

@@ -213,8 +213,13 @@ ApplicationWindow {
             Layout.fillWidth: true; Layout.bottomMargin: 23
             Label { text: "플레이테스트"; font.pixelSize: 16; font.bold: true; color: "#E8EBE8" }
             Item { Layout.fillWidth: true }
-            Rectangle { width: 6; height: 6; radius: 3; color: v.online ? "#8CBD9E" : "#7B8389" }
-            Caption { text: v.checking ? "자동 확인 중" : v.online ? "새 버전 자동 확인" : v.hasServer ? "자동 재연결 중" : "서버 연결 전"; font.pixelSize: 11 }
+            Rectangle { width: 6; height: 6; radius: 3; color: v.online ? "#8CBD9E" : v.needsLogin ? "#E8C76A" : "#7B8389" }
+            Caption { text: v.connectionLabel; font.pixelSize: 11; Accessible.description: v.connectionDetail }
+        }
+        RowLayout {
+            visible: v.needsLogin; Layout.fillWidth: true; Layout.bottomMargin: 16; spacing: 12
+            Caption { text: v.connectionDetail; color: "#E8C76A"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            ActionButton { text: v.hadEmailSession ? "이메일 다시 인증" : "이메일로 연결"; enabled: !v.working; onClicked: loginNotice.open(); implicitHeight: 36 }
         }
         Rectangle {
             id: hero
