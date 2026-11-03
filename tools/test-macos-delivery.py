@@ -79,13 +79,14 @@ def main():
     output = args.app.resolve().parents[2]
     active = load(args.roundtrip / 'launcher/active.json')['current']
     extracted = args.roundtrip / 'launcher/versions' / active
+    version = load(extracted / '._teamhjd-receipt.json')['version']
     executable = 'TeamHJDClient.app/Contents/MacOS/TeamHJDClient'
     subprocess.run([str(extracted / executable), '--data-root', str(args.roundtrip / 'ui-profile'),
                     '--capture', str(output / 'macos-ui.png'), '--quit-after-ms', '3400'], check=True, timeout=25)
     assert (output / 'macos-ui.png').stat().st_size > 10_000
     runtime = Path.home() / 'Library/Application Support/TeamHJD' / ('LauncherRuntime-macos-' + args.arch)
     assert not runtime.exists(), 'Bootstrap fixture requires a clean disposable runner'
-    partial = runtime / 'launcher/versions/0.1.3-seed'
+    partial = runtime / 'launcher/versions' / (version + '-seed')
     partial.mkdir(parents=True)
     (partial / 'interrupted-copy.txt').write_text('Incomplete prior first-use attempt, retain for diagnosis.')
     bootstrap = args.app.resolve() / 'Contents/MacOS/TeamHJDLauncher'
@@ -107,7 +108,7 @@ def main():
     assert applied['current'] == active and applied['previous'] == seed['current']
     print('PASS queued native launcher payload activation', flush=True)
     stop_owned(runtime)
-    bad = '0.1.3-bad-native-fixture'
+    bad = version + '-bad-native-fixture'
     rejected = runtime / 'launcher/versions' / bad
     shutil.copytree(extracted, rejected)
     # A fully receipted synthetic native process that never sends a frame ACK.

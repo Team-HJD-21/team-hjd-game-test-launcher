@@ -22,7 +22,7 @@
 int main(int argc,char **argv) {
     QGuiApplication app(argc,argv); app.setOrganizationName("TeamHJD");app.setApplicationName("GameTestLauncher");app.setApplicationVersion(HJD_VERSION);
     app.styleHints()->setColorScheme(Qt::ColorScheme::Dark);
-    app.setWindowIcon(QIcon(":/assets/brand/TeamHJD-Logo.png"));
+    app.setWindowIcon(QIcon(":/assets/brand/TeamHJD-AppIcon.png"));
     QCommandLineParser parser;parser.addHelpOption();parser.addVersionOption();
     parser.addOption(QCommandLineOption("invite","Connect using a team invitation file","path"));
     parser.addOption(QCommandLineOption("test-update-from","Isolated test only: compare launcher updates from this version","version"));

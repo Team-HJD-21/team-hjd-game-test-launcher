@@ -5,6 +5,7 @@ import html
 from html.parser import HTMLParser
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -53,6 +54,9 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("서명 검증됨", page)
         self.assertIn(html.escape("<img src=x onerror=alert(1)>", quote=True), page)
         self.assertNotIn("<img src=x", page)
+        icon = re.search(r'<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,([A-Za-z0-9+/=]+)">', page)
+        self.assertIsNotNone(icon)
+        self.assertEqual(base64.b64decode(icon[1]), (PROJECT / 'website/assets/favicons/v1/launcher/favicon-32.png').read_bytes())
         self.ps("& (Join-Path $env:HJD_DASH_PROJECT 'tools/Write-SignedCatalog.ps1') -PrivateRoot $env:HJD_DASH_ROOT -Game @{id='fixture';name='<img src=x onerror=alert(1)>';version='Mac <b>';platform='macos-universal';bytes=6789;files=@()}|Out-Null")
         page = self.generate()
         self.assertIn('Windows x64', page)
@@ -80,11 +84,14 @@ class DashboardTests(unittest.TestCase):
                 self.scripts = []
                 self.csp = ""
                 self.style = ""
+                self.script = ""
                 self.in_style = False
+                self.in_script = False
             def handle_starttag(self, tag, attrs):
                 attributes = dict(attrs)
                 if tag == "script":
                     self.scripts.append(attributes)
+                    self.in_script = True
                 if tag == "meta" and attributes.get("http-equiv") == "Content-Security-Policy":
                     self.csp = attributes["content"]
                 if tag == "style":
@@ -92,15 +99,51 @@ class DashboardTests(unittest.TestCase):
             def handle_endtag(self, tag):
                 if tag == "style":
                     self.in_style = False
+                if tag == "script":
+                    self.in_script = False
             def handle_data(self, data):
                 if self.in_style:
                     self.style += data
+                if self.in_script:
+                    self.script += data
         structure = Structure()
         structure.feed(page)
-        self.assertEqual(structure.scripts, [])
+        self.assertEqual(structure.scripts, [{}])
         self.assertIn("default-src 'none'", structure.csp)
-        self.assertIn("script-src 'none'", structure.csp)
+        self.assertIn("script-src 'sha256-" + base64.b64encode(hashlib.sha256(structure.script.encode()).digest()).decode() + "'", structure.csp)
+        self.assertEqual(structure.script, (PROJECT / 'tools/hosting-dashboard/app.js').read_text(encoding='utf-8-sig'))
+        self.assertNotIn("'unsafe-inline'", structure.csp)
+        self.assertNotIn("'unsafe-eval'", structure.csp)
+        self.assertIn("connect-src 'none'", structure.csp)  # No controller in this isolated fixture.
         self.assertIn("sha256-" + base64.b64encode(hashlib.sha256(structure.style.encode()).digest()).decode(), structure.csp)
+
+    def test_analytics_kst_boundary_windows_and_invalid_dates(self):
+        users = [
+            {'Email': 'new@example.invalid', 'FirstVerifiedAt': '2026-11-02T15:00:00Z', 'LastAccessAt': '2026-11-02T15:10:00Z', 'LoginCount': 1},
+            {'Email': 'return@example.invalid', 'FirstVerifiedAt': '2026-10-27T15:10:00Z', 'LastAccessAt': '2026-11-02T15:09:59Z', 'LoginCount': 3},
+            {'Email': 'previous@example.invalid', 'FirstVerifiedAt': '2026-10-20T15:11:00Z', 'LastAccessAt': '2026-10-21T00:00:00Z', 'LoginCount': 2},
+            {'Email': 'invalid@example.invalid', 'FirstVerifiedAt': 'broken', 'LastAccessAt': '2026-11-03T00:00:00Z', 'LoginCount': 0},
+            {'Email': 'offset@example.invalid', 'FirstVerifiedAt': '2026-11-03T00:00:00+09:00', 'LastAccessAt': '', 'LoginCount': 0},
+        ]
+        payload = self.root / 'analytics-fixture.json'
+        payload.write_text(json.dumps(users), encoding='utf-8')
+        result = json.loads(self.ps(". (Join-Path $env:HJD_DASH_PROJECT 'tools/HostingDashboardAnalytics.ps1');$users=Get-Content -LiteralPath (Join-Path $env:HJD_DASH_ROOT 'analytics-fixture.json') -Raw -Encoding utf8|ConvertFrom-Json -DateKind String;Get-DashboardAnalytics $users ([DateTimeOffset]'2026-11-02T15:10:00Z')|ConvertTo-Json -Depth 8"))
+        self.assertEqual({key: result[key] for key in ('Total', 'Sessions', 'Today', 'Recent', 'Active7', 'Active30', 'NewToday', 'New7', 'Previous7', 'Returning', 'InvalidDates')},
+                         {'Total': 5, 'Sessions': 6, 'Today': 2, 'Recent': 2, 'Active7': 2, 'Active30': 3, 'NewToday': 1, 'New7': 2, 'Previous7': 1, 'Returning': 1, 'InvalidDates': 4})
+        self.assertEqual(len(result['Days']), 30)
+        self.assertEqual(result['Days']['2026-11-03'], 1)
+        self.assertEqual(sum(result['Days'].values()), 3)
+        self.assertEqual(result['Records'][3]['Last'], None)
+
+    def test_unreadable_audit_is_not_reported_as_zero_testers(self):
+        self.fixture()
+        (self.root / 'verified-users.json').write_text('{"schema":99,"users":[]}', encoding='utf-8')
+        page = self.generate()
+        self.assertIn('data-valid="false"', page)
+        self.assertIn('role="alert"', page)
+        self.assertIn('처음 여는 경우 숫자를 표시하지 않습니다', page)
+        self.assertIn('<strong class="metric-value">—', page)
+        self.assertNotIn('<strong class="metric-value">0', page)
 
     def test_live_synthetic_origin_and_stale_pid_signature_rejection(self):
         self.fixture()
@@ -115,7 +158,11 @@ class DashboardTests(unittest.TestCase):
             except OSError:
                 time.sleep(.05)
         else:
-            self.fail("Synthetic dashboard origin did not start")
+            detail = ""
+            if self.server.poll() is not None:
+                _, errors = self.server.communicate(timeout=5)
+                detail = errors.decode('utf-8', errors='replace')[:2000]
+            self.fail("Synthetic dashboard origin did not start: " + detail)
         self.ps(". (Join-Path $env:HJD_DASH_PROJECT 'tools/HostingCommon.ps1');$p=Get-Process -Id ([int]$env:HJD_DASH_PID);Write-HostingJson (Join-Path $env:HJD_DASH_ROOT 'server-process.json') @{pid=$p.Id;startedTicks=$p.StartTime.ToUniversalTime().Ticks.ToString();executable=$p.Path;python=$p.Path;script=(Join-Path $env:HJD_DASH_PROJECT 'server/distribution_server.py');bind='127.0.0.1';port=[int]$env:HJD_DASH_PORT}", HJD_DASH_PID=str(self.server.pid), HJD_DASH_PORT=str(port))
         page = self.generate()
         self.assertIn('data-component="origin" data-state="running"', page)

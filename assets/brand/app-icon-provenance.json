@@ -1,0 +1,22 @@
+{
+  "sourceRepository": "Team-HJD-21/team-hjd-site",
+  "sourceCommit": "22c596ac6ea86edd5e0f7adee07875c49e0e449a",
+  "variant": "launcher",
+  "source": "website/assets/favicons/v1/launcher/favicon-512.png",
+  "sourceSha256": "a4a4645f788abc3ff53cf8eb76a30973e4d5ad571b5dfd1e6dbbf2d2e8414a08",
+  "generator": "Pillow 11.2.1; OS icon sizing only",
+  "files": {
+    "TeamHJD-AppIcon.png": {
+      "bytes": 172317,
+      "sha256": "a4a4645f788abc3ff53cf8eb76a30973e4d5ad571b5dfd1e6dbbf2d2e8414a08"
+    },
+    "TeamHJD.ico": {
+      "bytes": 99739,
+      "sha256": "3212bd3283f1ce2dc5a25123a6e116a4e3fe37761b387e3b8e14cef349b0c34d"
+    },
+    "TeamHJD.icns": {
+      "bytes": 924918,
+      "sha256": "c376a43effd416f5c220f5a0bee37ccb10a918555b9601b671843287f88f734c"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 * text=auto eol=lf
 *.png binary
 *.ico binary
+*.icns binary
 licenses/** whitespace=-blank-at-eof
 vendor/miniz/** whitespace=-blank-at-eol

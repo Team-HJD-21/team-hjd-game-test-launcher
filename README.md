@@ -52,6 +52,8 @@ See [private distribution setup](docs/DISTRIBUTION.ko.md) and [architecture/trus
 
 For Cloudflare hosting, automatic recovery/startup, catalog renewal and verified-email reports, see the [Korean hosting guide](docs/PLAYTEST_HOSTING.ko.md). The origin binds to loopback; only the authenticated tunnel is public. Per-user autostart requires Windows logon, an awake PC and Internet access.
 
+The private **TeamHJD Game Tester 관리** dashboard provides tester statistics, searchable and paginated records, game catalog details and server controls. Local admin tools share the [design and usability rules](design.md) with the newsletter management tool.
+
 The server exposes read-only catalog/package routes. It has no upload, remote execution, game hosting or log collection endpoint. Binding a public interface, certificates, router forwarding and firewall deployment are explicit operator steps; the launcher does not change them.
 
 ## Release status

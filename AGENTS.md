@@ -7,6 +7,7 @@
 - 오류 조사: [프로젝트 장애 대응](docs/TROUBLESHOOTING.ko.md)에서 같은 증상을 먼저 찾는다.
 - 환경·CLI·권한·도구 문제는 `C:/Users/c/.codex/agent-troubleshooting.md`의 관련 항목을 먼저 읽고, 다른 프로젝트에 재사용할 수 있는 검증된 진단을 같은 파일에 누적한다. 프로젝트 기능 버그는 프로젝트 문서에 기록한다.
 - 이 PC의 인수인계가 필요하면 무시된 로컬 파일 `.local/OPERATIONS_HANDOFF.ko.md`를 읽는다. 다른 PC에는 없을 수 있다. 실제 상태는 저장된 경로와 상태 파일을 다시 확인하며, 과거 PID나 CI run ID를 현재 값으로 가정하지 않는다.
+- 로컬 관리 도구의 화면/사용성 변경은 [공통 디자인](design.md)을 먼저 읽는다. 겜붕이의 노트 로컬 관리와 토큰·목록·통계·갱신 규칙을 맞추며, 공개 사이트/네이티브 런처의 디자인과 구분한다.
 - Windows Python으로 문서/JSON을 다룰 때 `read_text(encoding='utf-8-sig')`, `write_text(..., encoding='utf-8')`를 명시한다. 기본 cp949로 한글 UTF-8 파일을 읽는 오류를 반복하지 않는다. 여러 파일 편집 중 실패하면 이미 저장된 diff부터 확인한다.
 
 ## 유지할 경계
