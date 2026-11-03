@@ -67,7 +67,16 @@ jobs:
           security list-keychains -d user -s "$keychain"
           echo 'TEAMHJD_TEST_KEYCHAIN_READY=1' >> "$GITHUB_ENV"
       - name: Native core and visible GUI startup checks
-        run: ctest --test-dir build-macos --output-on-failure
+        run: |
+          ctest --test-dir build-macos --output-on-failure -R '^connection_status$'
+          # Each unsigned native test binary must own its own fixture key. Reusing
+          # the wrapping item created by ConnectionTests prompts CoreTests for
+          # cross-binary Keychain consent. Remove only that disposable CI item;
+          # do not broaden its ACL or suppress the credential assertions.
+          keychain="$RUNNER_TEMP/TeamHJD-fixture.keychain-db"
+          test -f "$keychain"
+          security delete-generic-password -s com.teamhjd.launcher.credentials -a wrap-v1 "$keychain"
+          ctest --test-dir build-macos --output-on-failure -E '^connection_status$'
       - name: Archive the four native build outputs before packaging
         id: archive
         if: ${{ !cancelled() && steps.compile.outcome == 'success' }}

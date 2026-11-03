@@ -24,6 +24,10 @@ int main(int argc,char **argv){
         QTemporaryDir empty;check(empty.isValid(),"isolated first-use profile created");
         {Controller controller(empty.path(),{},false);auto view=controller.view();check(view["needsLogin"].toBool()&&view["connectionState"].toString()=="authentication-required"&&!view["hadEmailSession"].toBool(),"real first-use Controller exposes an email action without retrying an unauthenticated catalog");}
         QTemporaryDir expired;check(expired.isValid(),"isolated expired-session profile created");
+#ifdef Q_OS_MACOS
+        if(qgetenv("TEAMHJD_TEST_KEYCHAIN_READY")!="1")
+            hjd::fail("Create and unlock a disposable CI keychain before setting TEAMHJD_TEST_KEYCHAIN_READY=1");
+#endif
         const auto encoding=QByteArray::Base64UrlEncoding|QByteArray::OmitTrailingEquals;
         const auto now=QDateTime::currentSecsSinceEpoch();
         const auto header=QJsonDocument(QJsonObject{{"alg","RS256"},{"kid","synthetic-only"}}).toJson(QJsonDocument::Compact).toBase64(encoding);
