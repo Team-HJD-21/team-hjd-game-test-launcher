@@ -1,6 +1,6 @@
 # 런처 릴리즈와 게임 발행 절차
 
-마지막 절차 대조: **2026-10-31 KST, v0.1.3**. 명령은 저장소 루트의 PowerShell 7.5 이상을 기준으로 한다. 버전, 경로, 커밋과 CI run ID는 매번 실제 대상에 맞춘다. 과거 성공 기록은 [v0.1.3 검증](RELEASE_VALIDATION_0.1.3.md), 증상별 원인과 복구는 [장애 대응](TROUBLESHOOTING.ko.md)에 있다.
+마지막 절차 대조: **2026-11-03 KST, v0.1.4**. 명령은 저장소 루트의 PowerShell 7.5 이상을 기준으로 한다. 버전, 경로, 커밋과 CI run ID는 매번 실제 대상에 맞춘다. 과거 성공 기록은 [v0.1.3 검증](RELEASE_VALIDATION_0.1.3.md), 증상별 원인과 복구는 [장애 대응](TROUBLESHOOTING.ko.md)에 있다.
 
 ## 1. 먼저 배포 대상을 구분한다
 
@@ -230,3 +230,9 @@ $privateRoot = Join-Path $PWD '.local/production-distribution'
 - [ ] 게임도 발행했다면 인증 경로·catalog 서명·정본 ZIP을 확인했다.
 - [ ] 새 장애의 원인/확실도/수정/증거/한계를 적절한 문서에 기록했다.
 - [ ] 팀원에게 portable 다운로드, 이메일 인증→설치→플레이, Mac 첫 실행 승인과 남은 실기기 검증을 안내했다.
+
+## 2026-11-03 추가 기준
+
+[v0.1.4 검증](RELEASE_VALIDATION_0.1.4.md)을 함께 확인한다. 런처 시작 시 이메일 인증보다 먼저 업데이트를 확인하며, 업데이트·인증 모달이 열린 동안 배경 조작을 막는다. `queued-launcher.json`은 다음 안정된 TeamHJDLauncher 실행에서 적용된다. Client 파일만 반복해서 직접 열어 적용 완료로 오인하지 않는다. 설치 게임은 인증/업데이트 확인 실패 모달에서 오프라인 모드로 계속할 수 있다.
+
+Mac CI의 connection/core 테스트는 같은 임시 Keychain에서 서로 다른 unsigned 바이너리의 wrap 항목을 공유하지 않는다. 정해진 disposable Keychain의 해당 테스트 항목만 정리하고 각 바이너리의 실제 protect/unprotect 검사는 유지한다. 테스트 UI의 GitHub API rate-limit 오류와 native 전달 성공을 구분한다.
