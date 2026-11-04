@@ -254,8 +254,24 @@ def main():
     shutil.copytree(ROOT / 'legal', disk_source / 'legal')
     (disk_source / 'Applications').symlink_to('/Applications', target_is_directory=True)
     disk = args.output / f'TeamHJD-GameTestLauncher-macOS-{args.arch}.dmg'
-    run('hdiutil', 'create', '-volname', 'TeamHJD Game Test Launcher', '-srcfolder', disk_source,
-        '-format', 'UDZO', '-fs', 'HFS+', disk)
+    # -srcfolder treats dot-underscore files as AppleDouble metadata and drops
+    # our JSON receipt. Create a writable filesystem, copy regular bytes via
+    # Python, then compress the unmounted image. Never waive receipt equality.
+    working_disk=workspace/'installer-working.dmg'
+    mount=workspace/'dmg-mount';mount.mkdir()
+    total=sum(path.stat().st_size for path in disk_source.rglob('*') if path.is_file() and not path.is_symlink())
+    mebibytes=max(64,(total*13//10+32*1024*1024+1024*1024-1)//(1024*1024))
+    run('hdiutil','create','-size',str(mebibytes)+'m','-volname','TeamHJD Game Test Launcher','-format','UDRW','-fs','HFS+',working_disk)
+    attached=False
+    try:
+        run('hdiutil','attach','-nobrowse','-mountpoint',mount,working_disk);attached=True
+        (mount/'.metadata_never_index').touch()
+        shutil.copytree(disk_source,mount,dirs_exist_ok=True,symlinks=True)
+        mounted_receipt=mount/launcher.name/'Contents/Resources/seed/._teamhjd-receipt.json'
+        assert mounted_receipt.read_bytes()==(launcher/'Contents/Resources/seed/._teamhjd-receipt.json').read_bytes(),'Disk image lost its regular JSON receipt'
+    finally:
+        if attached:run('hdiutil','detach',mount)
+    run('hdiutil','convert',working_disk,'-format','UDZO','-o',disk)
     run('hdiutil', 'verify', disk)
     print(f'Packaged macOS {args.arch} {version}; {len(manifest["files"])} verified payload files; no game or credentials.')
 

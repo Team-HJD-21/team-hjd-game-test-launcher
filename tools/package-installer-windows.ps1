@@ -9,6 +9,8 @@ $version=([regex]::Match((Get-Content -LiteralPath (Join-Path $project 'CMakeLis
 $slot=Join-Path $bundle ('launcher/versions/'+$version)
 if(-not(Test-Path -LiteralPath (Join-Path $slot 'bootstrap-manifest.json'))){throw 'Package a fresh complete bundle with its embedded bootstrap first.'}
 $compiler=Join-Path ([IO.Path]::GetFullPath($NsisRoot)) 'makensis.exe'
+if((Split-Path $NsisRoot -Leaf) -cne 'nsis-3.13'){throw 'Select the exact pinned nsis-3.13 tool directory.'}
+& (Join-Path $PSScriptRoot 'Get-Nsis.ps1') -CacheRoot (Split-Path ([IO.Path]::GetFullPath($NsisRoot)))
 if(-not(Test-Path -LiteralPath $compiler)){throw 'Pinned NSIS 3.13 is required in the workspace; no global installer is needed.'}
 function Invoke-Nsis([string[]]$Arguments){
     $start=[Diagnostics.ProcessStartInfo]::new($compiler)
