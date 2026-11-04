@@ -258,10 +258,12 @@ def main():
     # our JSON receipt. Create a writable filesystem, copy regular bytes via
     # Python, then compress the unmounted image. Never waive receipt equality.
     working_disk=workspace/'installer-working.dmg'
-    mount=workspace/'dmg-mount';mount.mkdir()
+    mount=(workspace/'dmg-mount').resolve();mount.mkdir()
     total=sum(path.stat().st_size for path in disk_source.rglob('*') if path.is_file() and not path.is_symlink())
     mebibytes=max(64,(total*13//10+32*1024*1024+1024*1024-1)//(1024*1024))
-    run('hdiutil','create','-size',str(mebibytes)+'m','-volname','TeamHJD Game Test Launcher','-format','UDRW','-fs','HFS+',working_disk)
+    # A blank create is writable by default. -format is only accepted when a
+    # source folder/device is supplied; select UDZO on the later conversion.
+    run('hdiutil','create','-size',str(mebibytes)+'m','-volname','TeamHJD Game Test Launcher','-fs','HFS+',working_disk)
     attached=False
     try:
         run('hdiutil','attach','-nobrowse','-mountpoint',mount,working_disk);attached=True
