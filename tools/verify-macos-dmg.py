@@ -15,7 +15,10 @@ def main():
             subprocess.run(['hdiutil','attach','-readonly','-nobrowse','-mountpoint',str(mount),str(args.dmg.resolve())],check=True,timeout=120,capture_output=True);attached=True
             app=mount/'TeamHJDLauncher.app'
             assert (mount/'Applications').is_symlink() and (mount/'Applications').readlink()==Path('/Applications')
-            assert audit.tree_files(app)==audit.tree_files(args.app.resolve()),'Mounted application differs from the audited app'
+            actual=audit.tree_files(app);expected=audit.tree_files(args.app.resolve())
+            missing=sorted(expected.keys()-actual.keys());extra=sorted(actual.keys()-expected.keys())
+            changed={name:{field:{'expected':expected[name][field],'actual':actual[name][field]} for field in expected[name] if expected[name][field]!=actual[name][field]} for name in expected.keys()&actual.keys() if expected[name]!=actual[name]}
+            assert not missing and not extra and not changed, 'Mounted application differs: '+json.dumps({'missing':missing[:10],'extra':extra[:10],'changed':dict(list(sorted(changed.items()))[:10]),'counts':{'missing':len(missing),'extra':len(extra),'changed':len(changed)}})
             subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True,timeout=90,capture_output=True)
             assert (mount/'legal/TERMS.ko.txt').is_file() and (mount/'legal/PRIVACY.ko.txt').is_file()
         finally:
