@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import hashlib
 import importlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -31,6 +32,7 @@ JWKS_TTL_SECONDS = 300
 JWKS_RETRY_SECONDS = 15
 MAX_SESSION_SECONDS = 31 * 24 * 3600
 CLOCK_LEEWAY_SECONDS = 30
+AUDIT_RETENTION_DAYS = 180
 ISSUER_PATTERN = re.compile(r"https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com")
 ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,128}")
 
@@ -166,6 +168,48 @@ def _atomic_json(path: Path, value):
             temporary.unlink()
 
 
+def _audit_time(value, now: float) -> float:
+    if not isinstance(value, str) or len(value) > 40 or not value.endswith("Z"):
+        raise ValueError("Invalid verified-user timestamp")
+    parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+    result = parsed.timestamp()
+    if parsed.utcoffset().total_seconds() != 0 or result <= 0 or result > now + CLOCK_LEEWAY_SECONDS:
+        raise ValueError("Invalid verified-user timestamp")
+    return result
+
+
+def _validate_registry(data, now: float) -> list:
+    if not isinstance(data, dict) or type(data.get("schema")) is not int or data["schema"] != 1 or not isinstance(data.get("users"), list) or len(data["users"]) > MAX_AUDIT_USERS:
+        raise ValueError("Invalid verified-user registry")
+    seen = set()
+    for user in data["users"]:
+        email = _email(user.get("email")) if isinstance(user, dict) else None
+        if email is None or email.casefold() in seen:
+            raise ValueError("Invalid verified-user entry")
+        seen.add(email.casefold())
+        first, verified, accessed = (_audit_time(user.get(field), now) for field in ("firstVerifiedAt", "lastVerifiedAt", "lastAccessAt"))
+        if not first <= verified <= accessed or type(user.get("loginCount")) is not int or user["loginCount"] < 0:
+            raise ValueError("Invalid verified-user history")
+        sessions = user.get("activeSessions", [])
+        if not isinstance(sessions, list) or len(sessions) > MAX_ACTIVE_SESSIONS:
+            raise ValueError("Invalid verified-user sessions")
+        hashes = set()
+        for session in sessions:
+            if not isinstance(session, dict) or not isinstance(session.get("hash"), str) or not re.fullmatch(r"[0-9a-f]{64}", session["hash"]) or session["hash"] in hashes or type(session.get("expiresAt")) is not int or not 0 < session["expiresAt"] <= now + MAX_SESSION_SECONDS + CLOCK_LEEWAY_SECONDS:
+                raise ValueError("Invalid verified session")
+            hashes.add(session["hash"])
+        last_hash = user.get("lastSessionHash", "")
+        if not isinstance(last_hash, str) or last_hash and not re.fullmatch(r"[0-9a-f]{64}", last_hash):
+            raise ValueError("Invalid verified-user session reference")
+        consent = user.get("privacyConsent")
+        if consent is not None:
+            if not isinstance(consent, dict) or consent.get("version") != "2026-11-05.1" or consent.get("source") != "authenticated-client-explicit-consent":
+                raise ValueError("Invalid privacy consent record")
+            if not first <= _audit_time(consent.get("recordedAt"), now) <= accessed:
+                raise ValueError("Invalid privacy consent time")
+    return data["users"]
+
+
 class CloudflareAccess:
     def __init__(self, root: Path, *, key_fetcher=fetch_jwks, monotonic=time.monotonic):
         self.root = root
@@ -296,14 +340,17 @@ class CloudflareAccess:
             # Optional crypto/key-fetch failures also fail closed, without logging a token.
             return None
 
-    def record_access(self, identity: VerifiedIdentity) -> None:
+    def record_access(self, identity: VerifiedIdentity, *, consent_version: str = "") -> None:
         try:
             with self._audit_lock, _file_lock(self.root / "verified-users.lock"):
                 path = self.root / "verified-users.json"
+                now = time.time()
                 data = _read_json(path, MAX_AUDIT_BYTES) if path.exists() else {"schema": 1, "users": []}
+                _validate_registry(data, now)
                 if not isinstance(data, dict) or type(data.get("schema")) is not int or data["schema"] != 1 or not isinstance(data.get("users"), list) or len(data["users"]) > MAX_AUDIT_USERS:
                     raise ValueError("Invalid verified-user registry")
                 users = data["users"]
+                users[:] = [user for user in users if now - _audit_time(user["lastAccessAt"], now) < AUDIT_RETENTION_DAYS * 86400]
                 seen = set()
                 selected = None
                 for user in users:
@@ -313,8 +360,8 @@ class CloudflareAccess:
                     seen.add(email.casefold())
                     if email.casefold() == identity.email.casefold():
                         selected = user
-                now = time.time()
-                stamp = datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+                effective = max(now, _audit_time(selected["lastAccessAt"], now)) if selected else now
+                stamp = datetime.fromtimestamp(effective, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
                 if selected is None:
                     if len(users) >= MAX_AUDIT_USERS:
                         raise ValueError("Verified-user limit reached")
@@ -339,6 +386,41 @@ class CloudflareAccess:
                 selected["lastAccessAt"] = stamp
                 selected["lastSessionHash"] = identity.session_hash
                 selected["activeSessions"] = active
+                if consent_version:
+                    if consent_version != "2026-11-05.1":
+                        raise ValueError("Unsupported consent version")
+                    if selected.get("privacyConsent", {}).get("version") != consent_version:
+                        selected["privacyConsent"] = {"version": consent_version, "recordedAt": stamp, "source": "authenticated-client-explicit-consent"}
                 _atomic_json(path, data)
         except (OSError, ValueError, TypeError, UnicodeError, RecursionError, OverflowError) as error:
             raise AuditUnavailable("Verified-user storage is unavailable") from error
+
+    def maintain_users(self, *, apply: bool = False, remove_email: str | None = None, now: float | None = None) -> dict:
+        """Bounded local maintenance; return counts, never identities or session hashes."""
+        try:
+            current = time.time() if now is None else now
+            if not isinstance(current, (int, float)) or not math.isfinite(current) or current <= 0:
+                raise ValueError("Invalid maintenance clock")
+            selected = _email(remove_email) if remove_email is not None else None
+            if remove_email is not None and selected is None:
+                raise ValueError("Invalid requested identity")
+            with self._audit_lock, _file_lock(self.root / "verified-users.lock"):
+                path = self.root / "verified-users.json"
+                data = _read_json(path, MAX_AUDIT_BYTES) if path.exists() else {"schema": 1, "users": []}
+                users = _validate_registry(data, current)
+                retained, expired, requested = [], 0, 0
+                for user in users:
+                    if selected is not None and user["email"].casefold() == selected.casefold():
+                        requested += 1
+                    elif current - _audit_time(user["lastAccessAt"], current) >= AUDIT_RETENTION_DAYS * 86400:
+                        expired += 1
+                    else:
+                        retained.append(user)
+                changed = len(retained) != len(users)
+                if apply and changed:
+                    data["users"] = retained
+                    _atomic_json(path, data)
+                return {"retentionDays": AUDIT_RETENTION_DAYS, "expired": expired, "requestedRemoval": requested,
+                        "remaining": len(retained), "changed": changed, "applied": bool(apply and changed)}
+        except (OSError, ValueError, TypeError, UnicodeError, RecursionError, OverflowError) as error:
+            raise AuditUnavailable("Verified-user maintenance is unavailable; existing records preserved") from error

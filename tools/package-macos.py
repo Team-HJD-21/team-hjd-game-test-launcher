@@ -27,7 +27,7 @@ HELPERS = {
 def run(*args):
     try:
         return subprocess.check_output([str(x) for x in args], text=True, stderr=subprocess.STDOUT,
-                                       timeout=240 if Path(str(args[0])).name == 'macdeployqt' else 60)
+                                       timeout=240 if Path(str(args[0])).name in ('macdeployqt', 'hdiutil') else 60)
     except subprocess.CalledProcessError as error:
         print(error.output, flush=True)
         raise
@@ -218,6 +218,19 @@ def main():
         (licenses / 'cloudflared-LICENSE.txt').write_bytes(response.read())
     write_json(licenses / 'cloudflared-provenance.json', provenance)
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', payload)
+    shutil.copytree(ROOT / 'legal', payload / 'legal')
+    shutil.copytree(licenses, launcher / "Contents/Resources/licenses")
+    shutil.copy2(ROOT / "THIRD_PARTY_NOTICES.md", launcher / "Contents/Resources")
+    shutil.copytree(ROOT / "legal", launcher / "Contents/Resources/legal")
+    # Sign and embed the seed-free bootstrap before the client payload is
+    # hashed. Never embed its own seed recursively.
+    run('codesign', '--force', '--sign', '-', '--timestamp=none', launcher)
+    bootstrap = payload / 'bootstrap'
+    bootstrap.mkdir()
+    shutil.copytree(launcher, bootstrap / launcher.name, symlinks=False)
+    bootstrap_manifest = receipt(bootstrap, version)
+    bootstrap_manifest['executable'] = 'TeamHJDLauncher.app/Contents/MacOS/TeamHJDLauncher'
+    write_json(payload / 'bootstrap-manifest.json', bootstrap_manifest)
     for path in payload.rglob('*'):
         path.chmod(0o755 if path.is_dir() or path.stat().st_mode & 0o111 else 0o644)
     manifest = receipt(payload, version)
@@ -227,10 +240,23 @@ def main():
     shutil.copytree(payload, launcher / 'Contents/Resources/seed', symlinks=False)
     shutil.copy2(ROOT / 'docs/PLAYER_GUIDE_MACOS.ko.md', portable / '시작하기.md')
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', portable)
+    shutil.copytree(ROOT / 'legal', portable / 'legal')
     run('codesign', '--force', '--sign', '-', '--timestamp=none', launcher)
     run('codesign', '--verify', '--deep', '--strict', launcher)
     print('Compressing complete portable app', flush=True)
     zip_tree(portable, args.output / f'TeamHJD-GameTestLauncher-macOS-{args.arch}.zip')
+    print('Creating installation disk image', flush=True)
+    disk_source = workspace / 'dmg-source'
+    disk_source.mkdir()
+    shutil.copytree(launcher, disk_source / launcher.name, symlinks=False)
+    shutil.copy2(ROOT / 'docs/PLAYER_GUIDE_MACOS.ko.md', disk_source / '시작하기.md')
+    shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', disk_source)
+    shutil.copytree(ROOT / 'legal', disk_source / 'legal')
+    (disk_source / 'Applications').symlink_to('/Applications', target_is_directory=True)
+    disk = args.output / f'TeamHJD-GameTestLauncher-macOS-{args.arch}.dmg'
+    run('hdiutil', 'create', '-volname', 'TeamHJD Game Test Launcher', '-srcfolder', disk_source,
+        '-format', 'UDZO', '-fs', 'HFS+', disk)
+    run('hdiutil', 'verify', disk)
     print(f'Packaged macOS {args.arch} {version}; {len(manifest["files"])} verified payload files; no game or credentials.')
 
 if __name__ == '__main__':

@@ -43,16 +43,16 @@ ApplicationWindow {
     property string reviewMode: ""
     property bool advancedSettings: false
     property bool uiReady: false
-    readonly property bool blockingFlow: !!v.updateGate || (v.needsLogin && !v.offlineMode) || !!v.authenticating || loginNotice.opened || updateNotice.opened
+    readonly property bool blockingFlow: !!v.updateGate || ((v.needsLogin || v.needsPrivacy) && !v.offlineMode) || !!v.authenticating || loginNotice.opened || updateNotice.opened || privacyDialog.opened
     function syncGates() {
         if(!uiReady) return
         if(v.updateGate) {
-            loginNotice.close(); settings.close(); helpDialog.close(); fileMenu.close(); viewMenu.close(); helpMenu.close(); gameMenu.close()
+            privacyDialog.close(); loginNotice.close(); settings.close(); helpDialog.close(); fileMenu.close(); viewMenu.close(); helpMenu.close(); gameMenu.close()
             updateNotice.open()
         } else {
             updateNotice.close()
-            if((v.needsLogin && !v.offlineMode) || v.authenticating) loginNotice.open()
-            else loginNotice.close()
+            if(v.needsPrivacy && !v.offlineMode) {loginNotice.close();privacyDialog.open()}
+            else {privacyDialog.close();if((v.needsLogin && !v.offlineMode) || v.authenticating) loginNotice.open();else loginNotice.close()}
         }
     }
     onVChanged: syncGates()
@@ -160,6 +160,7 @@ ApplicationWindow {
     AppMenu {
         id: fileMenu; parent: fileMenuButton; y: fileMenuButton.height+6
         AppMenuItem { text: v.needsLogin ? "이메일로 연결…" : "이메일 다시 인증…"; visible: v.cloudflare; enabled: !v.busy; onTriggered: loginNotice.open() }
+        AppMenuItem { text: "이 PC의 로그인 정보 삭제…"; visible: v.cloudflare; enabled: !v.working; onTriggered: forgetDialog.open() }
         AppMenuItem { text: "설정…"; shortcutText: "Ctrl+,"; onTriggered: settings.open() }
         AppMenuItem { text: "게임 설치 폴더 열기"; onTriggered: launcher.openFolder("root") }
         AppMenuSeparator {}
@@ -175,6 +176,7 @@ ApplicationWindow {
         id: helpMenu; parent: helpMenuButton; y: helpMenuButton.height+6
         AppMenuItem { text: "사용 안내"; shortcutText: "F1"; onTriggered: helpDialog.open() }
         AppMenuItem { text: "문제 해결"; onTriggered: { helpTabs.currentIndex=1; helpDialog.open() } }
+        AppMenuItem { text: "이용조건·개인정보 안내"; onTriggered: Qt.openUrlExternally("https://testlauncher.teamhjd.com/privacy.html") }
         AppMenuSeparator {}
         AppMenuItem { text: "런처 정보"; onTriggered: {helpTabs.currentIndex=2;helpDialog.open()} }
     }
@@ -362,16 +364,50 @@ ApplicationWindow {
         background: Rectangle { color: "#20262B"; radius: 9; border.color: "#776941" }
         contentItem: ColumnLayout {
             spacing: 18
-            Label { text: v.updateGate==="ready" ? "런처 업데이트 준비 완료" : v.updateGate==="error" ? "런처 업데이트를 확인해 주세요" : v.updateGate==="downloading" ? "런처를 업데이트하고 있어요" : "런처 업데이트 확인 중"; color: "#F0F0EA"; font.pixelSize: 21; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-            Caption { text: v.updateGate==="ready" ? "검증된 새 버전을 준비했습니다. 런처를 종료한 뒤 다시 실행하면 자동 적용됩니다." : v.updateGate==="error" ? v.updateError : v.updateGate==="downloading" ? "v"+v.updateVersion+"을 다운로드하고 파일을 검증합니다. 완료될 때까지 다른 기능은 사용할 수 없습니다." : "이메일 인증과 별개로 최신 런처를 먼저 확인합니다."; Layout.fillWidth: true; lineHeight: 1.5 }
-            BusyIndicator { running: v.updateGate==="checking"; visible: running; Layout.alignment: Qt.AlignHCenter }
+            Label { text: v.updateGate==="ready" || v.updateGate==="restarting" ? "업데이트를 적용하고 다시 시작합니다" : v.updateGate==="error" ? "런처 업데이트를 확인해 주세요" : v.updateGate==="downloading" ? "런처를 업데이트하고 있어요" : "런처 업데이트 확인 중"; color: "#F0F0EA"; font.pixelSize: 21; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            Caption { text: v.updateGate==="ready" || v.updateGate==="restarting" ? "새 버전 검증을 마쳤습니다. 잠시 후 자동으로 다시 시작합니다." : v.updateGate==="error" ? v.updateError+"\n잠시 후 자동으로 다시 시도합니다." : v.updateGate==="downloading" ? "v"+v.updateVersion+"을 다운로드하고 파일을 검증합니다. 완료될 때까지 다른 기능은 사용할 수 없습니다." : "이메일 인증과 별개로 최신 런처를 먼저 확인합니다."; Layout.fillWidth: true; lineHeight: 1.5 }
+            BusyIndicator { running: v.updateGate==="checking" || v.updateGate==="ready" || v.updateGate==="restarting"; visible: running; Layout.alignment: Qt.AlignHCenter }
             ProgressBar { visible: v.updateGate==="downloading"; Layout.fillWidth: true; value: v.progress; indeterminate: v.progress<=0 }
             Caption { visible: v.updateGate==="downloading"; text: v.transfer || "업데이트 파일 준비 중"; Layout.fillWidth: true }
             Caption { visible: v.updateGate==="error" && v.canPlay; text: "연결을 확인할 수 없어도 설치된 게임은 오프라인으로 플레이할 수 있습니다."; Layout.fillWidth: true }
+            ActionButton { text: "공식 설치 파일로 복구"; visible: v.updateGate==="error"; onClicked: Qt.openUrlExternally("https://testlauncher.teamhjd.com/#faq") }
             RowLayout { Layout.fillWidth: true; Item { Layout.fillWidth: true }
                 ActionButton { text: "오프라인 플레이"; visible: v.updateGate==="error" && v.canPlay; onClicked: launcher.continueOffline() }
                 ActionButton { text: "런처 종료"; visible: v.updateGate==="ready" || v.updateGate==="error"; onClicked: window.close() }
                 ActionButton { text: "다시 확인"; prominent: true; visible: v.updateGate==="error"; onClicked: launcher.checkLauncherUpdate(true) }
+                ActionButton { text: "다시 설치 시도"; visible: v.updateGate==="error" && v.failedRelease; onClicked: launcher.retryFailedUpdate() }
+            }
+        }
+    }
+    Popup {
+        id: forgetDialog; anchors.centerIn: Overlay.overlay; width: 460; padding: 26; modal: true; focus: true
+        background: Rectangle {color: "#252C31"; radius: 8; border.color: "#485058"}
+        contentItem: ColumnLayout {spacing: 16
+            Label {text: "이 PC의 로그인 정보를 삭제할까요?";color: "#F0F0EA";font.pixelSize: 18;font.bold: true}
+            Caption {text: "저장된 인증과 동의 정보를 지우며 다음 온라인 접속에 다시 안내합니다. 게임·저장 데이터와 서버 인증 기록은 유지됩니다. 서버 기록 삭제·동의 철회는 support@teamhjd.com으로 요청해 주세요."; Layout.fillWidth: true}
+            RowLayout {Item {Layout.fillWidth: true} ActionButton {text: "취소";onClicked: forgetDialog.close()} ActionButton {text: "로그인 정보 삭제";onClicked: {forgetDialog.close();launcher.forgetLogin()}}}
+        }
+    }
+    Popup {
+        id: privacyDialog; anchors.centerIn: Overlay.overlay; width: Math.min(660,window.width-60); height: Math.min(650,window.height-70)
+        modal: true; focus: true; padding: 26; closePolicy: Popup.NoAutoClose
+        onAboutToShow: {collectionConsent.checked=false;overseasConsent.checked=false;ageConsent.checked=false}
+        Overlay.modal: Rectangle {color: "#CC000000"}
+        background: Rectangle {color: "#20262B";radius: 9;border.color: "#48525B"}
+        contentItem: ColumnLayout {spacing: 12
+            Label {text: "온라인 테스트 참여 안내"; color: "#F0F0EA";font.pixelSize: 21;font.bold: true}
+            ScrollView {Layout.fillWidth: true;Layout.fillHeight: true;clip: true
+                TextArea {text: launcher.privacyNotice();readOnly: true;wrapMode: Text.WordWrap;selectByMouse: true;color: "#BBC8CE";font.pixelSize: 12;padding: 12;rightPadding: 24;background: Rectangle {color: "#171C20";radius: 5}}
+            }
+            ActionButton {text: "전체 이용조건·개인정보 안내";onClicked: Qt.openUrlExternally("https://testlauncher.teamhjd.com/privacy.html")}
+            AppCheckBox {id: collectionConsent;text: "[필수] 개인정보 수집·이용에 동의합니다";Layout.fillWidth: true}
+            AppCheckBox {id: overseasConsent;text: "[필수] Cloudflare 국외 처리에 동의합니다";Layout.fillWidth: true}
+            AppCheckBox {id: ageConsent;text: "만 14세 이상입니다";Layout.fillWidth: true}
+            Caption {text: v.error || "동의하지 않아도 설치된 게임은 오프라인으로 실행할 수 있습니다.";Layout.fillWidth: true}
+            RowLayout {Layout.fillWidth: true;Item {Layout.fillWidth: true}
+                ActionButton {text: "오프라인 플레이";visible: !!v.canPlay;enabled: !v.working;onClicked: launcher.continueOffline()}
+                ActionButton {text: "종료";onClicked: window.close()}
+                ActionButton {text: "동의하고 계속";prominent: true;enabled: collectionConsent.checked&&overseasConsent.checked&&ageConsent.checked&&!v.working;onClicked: launcher.acceptPrivacy(collectionConsent.checked,overseasConsent.checked,ageConsent.checked)}
             }
         }
     }

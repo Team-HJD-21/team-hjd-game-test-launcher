@@ -19,7 +19,7 @@ $helperProvenance=Get-Content -LiteralPath (Join-Path $helperDirectory 'provenan
 if($helperProvenance.version -cne '2026.10.5' -or $helperProvenance.sha256 -cne $helperHash -or $helperProvenance.source -cne 'https://github.com/cloudflare/cloudflared/releases/tag/2026.10.5' -or $helperProvenance.asset -cne 'cloudflared-windows-amd64.exe'){throw 'cloudflared provenance does not match the pinned official dependency.'}
 $bundle=Join-Path $output 'TeamHJD-GameTestLauncher-Windows-x64'
 $payload=Join-Path $bundle "launcher/versions/$version"
-if(Test-Path -LiteralPath (Join-Path $payload 'TeamHJDClient.exe')){throw 'This output already exists. Preserve it and select a fresh dist directory before packaging again.'}
+if(Test-Path -LiteralPath $bundle){throw 'This bundle already exists and may be a user installation. Preserve it and select a fresh OutputRoot.'}
 New-Item -ItemType Directory -Path $payload -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $root 'build/TeamHJDClient.exe') -Destination $payload
 Copy-Item -LiteralPath $helper -Destination (Join-Path $payload 'cloudflared.exe')
@@ -44,8 +44,20 @@ Copy-Item -LiteralPath (Join-Path $root 'licenses/Qt') -Destination (Join-Path $
 Copy-Item -LiteralPath (Join-Path $root 'vendor/miniz/LICENSE') -Destination (Join-Path $licenses 'miniz-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $helperDirectory 'LICENSE.txt') -Destination (Join-Path $licenses 'cloudflared-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $helperDirectory 'provenance.json') -Destination (Join-Path $licenses 'cloudflared-provenance.json')
+Copy-Item -LiteralPath (Join-Path $root 'licenses/NSIS') -Destination $licenses -Recurse
+Copy-Item -LiteralPath (Join-Path $root 'licenses/NSIS') -Destination (Join-Path $bundle 'licenses') -Recurse
+Copy-Item -LiteralPath (Join-Path $root 'legal') -Destination $payload -Recurse
+Copy-Item -LiteralPath (Join-Path $root 'legal') -Destination $bundle -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $payload
 Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $bundle
+# The payload also carries a complete, independently runnable bootstrap. It
+# replaces the stable entry point only after the old client has exited.
+$bootstrap=Join-Path $payload 'bootstrap'
+New-Item -ItemType Directory -Path $bootstrap|Out-Null
+Get-ChildItem -LiteralPath $bundle -File|ForEach-Object {Copy-Item -LiteralPath $_.FullName -Destination $bootstrap}
+Copy-Item -LiteralPath (Join-Path $bundle 'licenses') -Destination $bootstrap -Recurse
+$bootstrapFiles=@(Get-ChildItem -LiteralPath $bootstrap -Recurse -File|ForEach-Object {@{path=[IO.Path]::GetRelativePath($bootstrap,$_.FullName).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
+@{version=$version;files=$bootstrapFiles}|ConvertTo-Json -Depth 8 -Compress|Set-Content -LiteralPath (Join-Path $payload 'bootstrap-manifest.json') -Encoding utf8NoBOM
 [IO.Compression.ZipFile]::CreateFromDirectory($payload,(Join-Path $output 'TeamHJD-LauncherPayload-Windows-x64.zip'),[IO.Compression.CompressionLevel]::Optimal,$false)
 $files=@(Get-ChildItem -LiteralPath $payload -Recurse -File|ForEach-Object{@{path=[IO.Path]::GetRelativePath($payload,$_.FullName).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
 @{version=$version;executable='TeamHJDClient.exe';files=$files}|ConvertTo-Json -Depth 8 -Compress|Set-Content -LiteralPath (Join-Path $payload '._teamhjd-receipt.json') -Encoding utf8NoBOM

@@ -162,12 +162,14 @@ jobs:
         run: |
           python tools/verify-macos.py --app dist-macos/work/portable/TeamHJDLauncher.app --payload dist-macos/TeamHJD-LauncherPayload-macOS-${{ matrix.arch }}.zip --portable dist-macos/TeamHJD-GameTestLauncher-macOS-${{ matrix.arch }}.zip --arch ${{ matrix.cmake_arch }} | tee dist-macos/audit-result.json
           build-macos/LauncherCoreTests --verify-payload dist-macos/TeamHJD-LauncherPayload-macOS-${{ matrix.arch }}.zip "$RUNNER_TEMP/roundtrip"
+          python tools/verify-macos-dmg.py --dmg dist-macos/TeamHJD-GameTestLauncher-macOS-${{ matrix.arch }}.dmg --app dist-macos/work/portable/TeamHJDLauncher.app --result dist-macos/dmg-result.json
       - name: Retain audited candidates before delivery acceptance
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: macOS-candidate-${{ matrix.arch }}
           path: |
             dist-macos/*.zip
+            dist-macos/*.dmg
             dist-macos/audit-result.json
             dist-macos/native-source-result.json
           if-no-files-found: error
@@ -181,6 +183,7 @@ jobs:
           name: macOS-${{ matrix.arch }}
           path: |
             dist-macos/*.zip
+            dist-macos/*.dmg
             dist-macos/*result.json
             dist-macos/*.png
           if-no-files-found: error

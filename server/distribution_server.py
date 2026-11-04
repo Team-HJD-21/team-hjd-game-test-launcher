@@ -15,8 +15,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 if __package__:
     from .cloudflare_auth import AuditUnavailable, CloudflareAccess
+    from .access_policy import check_client
 else:
     from cloudflare_auth import AuditUnavailable, CloudflareAccess
+    from access_policy import check_client
 
 
 TESTER_TOKEN_PATTERN = re.compile(rb"hjd1\.([0-9a-f]{16})\.[A-Za-z0-9_-]{43}")
@@ -163,7 +165,15 @@ def serve(args):
                 identity = cloudflare.verify(assertions[0])
                 if identity is not None:
                     try:
-                        cloudflare.record_access(identity)
+                        try:
+                            policy_status, consent_version = check_client(root, self.headers)
+                        except (OSError, ValueError, TypeError, UnicodeError, RecursionError):
+                            self.reject(503, True)
+                            return False
+                        if policy_status:
+                            self.reject(policy_status)
+                            return False
+                        cloudflare.record_access(identity, consent_version=consent_version)
                         return True
                     except AuditUnavailable:
                         audit_unavailable = True
@@ -274,6 +284,19 @@ def serve(args):
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(args.cert, args.key)
     httpd = DistributionServer((args.bind, args.port), Handler, context)
+    next_maintenance = 0.0
+    def maintain_verified_users():
+        nonlocal next_maintenance
+        if time.monotonic() < next_maintenance:
+            return
+        next_maintenance = time.monotonic() + 3600
+        try:
+            cloudflare.maintain_users(apply=True)
+        except AuditUnavailable:
+            # Keep the original file and fail authenticated audit writes closed.
+            # No identity, token, path or session hash is written to this log.
+            print("Verified-user maintenance unavailable; existing records preserved.", flush=True)
+    httpd.service_actions = maintain_verified_users
     print(f"TeamHJD distribution ready; TLS={bool(args.cert)}; port={httpd.server_port}", flush=True)
     httpd.serve_forever(poll_interval=0.25)
 

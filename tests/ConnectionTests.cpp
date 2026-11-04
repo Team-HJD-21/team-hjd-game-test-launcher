@@ -41,6 +41,13 @@ int main(int argc,char **argv){
         QTemporaryDir empty;check(empty.isValid(),"isolated first-use profile created");
         {Controller controller(empty.path(),{},false);auto view=controller.view();check(view["needsLogin"].toBool()&&view["connectionState"].toString()=="authentication-required"&&!view["hadEmailSession"].toBool(),"real first-use Controller exposes an email action without retrying an unauthenticated catalog");}
         {Controller controller(empty.path(),managed.path(),false);check(controller.view()["updateGate"].toString()=="checking","managed startup requires an update check before the authentication flow");}
+        {QTemporaryDir consent;Controller controller(consent.path(),{},false);
+            check(controller.view()["needsPrivacy"].toBool(),"first online use requires explicit privacy choices");
+            controller.acceptPrivacy(true,false,true);check(controller.view()["needsPrivacy"].toBool(),"collection consent alone does not imply overseas consent");
+            controller.acceptPrivacy(true,true,false);check(controller.view()["needsPrivacy"].toBool(),"under-age automatic onboarding remains blocked");
+            controller.acceptPrivacy(true,true,true);check(!controller.view()["needsPrivacy"].toBool()&&QFileInfo::exists(consent.path()+"/settings.json"),"both explicit consents persist before email authentication");
+            controller.forgetLogin();check(controller.view()["needsPrivacy"].toBool()&&!controller.view()["online"].toBool(),"forgetting local credentials clears consent and online access");
+        }
         QTemporaryDir expired;check(expired.isValid(),"isolated expired-session profile created");
 #ifdef Q_OS_MACOS
         if(qgetenv("TEAMHJD_TEST_KEYCHAIN_READY")!="1")

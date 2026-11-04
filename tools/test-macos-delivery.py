@@ -91,12 +91,23 @@ def main():
     (partial / 'interrupted-copy.txt').write_text('Incomplete prior first-use attempt, retain for diagnosis.')
     bootstrap = args.app.resolve() / 'Contents/MacOS/TeamHJDLauncher'
 
-    def launch():
+    def launch(expected=None):
         subprocess.run([str(bootstrap), '--noninteractive-test'], check=True, timeout=40)
-        state = load(runtime / 'launcher/running.json')
-        assert actual_path(state['pid']) == (runtime / 'launcher/versions' / state['folder'] / executable).resolve()
-        assert not (runtime / 'pending-launcher.json').exists()
-        return load(runtime / 'launcher/active.json')
+        # A stable wrapper delegates replacement to the new verified helper.
+        # Wait for that child's fresh health receipt, never a stale PID/file.
+        deadline=time.monotonic()+40
+        while time.monotonic()<deadline:
+            try:
+                state=load(runtime / 'launcher/running.json')
+                current=load(runtime / 'launcher/active.json')
+                if (actual_path(state['pid']) == (runtime / 'launcher/versions' / state['folder'] / executable).resolve()
+                        and current['current']==state['folder'] and (expected is None or state['folder']==expected)
+                        and not (runtime / 'pending-launcher.json').exists()):
+                    return current
+            except (FileNotFoundError,ValueError,KeyError):
+                pass
+            time.sleep(.1)
+        raise AssertionError('The delegated bootstrap did not acknowledge the expected native version')
 
     seed = launch()
     print('PASS initial bootstrap seed and first-frame acknowledgment', flush=True)
@@ -104,7 +115,7 @@ def main():
     target = runtime / 'launcher/versions' / active
     shutil.copytree(extracted, target)
     save(runtime / 'queued-launcher.json', {'candidate': active})
-    applied = launch()
+    applied = launch(active)
     assert applied['current'] == active and applied['previous'] == seed['current']
     print('PASS queued native launcher payload activation', flush=True)
     stop_owned(runtime)
@@ -116,8 +127,9 @@ def main():
     fixture = Path('build-macos/LauncherFixtureGame').resolve()
     prepare_failed_health_fixture(rejected, executable, fixture)
     save(runtime / 'queued-launcher.json', {'candidate': bad})
-    recovered = launch()
+    recovered = launch(active)
     assert recovered['current'] == active, 'Failed candidate did not roll back'
+    assert load(runtime / 'launcher/failed-release.json')['version']==version
     stop_owned(runtime)
     result = {'result': 'PASS', 'arch': args.arch, 'nativePackagedGUI': True,
               'interruptedInitialCopyRecovery': True,

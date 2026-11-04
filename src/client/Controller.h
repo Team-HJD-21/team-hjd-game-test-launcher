@@ -47,8 +47,13 @@ public:
     Q_INVOKABLE QString localPath(const QUrl &url) const { return url.toLocalFile(); }
     Q_INVOKABLE void checkLauncherUpdate(bool force=false);
     Q_INVOKABLE void applyLauncherUpdate();
+    Q_INVOKABLE void restartForUpdate();
+    Q_INVOKABLE void retryFailedUpdate();
     Q_INVOKABLE void continueOffline();
     Q_INVOKABLE void showLicenses();
+    Q_INVOKABLE QString privacyNotice() const;
+    Q_INVOKABLE void acceptPrivacy(bool collection,bool overseas,bool ageConfirmed);
+    Q_INVOKABLE void forgetLogin();
     Q_INVOKABLE bool canClose() const { return !m_busy||m_background; }
 signals:
     void changed();
@@ -60,6 +65,13 @@ signals:
     void quitForUpdate();
     void toast(const QString &title,const QString &message,const QString &tone);
 private:
+    friend class LauncherUpdaterFixture;
+    // Private transport seam for signed, isolated regression fixtures. There
+    // is no command-line, settings, QObject or QML access to these callbacks.
+    QString m_releaseKey;
+    std::function<QByteArray(const QUrl&)> m_updateFetch;
+    std::function<void(const QJsonObject&,const QString&)> m_updateDownload;
+    struct WorkResult { QString message; hjd::FailureCode code=hjd::FailureCode::General; };
     void work(std::function<void()> job,std::function<void(const QString&)> completed);
     void install(bool force);
     void load();
@@ -67,6 +79,7 @@ private:
     bool needsLogin() const;
     void updateProgress(qint64 done,qint64 total,const QString &phase);
     bool deferDuringCheck(std::function<void()> action);
+    void updateFailed(const QString &error);
     const hjd::Game *selected() const;
     QString m_dataRoot,m_launcherRoot,m_gamesRoot,m_key,m_selected="hose-for-hire";
     hjd::NetConfig m_config;
@@ -76,12 +89,21 @@ private:
     double m_progress=0;
     qint64 m_minSequence=0;
     std::atomic_bool m_cancel{false};
-    QFuture<QString> m_future;
+    QFuture<WorkResult> m_future;
     QTimer m_runningTimer;
     QTimer m_autoTimer;
+    QTimer m_updateRetry;
     QJsonObject m_updateAsset;
     QString m_updateVersion;
     QString m_testUpdateFrom;
+    QByteArray m_releaseEnvelope;
+    qint64 m_updateSequence=0;
+    int m_updateAttempts=0;
+    bool m_updateVerified=false;
+    bool m_serverUpgradeRequired=false;
+    bool m_updateInstaller=false;
+    bool m_knownFailedRelease=false,m_retryFailedOnce=false;
+    QString m_readyInstaller;
     qint64 m_progressStart=0;
     qint64 m_lastRefresh=0,m_lastLauncherCheck=0;
     bool m_wasRunning=false;
@@ -95,6 +117,7 @@ private:
     bool m_offlineMode=false,m_authenticating=false;
     QString m_updateGate,m_updateError;
     QDateTime m_authExpires;
+    QDateTime m_policyAcceptedAt;
 #ifdef Q_OS_MACOS
     QByteArray m_pendingPassword,m_pendingSession;
 #endif

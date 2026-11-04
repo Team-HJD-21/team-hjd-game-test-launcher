@@ -17,16 +17,25 @@ bool githubHost(const QUrl &u) {
     return u.scheme()=="https" && u.userInfo().isEmpty() && u.fragment().isEmpty() && (u.port(-1)==-1||u.port()==443)
         && QStringList{"api.github.com","github.com","release-assets.githubusercontent.com","objects.githubusercontent.com"}.contains(u.host());
 }
+bool publicHost(const QUrl &u){
+    if(githubHost(u))return true;
+    return u.scheme()=="https"&&u.host()=="testlauncher.teamhjd.com"&&u.userInfo().isEmpty()&&u.fragment().isEmpty()&&
+        (u.port(-1)==-1||u.port()==443)&&u.path()=="/updates/stable.json"&&
+        (u.query().isEmpty()||QRegularExpression("^check=[0-9]{1,16}$").match(u.query()).hasMatch());
+}
 struct Response { QByteArray body; int status=0; QUrl redirect; };
 Response request(const QUrl &url,const NetConfig &cfg,std::atomic_bool &cancel,qint64 maximum,bool publicFile,QFile *file=nullptr,qint64 expected=0,qint64 offset=0,const Progress &progress={}) {
     if(cancel) fail(QStringLiteral("취소했습니다."));
-    if(publicFile?!githubHost(url):(!allowedServer(url,cfg.testLoopback)||!sameOrigin(url,cfg.server))) fail(QStringLiteral("허용되지 않은 다운로드 주소입니다."));
+    if(publicFile?!publicHost(url):(!allowedServer(url,cfg.testLoopback)||!sameOrigin(url,cfg.server))) fail(QStringLiteral("허용되지 않은 다운로드 주소입니다."));
     QNetworkAccessManager manager;
     QNetworkRequest req(url); req.setTransferTimeout(30000);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
     req.setRawHeader("User-Agent","TeamHJD-GameTestLauncher/" HJD_VERSION);
     req.setRawHeader("Accept-Encoding","identity");
+    if(publicFile){req.setAttribute(QNetworkRequest::CacheLoadControlAttribute,QNetworkRequest::AlwaysNetwork);req.setRawHeader("Cache-Control","no-cache");}
     if(!publicFile) {
+        req.setRawHeader("X-TeamHJD-Launcher-Version",HJD_VERSION);
+        if(!cfg.policyVersion.isEmpty())req.setRawHeader("X-TeamHJD-Privacy-Version",cfg.policyVersion.toUtf8());
         if(!cfg.cloudflareToken.isEmpty()) req.setRawHeader("Cookie","CF_Authorization="+cfg.cloudflareToken);
         else if(!cfg.password.isEmpty()) req.setRawHeader("Authorization","Bearer "+cfg.password.toBase64());
         if(!cfg.caPem.isEmpty()) {
@@ -71,6 +80,8 @@ Response request(const QUrl &url,const NetConfig &cfg,std::atomic_bool &cancel,q
     if(result.status>=300&&result.status<400) { if(!publicFile&&!cfg.cloudflareToken.isEmpty())fail(QStringLiteral("이메일 인증이 만료되었어요. 이메일로 다시 연결해 주세요.")); result.redirect=url.resolved(reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl()); return result; }
     if(result.status==401||result.status==403) fail(publicFile?QStringLiteral("런처 업데이트 조회가 제한되었습니다. 잠시 후 다시 시도하세요."):!cfg.cloudflareToken.isEmpty()?QStringLiteral("이메일 인증이 만료되었어요. 이메일로 다시 연결해 주세요."):QStringLiteral("초대 또는 접근 정보를 확인하세요. 만료되었거나 회수된 초대는 새로 받아 주세요."));
     if(result.status==404) fail(QStringLiteral("배포된 파일을 찾을 수 없습니다."));
+    if(!publicFile&&result.status==426)throw Error(QStringLiteral("온라인 기능을 사용하려면 런처 필수 업데이트가 필요합니다."),FailureCode::LauncherUpgradeRequired);
+    if(!publicFile&&result.status==428)throw Error(QStringLiteral("새 이용 안내와 개인정보 처리 기준을 확인하려면 런처를 업데이트해 주세요."),FailureCode::PrivacyConsentRequired);
     if(reply->error()!=QNetworkReply::NoError) fail(QStringLiteral("서버에 연결할 수 없습니다. 주소와 인증서, 인터넷 연결을 확인하세요."));
     if(result.status!=200&&result.status!=206) fail(QStringLiteral("서버가 요청을 처리하지 못했습니다. 잠시 후 다시 시도하세요."));
     if(file&&(received!=expected||!file->flush())) fail(QStringLiteral("다운로드가 완료되지 않았습니다. 다시 시도하면 이어받습니다."));

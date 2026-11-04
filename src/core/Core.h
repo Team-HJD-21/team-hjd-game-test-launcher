@@ -11,7 +11,11 @@
 #include <stdexcept>
 
 namespace hjd {
-struct Error : std::runtime_error { explicit Error(const QString &s) : std::runtime_error(s.toUtf8().constData()) {} };
+enum class FailureCode { General, LauncherUpgradeRequired, PrivacyConsentRequired };
+struct Error : std::runtime_error {
+    FailureCode code;
+    explicit Error(const QString &s,FailureCode code=FailureCode::General) : std::runtime_error(s.toUtf8().constData()),code(code) {}
+};
 [[noreturn]] void fail(const QString &message);
 QByteArray readFile(const QString &path, qint64 limit = 32 * 1024 * 1024);
 QJsonObject readJson(const QString &path);
@@ -54,7 +58,7 @@ QJsonObject inspectArchive(const QString &archive, const QString &destination, c
                           std::atomic_bool &cancel, const std::function<void(qint64,qint64)> &progress = {});
 bool verifyTree(const QString &directory, const QJsonObject &receipt, std::atomic_bool *cancel = nullptr);
 
-struct NetConfig { QUrl server; QByteArray password; QByteArray caPem; bool testLoopback = false; QByteArray cloudflareToken; };
+struct NetConfig { QUrl server; QByteArray password; QByteArray caPem; bool testLoopback = false; QByteArray cloudflareToken; QString policyVersion; };
 using Progress = std::function<void(qint64,qint64)>;
 class Http {
 public:
