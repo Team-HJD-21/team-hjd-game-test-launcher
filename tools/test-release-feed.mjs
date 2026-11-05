@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import vm from 'node:vm';
 const pair=await webcrypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
 const point=new Uint8Array(await webcrypto.subtle.exportKey('raw',pair.publicKey));
@@ -26,3 +26,10 @@ for(const change of [p=>p.version='0.2.0-beta',p=>p.minimumVersion='1.0.0',p=>p.
  const p=structuredClone(valid);change(p);const signed=await envelope(p);await assert.rejects(()=>context.TeamHJDFeed.verify(signed,1,now));assertions++;
 }
 console.log(`PASS ${assertions} signed website feed assertions; ephemeral key, no publisher private key.`);
+const published=new URL('../website/updates/stable.json',import.meta.url);
+if(existsSync(published)) {
+ const production={crypto:webcrypto,Uint8Array,TextDecoder,atob};vm.createContext(production);vm.runInContext(source,production);
+ const feed=await production.TeamHJDFeed.verify(JSON.parse(readFileSync(published,'utf8')));
+ assert.match(feed.sourceCommit,/^[0-9a-f]{40}$/);
+ console.log(`PASS published feed signature with pinned product key: ${feed.version}, sequence ${feed.sequence}.`);
+}

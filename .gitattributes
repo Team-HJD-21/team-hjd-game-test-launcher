@@ -2,5 +2,6 @@
 *.png binary
 *.ico binary
 *.icns binary
+website/updates/*.json -text
 licenses/** whitespace=-blank-at-eof
 vendor/miniz/** whitespace=-blank-at-eol
