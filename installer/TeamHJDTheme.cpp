@@ -45,7 +45,6 @@ LRESULT CALLBACK themedProcedure(HWND window,UINT message,WPARAM wp,LPARAM lp,UI
     if(message==WM_DRAWITEM){
         auto item=reinterpret_cast<DRAWITEMSTRUCT*>(lp);
         if(item&&item->CtlType==ODT_BUTTON){drawButton(*item);return TRUE;}
-        if(item&&item->CtlType==ODT_STATIC){auto brush=CreateSolidBrush(edge);FillRect(item->hDC,&item->rcItem,brush);DeleteObject(brush);return TRUE;}
     }
     if(message==WM_CTLCOLORDLG)return reinterpret_cast<LRESULT>(backgroundBrush);
     if(message==WM_CTLCOLORSTATIC||message==WM_CTLCOLOREDIT||message==WM_CTLCOLORLISTBOX||message==WM_CTLCOLORBTN){
@@ -54,6 +53,17 @@ LRESULT CALLBACK themedProcedure(HWND window,UINT message,WPARAM wp,LPARAM lp,UI
         const bool input=lstrcmpiW(name,L"Edit")==0||lstrcmpiW(name,L"RichEdit20W")==0;
         SetBkColor(dc,input?surface:background);return reinterpret_cast<LRESULT>(input?surfaceBrush:backgroundBrush);
     }
+    if(message==WM_PAINT&&window==parentWindow){
+        auto result=DefSubclassProc(window,message,wp,lp);
+        auto dc=GetDC(window);auto pen=CreatePen(PS_SOLID,1,edge);auto old=SelectObject(dc,pen);
+        const int lines[]={1035,1036,1045};
+        for(int id:lines){
+            auto line=GetDlgItem(window,id);if(!line)continue;
+            RECT r{};GetWindowRect(line,&r);MapWindowPoints(nullptr,window,reinterpret_cast<POINT*>(&r),2);
+            if(r.bottom-r.top<=6){MoveToEx(dc,r.left,r.top,nullptr);LineTo(dc,r.right,r.top);}
+        }
+        SelectObject(dc,old);DeleteObject(pen);ReleaseDC(window,dc);return result;
+    }
     if(message==WM_NCDESTROY){RemoveWindowSubclass(window,themedProcedure,subclassId);if(window==parentWindow)parentWindow=nullptr;}
     return DefSubclassProc(window,message,wp,lp);
 }
@@ -61,8 +71,19 @@ LRESULT CALLBACK themedProcedure(HWND window,UINT message,WPARAM wp,LPARAM lp,UI
 BOOL CALLBACK styleChild(HWND child,LPARAM){
     wchar_t name[64]{};GetClassNameW(child,name,64);
     if(lstrcmpiW(name,L"#32770")==0)SetWindowSubclass(child,themedProcedure,subclassId,0);
-    if(lstrcmpiW(name,L"Static")==0&&(GetDlgCtrlID(child)==1035||GetDlgCtrlID(child)==1036)){
-        auto style=GetWindowLongPtrW(child,GWL_STYLE);SetWindowLongPtrW(child,GWL_STYLE,(style&~SS_TYPEMASK)|SS_OWNERDRAW);
+    if(lstrcmpiW(name,L"Static")==0){
+        const int id=GetDlgCtrlID(child);
+        // MUI keeps separate caption-bearing background controls. They must
+        // not render the branding string underneath the actual footer label.
+        if(id==1028||id==1034)SetWindowTextW(child,L"");
+        if(id==1035||id==1036||id==1045){RECT r{};GetClientRect(child,&r);if(r.bottom<=6)ShowWindow(child,SW_HIDE);}
+        if(id==1256){
+            auto next=GetDlgItem(parentWindow,IDOK);RECT r{};GetWindowRect(next,&r);MapWindowPoints(nullptr,parentWindow,reinterpret_cast<POINT*>(&r),2);
+            auto back=GetDlgItem(parentWindow,3);RECT b{};
+            if(back&&IsWindowVisible(back)){GetWindowRect(back,&b);MapWindowPoints(nullptr,parentWindow,reinterpret_cast<POINT*>(&b),2);if(b.left<r.left)r.left=b.left;}
+            SendMessageW(child,WM_SETFONT,SendMessageW(next,WM_GETFONT,0,0),TRUE);
+            SetWindowPos(child,nullptr,24,r.top+4,r.left-40,r.bottom-r.top-8,SWP_NOZORDER|SWP_NOACTIVATE);
+        }
     }
     if(lstrcmpiW(name,L"Button")==0){
         const auto style=GetWindowLongPtrW(child,GWL_STYLE);

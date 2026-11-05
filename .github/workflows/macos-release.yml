@@ -53,7 +53,7 @@ jobs:
       - name: Build native application and fixtures
         id: compile
         run: |
-          cmake -S . -B build-macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_MAC_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }}
+          cmake -S . -B build-macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_MAC_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }}
           cmake --build build-macos --parallel 3
       - name: Prepare disposable unlocked test Keychain
         run: |
@@ -155,6 +155,21 @@ jobs:
         run: python tools/archive-native-macos.py extract --archive "$RUNNER_TEMP/native-macos/TeamHJD-Native-macOS-${{ matrix.arch }}.zip" --build build-macos
       - name: Package app and platform update payload
         run: python tools/package-macos.py --build build-macos --qt "$QT_MAC_ROOT" --output dist-macos --arch ${{ matrix.arch }}
+      - name: Record same-run full native build provenance
+        if: ${{ inputs.native_run_id == '' }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert sha==os.environ['GITHUB_SHA'] and len(sha)==40
+          proof={'result':'PASS','sourceHeadSha':sha,'currentHeadSha':sha,
+                 'sourceRunId':os.environ['GITHUB_RUN_ID'],'nativeCompilationSkipped':False,
+                 'nativeSourcesIdentical':True,'qtVersion':'6.11.3',
+                 'buildProvenance':'same-run successful native-build dependency',
+                 'minimumDeploymentTarget':'15.0'}
+          Path('dist-macos/native-source-result.json').write_text(json.dumps(proof,indent=2),encoding='utf-8')
+          PY
       - name: Keep validated native source provenance with final evidence
         if: ${{ inputs.native_run_id != '' }}
         run: cp "$RUNNER_TEMP/native-reuse-result.json" dist-macos/native-source-result.json

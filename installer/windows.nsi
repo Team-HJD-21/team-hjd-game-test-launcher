@@ -31,7 +31,7 @@ Name "TeamHJD Game Test Launcher"
 OutFile "${OUTPUT_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\TeamHJD Game Test Launcher"
 InstallDirRegKey HKCU "${REG_KEY}" "InstallLocation"
-BrandingText "TeamHJD · Happy Journey of Developers"
+BrandingText "TeamHJD  ·  v${VERSION}"
 Icon "${APP_ICON}"
 UninstallIcon "${APP_ICON}"
 VIProductVersion "${VERSION}.0"
@@ -99,13 +99,11 @@ Function WelcomePage
   ${NSD_CreateLabel} 0 3u 100% 26u "테스트를 시작할 준비"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $HeroFont 0
-  ${NSD_CreateLabel} 0 40u 100% 30u "테스트 게임의 설치와 업데이트, 플레이를 한 곳에서 진행하세요."
+  ${NSD_CreateLabel} 0 34u 100% 26u "테스트 게임의 설치와 업데이트, 플레이를 한 곳에서 진행하세요."
   Pop $0
-  ${NSD_CreateLabel} 0 81u 100% 17u "기존 게임과 설정을 그대로 이어서 사용합니다."
+  ${NSD_CreateLabel} 0 67u 100% 17u "기존 게임과 설정을 그대로 이어서 사용합니다."
   Pop $0
-  ${NSD_CreateLabel} 0 107u 100% 30u "현재 Windows 계정에 설치합니다. 관리자 권한은 필요하지 않습니다.$\r$\n이메일 인증과 개인정보 선택은 설치 후 런처에서 진행합니다."
-  Pop $0
-  ${NSD_CreateLabel} 0 151u 100% 14u "TeamHJD  ·  v${VERSION}"
+  ${NSD_CreateLabel} 0 95u 100% 30u "현재 Windows 계정에 설치합니다. 관리자 권한은 필요하지 않습니다.$\r$\n이메일 인증과 개인정보 선택은 설치 후 런처에서 진행합니다."
   Pop $0
   TeamHJDTheme::Apply
   nsDialogs::Show
