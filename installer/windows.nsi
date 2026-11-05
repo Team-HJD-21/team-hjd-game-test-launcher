@@ -7,12 +7,17 @@ SetCompressor /SOLID lzma
 !include "LogicLib.nsh"
 !include "WinVer.nsh"
 !include "x64.nsh"
+!include "nsDialogs.nsh"
+!addplugindir /x86-unicode "${THEME_ROOT}"
+SetFont "Malgun Gothic" 10
 Var UpdateMode
 Var UpdatePid
 Var UpdateStamp
 Var UpdateProfile
 Var MaintenanceMutex
 Var MaintenancePhase
+Var HeroFont
+Var LaunchChoice
 !ifndef HJD_TEST_PACKAGE
   !define REG_NAME "TeamHJDGameTestLauncher"
   !define SHORTCUT_GROUP "TeamHJD Game Test Launcher"
@@ -26,7 +31,7 @@ Name "TeamHJD Game Test Launcher"
 OutFile "${OUTPUT_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\TeamHJD Game Test Launcher"
 InstallDirRegKey HKCU "${REG_KEY}" "InstallLocation"
-BrandingText "TeamHJD · Happy Journey of Developers"
+BrandingText "TeamHJD  ·  v${VERSION}"
 Icon "${APP_ICON}"
 UninstallIcon "${APP_ICON}"
 VIProductVersion "${VERSION}.0"
@@ -36,29 +41,134 @@ VIAddVersionKey "FileDescription" "TeamHJD Game Test Launcher 설치"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" "Copyright TeamHJD"
 !define MUI_ABORTWARNING
+!define MUI_ICON "${APP_ICON}"
+!define MUI_UNICON "${APP_ICON}"
+!define MUI_BGCOLOR "14181B"
+!define MUI_TEXTCOLOR "E8ECEC"
+!define MUI_INSTFILESPAGE_COLORS "E8ECEC 1D2429"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "${THEME_ROOT}\header.bmp"
+!define MUI_HEADER_TRANSPARENT_TEXT
+!define MUI_CUSTOMFUNCTION_GUIINIT ThemeInit
+!define MUI_CUSTOMFUNCTION_UNGUIINIT un.ThemeInit
 !define MUI_CUSTOMFUNCTION_ABORT MaintenanceAbort
 !define MUI_CUSTOMFUNCTION_UNABORT un.MaintenanceAbort
-!define MUI_WELCOMEPAGE_TEXT "플레이테스트 런처를 이 Windows 계정에 설치합니다.$\r$\n관리자 권한은 필요하지 않습니다.$\r$\n$\r$\n기존 게임과 사용자 설정을 이어서 사용합니다. 온라인 이메일 인증과 개인정보 안내는 런처에서 별도로 진행합니다."
+Page custom WelcomePage
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipWhenUpdating
-!insertmacro MUI_PAGE_WELCOME
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipWhenUpdating
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW ThemeShow
 !insertmacro MUI_PAGE_LICENSE "${TERMS_FILE}"
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipWhenUpdating
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW ThemeShow
 !insertmacro MUI_PAGE_COMPONENTS
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW ThemeShow
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_RUN "$INSTDIR\TeamHJDLauncher.exe"
-!define MUI_FINISHPAGE_RUN_TEXT "런처 실행"
-!define MUI_FINISHPAGE_LINK "사용 안내·개인정보·복구 방법"
-!define MUI_FINISHPAGE_LINK_LOCATION "https://testlauncher.teamhjd.com/"
-!define MUI_PAGE_CUSTOMFUNCTION_PRE FinishUpdate
-!insertmacro MUI_PAGE_FINISH
+Page custom FinishPage FinishLeave
 !define MUI_UNCONFIRMPAGE_TEXT_TOP "런처 프로그램 파일과 등록된 바로가기를 제거합니다.$\r$\n$\r$\n게임 설치·사용자 설정·로그인 정보·Unity 저장 데이터와 로그는 보존됩니다. 서버의 이메일 인증 기록도 별개입니다."
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.ThemeShow
 !insertmacro MUI_UNPAGE_CONFIRM
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.ThemeShow
 !insertmacro MUI_UNPAGE_INSTFILES
-!insertmacro MUI_UNPAGE_FINISH
+UninstPage custom un.FinishPage
 !insertmacro MUI_LANGUAGE "Korean"
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "SimpChinese"
+
+Function ThemeInit
+  CreateFont $HeroFont "$(^Font)" 18 700
+  TeamHJDTheme::Apply
+FunctionEnd
+Function ThemeShow
+  TeamHJDTheme::Apply
+FunctionEnd
+Function un.ThemeInit
+  CreateFont $HeroFont "$(^Font)" 18 700
+  TeamHJDTheme::Apply
+FunctionEnd
+Function un.ThemeShow
+  TeamHJDTheme::Apply
+FunctionEnd
+
+Function WelcomePage
+  Call SkipWhenUpdating
+  !insertmacro MUI_HEADER_TEXT "TeamHJD Game Test Launcher" "플레이테스트 런처 설치"
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ${NSD_CreateLabel} 0 3u 100% 26u "테스트를 시작할 준비"
+  Pop $0
+  SendMessage $0 ${WM_SETFONT} $HeroFont 0
+  ${NSD_CreateLabel} 0 34u 100% 26u "테스트 게임의 설치와 업데이트, 플레이를 한 곳에서 진행하세요."
+  Pop $0
+  ${NSD_CreateLabel} 0 67u 100% 17u "기존 게임과 설정을 그대로 이어서 사용합니다."
+  Pop $0
+  ${NSD_CreateLabel} 0 95u 100% 30u "현재 Windows 계정에 설치합니다. 관리자 권한은 필요하지 않습니다.$\r$\n이메일 인증과 개인정보 선택은 설치 후 런처에서 진행합니다."
+  Pop $0
+  TeamHJDTheme::Apply
+  nsDialogs::Show
+FunctionEnd
+
+Function FinishPage
+  Call FinishUpdate
+  !insertmacro MUI_HEADER_TEXT "TeamHJD Game Test Launcher" "설치 완료"
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ${NSD_CreateLabel} 0 3u 100% 26u "설치가 완료되었습니다"
+  Pop $0
+  SendMessage $0 ${WM_SETFONT} $HeroFont 0
+  ${NSD_CreateLabel} 0 43u 100% 32u "런처에서 이메일로 연결한 뒤 테스트 게임을 설치하세요.$\r$\n게임과 설정은 그대로 유지됩니다."
+  Pop $0
+  ${NSD_CreateCheckbox} 0 89u 100% 18u "런처 실행"
+  Pop $LaunchChoice
+!ifndef HJD_TEST_PACKAGE
+  ${NSD_Check} $LaunchChoice
+!endif
+  ${NSD_CreateLabel} 0 126u 100% 28u "런처는 자동으로 업데이트합니다.$\r$\n게임은 알림을 확인한 뒤 업데이트 버튼으로 적용합니다."
+  Pop $0
+  GetDlgItem $0 $HWNDPARENT 2
+  EnableWindow $0 0
+  GetDlgItem $0 $HWNDPARENT 3
+  EnableWindow $0 0
+  TeamHJDTheme::Apply
+  nsDialogs::Show
+FunctionEnd
+
+Function FinishLeave
+  ${NSD_GetState} $LaunchChoice $0
+  ${If} $0 == ${BST_CHECKED}
+!ifdef HJD_TEST_PACKAGE
+    Exec '$\"$INSTDIR\TeamHJDLauncher.exe$\" --data-root $\"$UpdateProfile$\"'
+!else
+    Exec '$\"$INSTDIR\TeamHJDLauncher.exe$\"'
+!endif
+  ${EndIf}
+FunctionEnd
+
+Function un.FinishPage
+  !insertmacro MUI_HEADER_TEXT "TeamHJD Game Test Launcher" "제거 완료"
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ${NSD_CreateLabel} 0 3u 100% 26u "런처를 제거했습니다"
+  Pop $0
+  SendMessage $0 ${WM_SETFONT} $HeroFont 0
+  ${NSD_CreateLabel} 0 48u 100% 40u "게임, 사용자 설정과 저장 데이터는 보존했습니다.$\r$\n서버의 이메일 인증 기록도 별도로 관리됩니다."
+  Pop $0
+  ${NSD_CreateLabel} 0 108u 100% 28u "다시 사용하려면 공식 다운로드 페이지에서 설치하세요.$\r$\ntestlauncher.teamhjd.com"
+  Pop $0
+  GetDlgItem $0 $HWNDPARENT 2
+  EnableWindow $0 0
+  GetDlgItem $0 $HWNDPARENT 3
+  EnableWindow $0 0
+  TeamHJDTheme::Apply
+  nsDialogs::Show
+FunctionEnd
 
 Function .onInit
   System::Call 'kernel32::CreateMutexW(p 0, i 1, w "${MUTEX_NAME}") p.r0 ?e'

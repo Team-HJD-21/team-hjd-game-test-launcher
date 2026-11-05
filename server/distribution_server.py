@@ -1,6 +1,7 @@
 """Read-only TeamHJD distribution server. No execution or upload endpoint."""
 from __future__ import annotations
 import argparse
+from contextlib import nullcontext
 import base64
 import hashlib
 import hmac
@@ -16,9 +17,11 @@ from urllib.parse import urlsplit
 if __package__:
     from .cloudflare_auth import AuditUnavailable, CloudflareAccess
     from .access_policy import check_client
+    from .download_limits import DownloadLimits
 else:
     from cloudflare_auth import AuditUnavailable, CloudflareAccess
     from access_policy import check_client
+    from download_limits import DownloadLimits
 
 
 TESTER_TOKEN_PATTERN = re.compile(rb"hjd1\.([0-9a-f]{16})\.[A-Za-z0-9_-]{43}")
@@ -122,6 +125,7 @@ def serve(args):
     attempts: dict[str, list[float]] = {}
     attempts_lock = threading.Lock()
     slots = threading.BoundedSemaphore(12)
+    download_limits = DownloadLimits(per_account=2)
     cloudflare = CloudflareAccess(root)
 
     class Handler(BaseHTTPRequestHandler):
@@ -148,17 +152,9 @@ def serve(args):
             self.close_connection = True
 
         def authorized(self):
+            self.download_account = None
             peer = self.client_address[0]
             now = time.monotonic()
-            with attempts_lock:
-                # Bounded cache; no persistent identity/address logging.
-                if len(attempts) > 4096:
-                    attempts.clear()
-                recent = [v for v in attempts.get(peer, []) if now - v < 60]
-                if len(recent) >= 10:
-                    self.reject(429, True)
-                    return False
-                attempts[peer] = recent
             audit_unavailable = False
             assertions = self.headers.get_all("Cf-Access-Jwt-Assertion", [])
             if len(assertions) == 1:
@@ -174,9 +170,20 @@ def serve(args):
                             self.reject(policy_status)
                             return False
                         cloudflare.record_access(identity, consent_version=consent_version)
+                        self.download_account = hashlib.sha256(b"access:" + identity.email.casefold().encode("utf-8")).digest()
                         return True
                     except AuditUnavailable:
                         audit_unavailable = True
+            # The tunnel shares one loopback peer address. A failed legacy
+            # password must not lock out independently verified Access users.
+            with attempts_lock:
+                if len(attempts) > 4096:
+                    attempts.clear()
+                recent = [v for v in attempts.get(peer, []) if now - v < 60]
+                if len(recent) >= 10:
+                    self.reject(429, True)
+                    return False
+                attempts[peer] = recent
             header = self.headers.get("Authorization", "")
             password = b""
             try:
@@ -201,6 +208,7 @@ def serve(args):
                         attempts.setdefault(peer, []).append(now)
                 self.reject(503 if audit_unavailable else 401, audit_unavailable)
                 return False
+            self.download_account = hashlib.sha256(b"bearer:" + password).digest()
             return True
 
         def do_GET(self):
@@ -261,20 +269,27 @@ def serve(args):
                         return
                     start = int(match[1])
                     partial = True
-                self.send_response(206 if partial else 200)
-                self.send_header("Content-Type", "application/json" if path == "/catalog.json" else "application/zip")
-                self.send_header("Content-Length", str(size - start))
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("X-Content-Type-Options", "nosniff")
-                self.send_header("Accept-Ranges", "bytes")
-                if partial:
-                    self.send_header("Content-Range", f"bytes {start}-{size-1}/{size}")
-                self.end_headers()
-                if self.command == "HEAD":
-                    return
-                stream.seek(start)
-                while chunk := stream.read(256 * 1024):
-                    self.wfile.write(chunk)
+                # Catalog/HEAD remains available while the same account is
+                # downloading. Every package GET, including resume, is limited.
+                lease = download_limits.lease(self.download_account) if path != "/catalog.json" and self.command != "HEAD" else nullcontext(True)
+                with lease as admitted:
+                    if not admitted:
+                        self.reject(429, True)
+                        return
+                    self.send_response(206 if partial else 200)
+                    self.send_header("Content-Type", "application/json" if path == "/catalog.json" else "application/zip")
+                    self.send_header("Content-Length", str(size - start))
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.send_header("Accept-Ranges", "bytes")
+                    if partial:
+                        self.send_header("Content-Range", f"bytes {start}-{size-1}/{size}")
+                    self.end_headers()
+                    if self.command == "HEAD":
+                        return
+                    stream.seek(start)
+                    while chunk := stream.read(256 * 1024):
+                        self.wfile.write(chunk)
 
     if not args.cert and (not args.test_http or args.bind not in ("127.0.0.1", "::1", "localhost")):
         raise ValueError("TLS certificate and key required; test HTTP is loopback only")

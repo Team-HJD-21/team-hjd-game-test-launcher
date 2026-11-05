@@ -1,6 +1,8 @@
 param([Parameter(Mandatory)][string]$QtRoot,[string]$OutputRoot)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
+$sdkVersion=(& (Join-Path $QtRoot 'bin/qmake.exe') -query QT_VERSION).Trim()
+if($LASTEXITCODE -ne 0 -or $sdkVersion -cne '6.11.3'){throw 'The reviewed security release requires the exact Qt 6.11.3 SDK.'}
 if(-not $OutputRoot){$OutputRoot=Join-Path $root 'dist'}
 $output=[IO.Path]::GetFullPath($OutputRoot)
 $version=([regex]::Match((Get-Content -LiteralPath (Join-Path $root 'CMakeLists.txt') -Raw),'project\(TeamHJDGameTestLauncher VERSION ([0-9.]+)')).Groups[1].Value
@@ -28,6 +30,14 @@ $env:PATH="$QtRoot/bin;$env:PATH"
 & (Join-Path $QtRoot 'bin/windeployqt.exe') --release --no-translations --no-compiler-runtime --qmldir (Join-Path $root 'qml') --dir $payload (Join-Path $payload 'TeamHJDClient.exe')
 if($LASTEXITCODE){throw 'Client deployment failed.'}
 & (Join-Path $QtRoot 'bin/windeployqt.exe') --release --no-translations --no-compiler-runtime --dir $bundle (Join-Path $bundle 'TeamHJDLauncher.exe')
+foreach($directory in @($payload,$bundle)){
+    foreach($library in @('Qt6Core.dll','Qt6Network.dll')){
+        $deployed=Join-Path $directory $library
+        if(-not(Test-Path -LiteralPath $deployed)){continue}
+        if((Get-Item -LiteralPath $deployed).VersionInfo.FileVersion -cne '6.11.3.0' -or
+           (Get-FileHash -LiteralPath $deployed -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath (Join-Path $QtRoot ('bin/'+$library)) -Algorithm SHA256).Hash){throw 'A deployed Qt library does not match the reviewed security SDK.'}
+    }
+}
 if($LASTEXITCODE){throw 'Bootstrap deployment failed.'}
 $sdkRoot=Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
 foreach($name in @('d3dcompiler_47.dll','dxcompiler.dll','dxil.dll')){

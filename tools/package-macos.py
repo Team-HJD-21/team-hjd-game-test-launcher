@@ -196,6 +196,7 @@ def main():
     parser.add_argument('--arch', choices=HELPERS, required=True)
     args = parser.parse_args()
     assert sys.platform == 'darwin'
+    assert run(args.qt / 'bin/qmake', '-query', 'QT_VERSION').strip() == '6.11.3', 'Use the exact reviewed security SDK'
     version = re.search(r'project\(TeamHJDGameTestLauncher VERSION ([0-9.]+)', (ROOT / 'CMakeLists.txt').read_text())[1]
     assert not args.output.exists(), 'Select a fresh output directory'
     args.output.mkdir(parents=True)
