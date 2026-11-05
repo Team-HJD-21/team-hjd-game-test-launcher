@@ -6,6 +6,8 @@ $root=Join-Path $project ('.local/bootstrap-'+[DateTime]::Now.ToString('yyyyMMdd
 $env:PATH="$QtRoot/bin;$env:PATH"
 New-Item -ItemType Directory -Path $root -Force|Out-Null
 Copy-Item -LiteralPath (Join-Path $project 'build/TeamHJDLauncher.exe') -Destination $root
+& (Join-Path $QtRoot 'bin/windeployqt.exe') --release --no-translations --no-compiler-runtime --dir $root (Join-Path $root 'TeamHJDLauncher.exe')
+if($LASTEXITCODE){throw 'Could not stage the bootstrap fixture app-local runtime.'}
 function Seed([string]$version,[bool]$bad){
     $directory=Join-Path $root "launcher/versions/$version";New-Item -ItemType Directory -Path $directory -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $project 'build/LauncherFixtureGame.exe') -Destination (Join-Path $directory 'TeamHJDClient.exe')

@@ -25,7 +25,7 @@ from server.device_auth import proof_message
 class DeviceHttpTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(__file__).resolve().parents[1] / ".local" / ("device-http-" + uuid.uuid4().hex)
-        self.root.mkdir()
+        self.root.mkdir(parents=True)
         (self.root / "packages").mkdir()
         self.package = b"device-http-package\n" * 16384
         self.digest = hashlib.sha256(self.package).hexdigest()
