@@ -25,7 +25,8 @@ function Owned-Child {
 }
 try {
     $arguments=@('--data-root',('"'+$profile+'"'),'--launcher-root',('"'+$root+'"'),'--test-allow-loopback','--test-update-from','0.0.9','--capture',('"'+(Join-Path $run 'updater.png')+'"'),'--quit-after-ms','180000')
-    $client=Start-Process -FilePath $clientExe -ArgumentList $arguments -PassThru -WindowStyle Hidden -RedirectStandardError (Join-Path $run 'client-stderr.txt')
+    $client=Start-Process -FilePath $clientExe -ArgumentList $arguments -PassThru -WindowStyle Normal -RedirectStandardError (Join-Path $run 'client-stderr.txt')
+    Write-Output 'Waiting for explicit Update approval in the isolated visible launcher; no comparison override is used in the real user installation.'
     $deadline=[DateTime]::UtcNow.AddSeconds(170)
     do {
         $state=Read-HostingJson (Join-Path $root 'launcher/active.json') 32768

@@ -31,6 +31,14 @@ def run(*args):
     except subprocess.CalledProcessError as error:
         print(error.output, flush=True)
         raise
+    except subprocess.TimeoutExpired as error:
+        # Keep the deployment deadline and all audits. Retain bounded tool
+        # diagnostics instead of discarding the captured Qt output on timeout.
+        output = error.output or b''
+        if isinstance(output, bytes):
+            output = output[-65536:].decode('utf-8', errors='replace')
+        print(f'Timed out: {Path(str(args[0])).name}\n{output[-65536:]}', flush=True)
+        raise
 
 def digest(path):
     with path.open('rb') as source:

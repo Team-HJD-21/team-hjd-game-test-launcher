@@ -1,5 +1,7 @@
 name: Deploy launcher download site
 on:
+  release:
+    types: [published]
   push:
     branches: [main]
     paths:
@@ -7,6 +9,7 @@ on:
       - tools/check-download-site.mjs
       - tools/launcher-favicon-v1.json
       - tools/sync-release-history.mjs
+      - tools/sync-published-launcher-feed.mjs
       - .github/workflows/download-site.yml
   workflow_dispatch:
 permissions:
@@ -27,11 +30,14 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
       - name: Verify public files and latest download contract
         run: |
+          node tools/sync-published-launcher-feed.mjs
           node tools/sync-release-history.mjs
           node --check website/app.js
           node --check website/release-feed.js

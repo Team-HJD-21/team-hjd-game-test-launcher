@@ -20,6 +20,8 @@
 #include <limits>
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <io.h>
+#include <fcntl.h>
 #else
 #include <CoreFoundation/CoreFoundation.h>
 #include <libproc.h>
@@ -218,7 +220,13 @@ int main(int argc,char **argv){
             if(launchHealthy(root,store,dataRoot))return 0;
         }
         fail(QStringLiteral("런처 파일을 확인하지 못했습니다. 공식 배포 ZIP으로 복구하세요."));
-    }catch(const std::exception &e){auto message=QString::fromUtf8(e.what());QTextStream output(stderr);
+    }catch(const std::exception &e){auto message=QString::fromUtf8(e.what());
+#ifdef Q_OS_WIN
+        // CRT text mode expands the LF byte inside UTF-16 into CRLF, leaving
+        // an odd byte count and breaking nsExec's Unicode detection.
+        if(args.contains("--installer-unicode-output"))_setmode(_fileno(stderr),_O_BINARY);
+#endif
+        QTextStream output(stderr);
 #ifdef Q_OS_WIN
         if(args.contains("--installer-unicode-output")){output.setEncoding(QStringConverter::Utf16LE);output.setGenerateByteOrderMark(true);}
 #endif
