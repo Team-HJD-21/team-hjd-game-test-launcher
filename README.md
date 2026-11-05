@@ -5,7 +5,7 @@ Windows per-user Setup and ARM/Intel macOS DMG game playtest launcher, written i
 ## Maintainers: start here
 
 - [Current installer rollout and team handoff (Korean)](docs/DISTRIBUTION_HANDOFF.ko.md): one-time ZIP migration, player flow, server startup, verified-user records and future releases.
-- [v0.2.0 release validation](docs/RELEASE_VALIDATION_0.2.0.md): exact published assets, signed feed, real updater acceptance and untested boundaries.
+- [v0.2.2 release validation](docs/RELEASE_VALIDATION_0.2.2.md): actual 0.2.0 upgrade, Qt security update, installer preservation, Windows/Mac acceptance and untested boundaries. Earlier reports describe their own releases.
 - [Release runbook and completion checklist (Korean)](docs/RELEASING.ko.md): fresh output directories, native Mac build/reuse rules, draft upload/digest checks, publication and old-client acceptance.
 - [Troubleshooting and verified repairs (Korean)](docs/TROUBLESHOOTING.ko.md): known symptoms, minimum diagnostics, evidence and unresolved limits.
 - [Hosting and verified-user reports (Korean)](docs/PLAYTEST_HOSTING.ko.md): Tunnel, logon startup/recovery, local dashboard and email/timestamp reports.
@@ -19,7 +19,7 @@ Open **teamhjd.com → footer → Related sites → Game Test Launcher**, or the
 
 Run **TeamHJD-GameTestLauncher-Windows-x64-Setup.exe** to install for the current user. Open the Start menu shortcut and pin that stable launcher. Existing ZIP users should close the old launcher, install once and replace the old taskbar pin. Games and settings in the same user profile are retained. [GitHub Releases](https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest) remains the source of the files. Windows 10/11 x64 is the target; the first release was tested on Windows 11.
 
-On **macOS 12 or later**, download **TeamHJD-GameTestLauncher-macOS-arm64.dmg** for Apple Silicon or **TeamHJD-GameTestLauncher-macOS-x64.dmg** for Intel. Move **TeamHJDLauncher.app** to Applications and run it. See the [Mac player guide](docs/PLAYER_GUIDE_MACOS.ko.md), including the first-launch security approval for this ad hoc signed, unnotarized playtest distribution. The launcher automatically selects a compatible game package and refuses Windows games on macOS.
+On **macOS 15 or later**, download **TeamHJD-GameTestLauncher-macOS-arm64.dmg** for Apple Silicon or **TeamHJD-GameTestLauncher-macOS-x64.dmg** for Intel. Move **TeamHJDLauncher.app** to Applications and run it. See the [Mac player guide](docs/PLAYER_GUIDE_MACOS.ko.md), including the first-launch security approval for this ad hoc signed, unnotarized playtest distribution. The launcher automatically selects a compatible game package and refuses Windows games on macOS.
 
 Select **이메일로 시작** and verify the code sent to your email in the browser, then return to install and play. The default channel uses Cloudflare Access One-time PIN with no email allowlist. Separate unchecked collection/international-processing choices precede online authentication. Verified email, authentication/access timestamps, bounded session counts and consent records are kept privately for up to180 days after last access. See legal/PRIVACY.ko.txt. Session tokens are protected with Windows DPAPI or a Mac Keychain-held encryption key. Team-issued invitation files remain available for separately configured channels.
 
