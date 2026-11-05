@@ -12,7 +12,7 @@ assert.equal(favicon.id, 'launcher');
 assert.equal(favicon.version, '1.0.0');
 assert.equal(favicon.sourceCommit, '22c596ac6ea86edd5e0f7adee07875c49e0e449a');
 assert.deepEqual(Object.keys(favicon.files).sort(), [...faviconNames].sort());
-const expectedFiles = new Set(['.nojekyll', 'CNAME', 'robots.txt', 'index.html', 'styles.css', 'app.js', 'release-feed.js', 'privacy.html', 'assets/teamhjd-logo.png', 'assets/teamhjd-wordmark.png', 'assets/favicons/v1/.gitattributes', ...faviconNames.map(name => faviconBase + name)]);
+const expectedFiles = new Set(['.nojekyll', 'CNAME', 'robots.txt', 'index.html', 'releases.html', 'styles.css', 'app.js', 'release-feed.js', 'privacy.html', 'assets/teamhjd-logo.png', 'assets/teamhjd-wordmark.png', 'assets/favicons/v1/.gitattributes', ...faviconNames.map(name => faviconBase + name)]);
 function files(directory, prefix = '') {
   return readdirSync(directory).flatMap(name => {
     const file = path.join(directory, name);
@@ -41,8 +41,18 @@ if(process.argv.includes('--update-asset-versions')) {
  writeFileSync(path.join(root,'privacy.html'),privacy,'utf8');
 }
 assert(privacy.includes(`href="styles.css?v=${resourceVersions.get('styles.css')}"`),'Privacy stylesheet must match the versioned public stylesheet');
-const footer = text => text.slice(text.indexOf('  <footer'),text.indexOf('</footer>')+9);
+const footer = text => text.slice(text.indexOf('  <footer'),text.indexOf('</footer>')+9).replace(/\r\n/g,'\n');
 assert.equal(footer(privacy),footer(html),'The policy page must retain the common company footer');
+let releases=readFileSync(path.join(root,'releases.html'),'utf8');
+if(process.argv.includes('--update-asset-versions')) {
+ releases=releases.replace(/((?:href|src)=")(styles\.css|app\.js)(?:\?v=[a-zA-Z0-9-]+)?(")/g,(_,prefix,name,suffix)=>`${prefix}${name}?v=${resourceVersions.get(name)}${suffix}`);
+ writeFileSync(path.join(root,'releases.html'),releases,'utf8');
+}
+assert.equal(footer(releases),footer(html),'Release history must retain the common company footer');
+assert(releases.includes(`href="styles.css?v=${resourceVersions.get('styles.css')}"`) && releases.includes(`src="app.js?v=${resourceVersions.get('app.js')}"`),'History assets must be current');
+assert(releases.includes('id="v0.1.0"') && releases.includes('id="v0.2.0"'),'Historical releases must remain visible without JavaScript');
+assert(!/<(?:iframe|form)\b|\son\w+=/i.test(releases),'Release notes must remain inert');
+assert(!releases.includes('release-feed.js') && html.includes('href="releases.html"'),'History has a direct download-page link and needs no client API');
 assert(!/<(?:script|iframe|form)\b/i.test(privacy),'No login, script or data collection on the legal page');
 assert(privacy.includes('support@teamhjd.com') && privacy.includes('180') && privacy.includes('Cloudflare'),'Current retention, processor and rights contact must be visible');
 const app = readFileSync(path.join(root, 'app.js'), 'utf8');

@@ -6,6 +6,7 @@ on:
       - website/**
       - tools/check-download-site.mjs
       - tools/launcher-favicon-v1.json
+      - tools/sync-release-history.mjs
       - .github/workflows/download-site.yml
   workflow_dispatch:
 permissions:
@@ -31,6 +32,7 @@ jobs:
           node-version: '22'
       - name: Verify public files and latest download contract
         run: |
+          node tools/sync-release-history.mjs
           node --check website/app.js
           node --check website/release-feed.js
           node tools/test-release-feed.mjs

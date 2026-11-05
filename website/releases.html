@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>업데이트 기록 — Game Test Launcher · TeamHJD</title>
+  <meta name="description" content="TeamHJD의 게임 플레이테스트를 위한 런처입니다.">
+  <meta name="theme-color" content="#080f17">
+  <link rel="icon" href="assets/favicons/v1/launcher/favicon.ico" type="image/x-icon" sizes="16x16 32x32 48x48">
+  <link rel="icon" href="assets/favicons/v1/launcher/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="assets/favicons/v1/launcher/favicon.svg" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="assets/favicons/v1/launcher/apple-touch-icon.png" sizes="180x180">
+  <link rel="canonical" href="https://testlauncher.teamhjd.com/releases.html">
+  <link rel="stylesheet" href="styles.css?v=dc9a35fb83fb">
+  <script src="app.js?v=d6d5fd364cd2" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#releases" data-i18n="historySkip">업데이트 기록으로 바로 가기</a>
+  <header class="shell header">
+    <a class="wordmark" href="https://teamhjd.com/" aria-label="TeamHJD"><img src="assets/teamhjd-wordmark.png" alt="TeamHJD" width="486" height="98"></a>
+    <a class="public-home" href="https://teamhjd.com/" data-i18n="headerHome">회사 홈페이지</a>
+    <details id="language-switcher" class="language-switcher">
+      <summary aria-label="Language / 언어 / 语言"><svg class="language-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z"/></svg><span id="current-language">한국어</span><svg class="language-chevron" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></summary>
+      <ul class="language-list" aria-label="Language / 언어 / 语言"><li><button type="button" data-language="ko" lang="ko" aria-pressed="true"><span>한국어</span><small>KO</small></button></li><li><button type="button" data-language="en" lang="en" aria-pressed="false"><span>English</span><small>EN</small></button></li><li><button type="button" data-language="zh-CN" lang="zh-CN" aria-pressed="false"><span>简体中文</span><small>ZH</small></button></li></ul>
+    </details>
+  </header>
+  <main class="shell history-page" id="releases">
+    <a class="history-back" href="index.html" data-local-page data-i18n="backToDownloads">다운로드</a>
+    <h1 data-i18n="releaseHistory">업데이트 기록</h1>
+    <p class="description" data-i18n="historyIntro">버전별 변경 사항과 배포 당시의 안내입니다. 현재 설치 방법은 다운로드 페이지를 확인하세요.</p>
+    <div class="release-history">
+<!-- release-history:start -->
+<article class="release-entry" id="v0.2.1"><header><h2>v0.2.1 — Qt 보안 업데이트·설치 화면 개선</h2><div class="release-meta"><time datetime="2026-11-05T02:33:27Z">2026-11-05</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.2.1">GitHub Release</a></div></header><div class="release-notes"><p>Qt 보안 업데이트와 Windows 설치 화면을 개선했습니다.</p>
+<ul><li>Windows·macOS ARM/Intel의 Qt를 6.11.3으로 업데이트했습니다.</li><li>Windows 설치·제거 마법사에 TeamHJD 로고와 다크 스타일을 적용했습니다. 깨지던 옆 그림을 없애고 안내 문구를 기본 텍스트로 표시합니다.</li><li>인증된 계정의 게임 패키지 동시 다운로드를 2개로 제한해 다른 테스터의 접속 여유를 확보했습니다. 같은 계정의 여러 인증 세션에도 함께 적용합니다.</li><li>이메일 인증은 계속 누구나 이용할 수 있습니다. 별도 유료 서비스는 추가하지 않았습니다.</li><li>런처 업데이트는 서명·크기·해시 검증 후 자동 재시작합니다. 설치된 0.2.0은 런처를 다시 실행하면 새 버전을 확인합니다.</li><li>게임 업데이트는 업데이트 버튼으로 직접 적용합니다. 설치된 게임의 오프라인 실행, 제거·재설치 시 게임과 설정 보존을 유지합니다.</li></ul>
+<p>Windows는 Setup.exe, Mac(macOS 15 이상)은 CPU에 맞는 DMG를 받으세요. 기존 ZIP 사용자는 Setup/DMG를 한 번 설치하고 새 TeamHJDLauncher를 고정해 주세요.</p>
+<p>Windows 게시자 서명과 Apple Developer ID·공증은 아직 없습니다. 첫 실행 안내: https://testlauncher.teamhjd.com/#faq</p>
+<p>검증: Windows 필수 네이티브 회귀 8종, 서버 Python 75개, 실제 0.2.0→0.2.1 Setup 전환과 GUI 정상 실행, 설치·복구·제거·재설치·데이터 보존·실패 복원, ARM/Intel 실제 Mac native 빌드·DMG·delivery 검사. 사람의 이메일 OTP·Unity 게임 플레이·PC 재부팅은 이번 자동 검사에 포함하지 않았습니다.</p></div></article>
+<article class="release-entry" id="v0.2.0"><header><h2>v0.2.0 — Setup + macOS DMG</h2><div class="release-meta"><time datetime="2026-11-05T01:00:12Z">2026-11-05</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.2.0">GitHub Release</a></div></header><div class="release-notes"><p>Windows 설치형과 macOS DMG 배포를 시작합니다.</p>
+<ul><li>Windows: Setup.exe로 현재 사용자 계정에 설치합니다. 설치된 앱/시작 메뉴/제거기를 함께 관리합니다.</li><li>Mac(macOS 15 이상): 칩에 맞는 DMG를 열고 TeamHJDLauncher.app을 응용 프로그램 폴더로 옮깁니다.</li><li>런처 업데이트: 이메일 인증과 별도로 서명된 배포 정보를 자동 확인하고 검증 후 재시작합니다. 실패하면 재시도하거나 이전 버전을 복원합니다.</li><li>게임 업데이트: 알림 후 업데이트 버튼으로 직접 적용합니다. 설치된 게임은 오프라인 플레이가 가능합니다.</li><li>개인정보: 온라인 참여 전에 수집·이용과 Cloudflare 국외 처리를 따로 선택합니다. 자체 인증 기록은 최근 접속 후180일 기준으로 정리합니다.</li><li>제거/복구: 게임·설정·저장 데이터·서버 기록을 보존합니다. 최신 Setup/DMG로 복구·재설치할 수 있습니다.</li></ul>
+<p>기존 ZIP 사용자: 이번에 한 번 새 Setup/DMG를 설치하고 새 TeamHJDLauncher를 작업표시줄/Dock에 고정해 주세요. 같은 사용자 계정의 기존 게임과 설정을 이어서 사용합니다. 이후 런처 업데이트는 자동입니다.</p>
+<p>Windows 게시자 서명과 Apple Developer ID·공증은 아직 없습니다. 공식 파일을 신뢰하는 경우의 첫 실행 절차와 설치/복구/삭제·개인정보 안내는 https://testlauncher.teamhjd.com/ 에서 확인할 수 있습니다. 보안 기능 전체를 끄지 마세요.</p>
+<p>검증: Windows core/업데이트/창/수동 게임 업데이트 회귀, 설치·복구·제거·재설치·데이터 보존·health 복원 및 ARM/Intel 실제 Mac 빌드·전체 파일/서명·DMG mount·native delivery. 사람이 하는 이메일 OTP·Unity 게임 플레이·실제 재부팅은 이번 릴리즈 자동 검증에 포함하지 않았습니다.</p></div></article>
+<article class="release-entry" id="v0.1.4"><header><h2>v0.1.4 — 공통 아이콘·업데이트·인증 안내</h2><div class="release-meta"><time datetime="2026-11-03T05:42:40Z">2026-11-03</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.1.4">GitHub Release</a></div></header><div class="release-notes"><p>공통 로켓·재생 배지 아이콘을 Windows 실행 파일·실행 중 창·macOS 앱에 적용했습니다.</p>
+<p>기존 설치에서도 실행할 때마다 이메일 인증보다 먼저 런처 업데이트를 확인합니다. 업데이트 확인·다운로드·검증·적용 대기와 이메일 인증은 별도 모달로 표시하고 다른 조작을 막습니다. 설치된 클라이언트를 직접 실행해도 정상 설치 경로와 실행 파일 receipt가 확인되면 자동 업데이트 경로를 복원합니다.</p>
+<p>이메일 인증이 만료된 상태를 ‘자동 재연결 중’으로 잘못 표시하던 문제를 수정했습니다. 이제 ‘이메일 재인증 필요’와 바로 누를 수 있는 인증 버튼을 표시하며, 서버 연결 실패는 ‘서버 오프라인’, 인증과 게임 목록 검증 성공은 ‘서버 온라인’으로 구분합니다. 이메일 인증이 만료되거나 업데이트 확인에 실패해도 설치된 게임은 모달의 오프라인 플레이로 계속 사용할 수 있습니다. 게임 파일 검증과 명시적 게임 업데이트는 유지합니다.</p>
+<p>런처 자체 업데이트는 게임 서버의 이메일 인증과 별개로 GitHub에서 확인합니다. 새 payload를 검증한 뒤 다음 실행에 적용합니다. 기존 portable의 고정 실행 파일·Finder 앱 아이콘까지 바꾸려면 새 portable ZIP으로 교체해야 합니다. 게임과 설정을 삭제할 필요는 없습니다.</p>
+<p>Windows x64, macOS Apple Silicon, macOS Intel ZIP을 제공합니다. macOS 최소 버전은12입니다. Windows 게시자 서명과 Apple Developer ID/공증은 없습니다. 인증·다운로드·게임 플레이의 보안 검증을 끄지 마세요.</p>
+<p>공개 파일은 런처·의존성·라이선스만 포함하며 게임·개인정보·접근 자격 증명은 포함하지 않습니다.</p></div></article>
+<article class="release-entry" id="v0.1.3"><header><h2>v0.1.3 — Windows + macOS</h2><div class="release-meta"><time datetime="2026-10-30T18:54:48Z">2026-10-30</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.1.3">GitHub Release</a></div></header><div class="release-notes"><p>Windows와 macOS에서 같은 이메일 인증 채널로 게임을 받는 런처입니다.</p>
+<ul><li>Apple Silicon: <strong>TeamHJD-GameTestLauncher-macOS-arm64.zip</strong></li><li>Intel Mac: <strong>TeamHJD-GameTestLauncher-macOS-x64.zip</strong></li><li>Windows: <strong>TeamHJD-GameTestLauncher-Windows-x64.zip</strong></li></ul>
+<p>맥은 macOS 12 이상에서 ZIP을 풀고 <strong>TeamHJDLauncher.app</strong>을 응용 프로그램 폴더로 옮겨 실행하세요. 인증 정보는 macOS 키체인으로 보호합니다. Windows는 폴더 전체를 풀어 <strong>TeamHJDLauncher.exe</strong>를 실행하세요.</p>
+<p><strong>이메일로 시작 → 브라우저에서 이메일·일회용 코드 인증 → 설치 → 플레이</strong> 순서로 사용합니다. 게임은 운영체제와 CPU에 맞는 서명된 패키지를 자동 선택합니다. 새 게임 버전은 자동으로 알려 주며, <strong>업데이트</strong>를 눌러 적용하거나 <strong>현재 버전 플레이</strong>를 선택할 수 있습니다. 런처 자체 업데이트는 다음 실행에 적용합니다.</p>
+<p>게임은 런처에서 이메일 인증 후 설치하세요. 기존 수동 게임 ZIP 웹페이지는 종료했습니다. Windows와 맥의 현재 테스트 게임은 <strong>BUILD0024 / HFH-FIELD-v14</strong>입니다. 기존 Windows 0.1.2에서도 배포 목록 호환성을 확인했습니다.</p>
+<p>macOS 배포에는 Apple Developer ID와 공증이 없습니다. 실행이 차단되면 공식 파일을 확인한 뒤 시스템 설정 → 개인정보 보호 및 보안에서 해당 앱의 <strong>그래도 열기</strong>를 선택하세요. 처음 인증하거나 런처가 바뀐 뒤 키체인 접근 허용을 요청할 수 있습니다.</p>
+<p>공개 ZIP에는 런처와 필요한 라이브러리·라이선스만 포함됩니다. 게임·음악·접속자 기록·인증 정보는 포함하지 않습니다. 게임은 별도의 인증 서버에서 배포합니다. 맥 게임의 실제 화면·소리·입력과 Windows↔Mac 네트워크 플레이는 실기기 플레이테스트가 필요합니다.</p>
+<p><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/blob/main/docs/PLAYER_GUIDE_MACOS.ko.md" rel="noopener noreferrer">맥 사용 안내</a> · <a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/blob/v0.1.3/docs/RELEASE_VALIDATION_0.1.3.md" rel="noopener noreferrer">검증 기록</a></p></div></article>
+<article class="release-entry" id="v0.1.2"><header><h2>v0.1.2 — 게임 업데이트 버튼·최대화 수정</h2><div class="release-meta"><time datetime="2026-10-28T18:48:54Z">2026-10-28</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.1.2">GitHub Release</a></div></header><div class="release-notes"><p>게임 업데이트를 직접 선택하고, 최대화 버튼을 안정적으로 사용할 수 있도록 수정했습니다.</p>
+<ul><li>새 게임 버전 확인은 자동, 다운로드·설치는 업데이트 버튼을 눌렀을 때 진행</li><li>업데이트 전 현재 버전 플레이 지원, 롤백 후 최신 버전 재적용 지원</li><li>최대화 버튼 클릭 시 종료되던 null 포인터 오류 수정</li><li>운영 PC용 비공개 브라우저 관리 화면: 서버·터널·배포 버전·인증 이메일·접속 시각 확인</li></ul>
+<p>런처 자체는 새 버전을 자동으로 준비하고 다음 실행 때 적용합니다. 처음 사용하는 경우 TeamHJD-GameTestLauncher-Windows-x64.zip 전체를 풀고 TeamHJDLauncher.exe를 실행하세요.</p>
+<p>검증: 핵심78개, 실제 Controller 수동 업데이트11개, 최대화·복원10회 회귀 검사 및 실제 버튼 클릭, 100/125/150% 화면 검수, 최종 배포 ZIP 전체 파일 검증. 공개 배포에는 게임 빌드·운영 인증정보가 포함되지 않습니다.</p></div></article>
+<article class="release-entry" id="v0.1.1"><header><h2>v0.1.1 — 이메일 인증으로 바로 플레이테스트</h2><div class="release-meta"><time datetime="2026-10-28T17:20:38Z">2026-10-28</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.1.1">GitHub Release</a></div></header><div class="release-notes"><p>이메일로 인증하고 바로 설치·플레이할 수 있는 Windows x64 런처입니다.</p>
+<p>사용법: TeamHJD-GameTestLauncher-Windows-x64.zip 다운로드 → 압축 해제 → TeamHJDLauncher.exe 실행 → 이메일로 시작 → 설치·플레이.</p>
+<ul><li>Cloudflare 이메일 일회용 코드 인증, 별도 이메일 허용목록 없음</li><li>TeamHJD 아이콘·Hose for Hire 원본 로고, 일체형 상단 바와 다크 메뉴</li><li>게임과 런처 자동 업데이트, 중복 설치 방지, 파일 복구·이전 버전 복원·삭제</li><li>설치된 게임은 오프라인 플레이 가능, 저장 데이터·로그 보존</li><li>인증 이메일과 최초·최근 인증·접속 시각은 비공개 운영 서버에 기록</li></ul>
+<p>공개 ZIP에는 게임 빌드·서버 자격 증명·비밀키가 포함되지 않습니다.</p>
+<p>검증: 핵심 78개, GUI 시작·종료, 서버/인증/운영 36개, 실제 게임 자동 업데이트 및 실제 GitHub API를 통한 런처 자동 업데이트와 다음 실행 예약, 배포 ZIP 전체 해시 검증.</p>
+<p>실제 이메일 인증 → 서명된 게임 목록 → 게임 다운로드·320개 파일 검증·설치까지 운영자와 확인했습니다.</p></div></article>
+<article class="release-entry" id="v0.1.0"><header><h2>TeamHJD Game Test Launcher v0.1.0</h2><div class="release-meta"><time datetime="2026-10-28T16:05:19Z">2026-10-28</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.1.0">GitHub Release</a></div></header><div class="release-notes"><p>TeamHJD Game Test Launcher의 첫 Windows x64 배포입니다.</p>
+<p><strong>팀원에게 전달할 파일: <code>TeamHJD-GameTestLauncher-Windows-x64.zip</code> (약 30 MB)</strong><br>압축을 일반 쓰기 가능한 폴더에 풀고 <code>TeamHJDLauncher.exe</code>를 실행하세요. 별도 .NET/Qt/VC++ 설치 없이 실행하도록 런타임을 포함했습니다.</p>
+<ul><li>TeamHJD 원본 로고를 창·실행 파일 아이콘에 적용</li><li>일체형 상단 바, 파일·보기·도움말 메뉴, 알림함과 토스트</li><li>서버·버전 자동 확인, 게임 자동 업데이트, 런처 다음 실행 자동 업데이트</li><li>같은 패키지 중복 설치 방지, 다운로드 이어받기, 파일 검증·복구·이전 버전 복원</li><li>설치/최신/이전 버전과 변경사항·용량 확인, 게임 삭제·재설치</li><li>실행 중 설치/삭제 차단, AppData 저장 데이터와 외부 테스트 로그 보존</li></ul>
+<p>게임을 받으려면 팀에서 전달한 비공개 HTTPS 서버 초대 정보와 접근 암호가 필요합니다. <strong>게임 ZIP·BGM·암호·키·개인 로그는 이 공개 Release에 포함되지 않습니다.</strong> 외부 게임 서버 설정과 포트포워딩은 별도 배포 단계입니다.</p>
+<p>검증: core 63개 검사, 실제 GUI 시작/정상 종료, 100/125/150% 화면 7종, HTTPS 설치·이어받기·업데이트, 서명/TLS 검증, 런처 업데이트 실패·중단 복원, 최신 정본 게임 320개 파일의 로컬 비공개 설치 검증. Windows 11에서 확인했습니다.</p>
+<p><code>TeamHJD-LauncherPayload-Windows-x64.zip</code>은 런처의 자동 업데이트용 파일입니다. 처음 설치하는 팀원은 위의 GameTestLauncher ZIP을 사용하세요. <code>SHA256SUMS.txt</code>에는 두 파일의 SHA-256이 들어 있습니다.</p></div></article>
+<!-- release-history:end -->
+    </div>
+  </main>
+  <footer class="shell footer">
+    <div class="footer-brand"><a class="wordmark" href="https://teamhjd.com/#home"><img src="assets/teamhjd-wordmark.png" width="486" height="98" alt="TeamHJD"></a><p class="footer-tagline">Happy Journey of Developers.</p></div>
+    <nav class="footer-links" aria-label="하단 메뉴"><a href="https://github.com/Team-HJD-21">GitHub</a><a href="https://store.steampowered.com/app/4336820/The_Developer/">Steam</a><a href="https://teamhjd.com/privacy/index.html#email">support@teamhjd.com</a><a class="footer-privacy" href="https://teamhjd.com/privacy/index.html" data-i18n="privacy">개인정보처리방침</a></nav>
+    <dl class="footer-business">
+      <div><dt class="footer-name-label" data-i18n="businessName">상호</dt><dd lang="ko">팀 에이치제이디(TeamHJD)</dd></div>
+      <div><dt class="footer-owner-label" data-i18n="businessOwner">대표자</dt><dd class="footer-owner-value" data-i18n="ownerValue">황재동</dd></div>
+      <div><dt class="footer-registration-label" data-i18n="businessRegistration">사업자등록번호</dt><dd>622-10-17519 <a class="business-info-link" href="https://www.ftc.go.kr/bizCommPop.do?wrkr_no=6221017519" target="_blank" rel="noopener noreferrer" data-i18n="businessVerify">(사업자정보확인)</a></dd></div>
+      <div><dt class="footer-commerce-label" data-i18n="businessCommerce">통신판매업 신고번호</dt><dd>2026-수원영통-1221호</dd></div>
+      <div><dt class="footer-address-label" data-i18n="businessAddress">사업장 주소</dt><dd lang="ko">경기도 수원시 영통구 태장로 71번길 19</dd></div>
+    </dl>
+    <div class="footer-policy"><a class="footer-press" href="https://teamhjd.com/press/index.html" data-i18n="press">프레스킷</a><a class="footer-content-policy" href="https://teamhjd.com/content-policy/index.html" data-i18n="contentPolicy">콘텐츠 이용 · AI 학습 정책</a><p class="ai-policy-short" data-i18n="aiPolicy">AI 검색·정보 조회는 허용하며, 콘텐츠의 AI 학습 이용은 금지합니다.</p></div>
+    <small class="footer-copyright">© 2026 TeamHJD. All rights reserved.</small>
+    <details class="related-sites" id="related-sites">
+      <summary><span class="related-sites-label" data-i18n="related">관련 사이트</span><svg class="related-sites-chevron" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></summary>
+      <ul><li><a class="team-docs-link" href="https://docs.teamhjd.com/" target="_blank" rel="noopener noreferrer" data-i18n="teamDocs">팀 개발 문서</a></li><li><a class="testlauncher-link" href="https://testlauncher.teamhjd.com/" target="_blank" rel="noopener noreferrer">Game Test Launcher</a></li><li><a class="threadle-link" href="https://threadle.teamhjd.com/" target="_blank" rel="noopener noreferrer">Threadle</a></li><li><a class="pixelpin-link" href="https://pixelpin.teamhjd.com/" target="_blank" rel="noopener noreferrer">PixelPin</a></li><li><a class="gambungi-notes-link" href="https://tech.teamhjd.com/" target="_blank" rel="noopener noreferrer">겜붕이의 노트</a></li></ul>
+    </details>
+  </footer>
+</body>
+</html>

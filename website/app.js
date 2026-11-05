@@ -1,5 +1,6 @@
 const translations = {
   ko: {
+    releaseHistory: '업데이트 기록', historySkip: '업데이트 기록으로 바로 가기', backToDownloads: '다운로드', historyIntro: '버전별 변경 사항과 배포 당시의 안내입니다. 현재 설치 방법은 다운로드 페이지를 확인하세요.',
     faqMaintenanceQuestion: "기존 ZIP 사용자 전환·자동 업데이트·제거는?",
     faqMaintenanceAnswer: "기존 사용자는 런처를 종료하고 새 Setup을 한 번 설치하거나, Mac의 새 앱을 응용 프로그램 폴더로 옮기세요. 같은 사용자 계정의 게임과 설정을 이어서 사용합니다. 예전 작업표시줄 고정을 해제하고 설치된 TeamHJDLauncher를 다시 고정하세요.",
     faqUpdates: "이후 런처는 시작할 때와 실행 중 자동으로 확인하고, 새 버전을 검증한 뒤 자동 재시작합니다. 실패하면 재시도하거나 이전 버전으로 복원합니다. 인터넷 연결 전에는 새 파일을 받을 수 없으며 설치된 게임은 오프라인 실행을 선택할 수 있습니다. 게임 버전은 업데이트 버튼으로 직접 적용합니다.",
@@ -40,6 +41,7 @@ const translations = {
     related: '관련 사이트', teamDocs: '팀 개발 문서', footerNavigation: '하단 메뉴'
   },
   en: {
+    releaseHistory: 'Release notes', historySkip: 'Skip to release notes', backToDownloads: 'Downloads', historyIntro: 'Changes and original release notes for each version. For current installation instructions, see Downloads.',
     faqMaintenanceQuestion: "Migrating from ZIP, updates and uninstalling",
     faqMaintenanceAnswer: "Close the old launcher and run Setup once, or replace the Mac app in Applications. Your existing games and settings for the same user account are retained. Remove old taskbar pins and pin the installed TeamHJDLauncher.",
     faqUpdates: "The launcher checks on startup and periodically, verifies updates and restarts automatically. Failures retry or restore the previous version. New files need an internet connection; installed games can be played offline. Game updates require the Update button.",
@@ -80,6 +82,7 @@ const translations = {
     related: 'Related sites', teamDocs: 'Team documentation', footerNavigation: 'Footer navigation'
   },
   'zh-CN': {
+    releaseHistory: '更新记录', historySkip: '跳转到更新记录', backToDownloads: '下载', historyIntro: '各版本的变更及发布时的说明。当前安装方法请查看下载页面。',
     faqMaintenanceQuestion: "旧 ZIP 迁移、更新与卸载",
     faqMaintenanceAnswer: "关闭旧启动器，运行一次 Setup；Mac 用户请替换“应用程序”中的应用。同一用户账户的游戏和设置会保留。取消固定旧图标，并重新固定已安装的 TeamHJDLauncher。",
     faqUpdates: "启动器会在启动时及运行中定期检查，验证更新后自动重启。失败时重试或恢复旧版本。下载需要网络；已安装游戏可选择离线运行。游戏更新需点击“更新”按钮。",
@@ -150,7 +153,7 @@ function setLanguage(value, persist = false) {
   document.querySelector('.footer-links').setAttribute('aria-label', translations[language].footerNavigation);
   for (const link of document.querySelectorAll('a[href]')) {
     const target = new URL(link.href, location.href);
-    if (target.origin !== 'https://teamhjd.com' && !link.classList.contains('testlauncher-link')) continue;
+    if (target.origin !== 'https://teamhjd.com' && !link.classList.contains('testlauncher-link') && !link.hasAttribute('data-local-page')) continue;
     target.searchParams.set('lang', language);
     link.href = target.href;
   }
@@ -221,6 +224,8 @@ async function loadRelease() {
   } catch { /* Static official latest/download links remain available. */ }
   finally {clearTimeout(timeout);}
 }
+if(document.querySelector('[data-download]')) {
 loadRelease();
 setInterval(loadRelease,300000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadRelease()});
+}
