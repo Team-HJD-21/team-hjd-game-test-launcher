@@ -33,8 +33,11 @@ $sdkRoot=Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
 foreach($name in @('d3dcompiler_47.dll','dxcompiler.dll','dxil.dll')){
     $source=Join-Path $sdkRoot ('Redist/D3D/x64/'+$name);$target=Join-Path $payload $name
     if(-not(Test-Path -LiteralPath $source -PathType Leaf)){throw 'Install the Windows SDK x64 D3D redistributable components before packaging.'}
-    if((Test-Path -LiteralPath $target) -and (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash){throw 'The deployed shader DLL differs from the selected official SDK redistributable.'}
-    if(-not(Test-Path -LiteralPath $target)){Copy-Item -LiteralPath $source -Destination $target}
+    # windeployqt can select the host OS compiler or the SDK according to its
+    # shell environment. Use the licensed SDK redistributable consistently in
+    # this newly created staging folder, then verify the exact copied bytes.
+    Copy-Item -LiteralPath $source -Destination $target -Force
+    if((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash){throw 'The staged shader DLL differs from the selected official SDK redistributable.'}
 }
 # App-local Microsoft runtime keeps the portable launcher usable without an installer or elevation.
 $vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
