@@ -1,188 +1,130 @@
 # 런처 릴리즈와 게임 발행 절차
 
-마지막 절차 대조: **2026-11-03 KST, v0.1.4**. 명령은 저장소 루트의 PowerShell 7.5 이상을 기준으로 한다. 버전, 경로, 커밋과 CI run ID는 매번 실제 대상에 맞춘다. 과거 성공 기록은 [v0.1.3 검증](RELEASE_VALIDATION_0.1.3.md), 증상별 원인과 복구는 [장애 대응](TROUBLESHOOTING.ko.md)에 있다.
+2026-11-05 · 설치형 배포 계약0.2.0부터. 이전 릴리즈 검증 문서는 각 버전의 역사적 증거이며 현재 서버·인증·클라이언트 상태를 대신하지 않습니다.
 
-## 1. 먼저 배포 대상을 구분한다
+## 1. 배포 대상을 구분한다
 
-| 대상 | 배포 위치 | 적용 방식 |
-| --- | --- | --- |
-| 런처 client / Qt | 공개 GitHub Release의 플랫폼별 payload | 자동 확인·다운로드·검증 후 다음 실행에 활성화 |
-| 안정된 bootstrap | Windows portable 폴더 / macOS의 Applications 앱 | 기존 bootstrap과 호환되지 않는 변경은 종료 후 portable 교체 안내 필요 |
-| 게임 | 비공개 HTTPS의 서명된 catalog / hash 이름 ZIP | 자동 확인·알림, 사용자가 **업데이트**를 눌러 적용 |
-| 운영 서버 | 이 PC의 origin·Cloudflare Tunnel·감시 | 런처 Release 게시만으로 서버가 재시작되거나 코드가 교체되지는 않음 |
+| 대상 | 적용 방식 |
+| --- | --- |
+| Windows 설치형 런처 | 정적 서명 피드 → Setup EXE 크기/SHA256 확인 → 정확한 부모 종료 대기 → 새 슬롯·제거기·바로가기·Installed Apps 버전 갱신 → GUI health ACK → commit |
+| 기존 ZIP/portable 런처 | 서명 피드 → payload 검증 → 새 payload의 helper로 자동 재시작 → 안정된 실행기 갱신 → health ACK. 설치형 전환은 새 Setup으로 한 번 진행 |
+| macOS 런처 | ARM/Intel DMG로 최초 설치. 자체 업데이트는 검증된 payload와 seed-free 앱을 사용해 runtime·안정된 앱을 관리. 쓰기 권한 없는 앱은 최신 DMG로 복구 |
+| 게임 | 비공개 서명 catalog를 자동 확인·알림하고 **업데이트 버튼으로만 적용** |
+| 운영 서버 | 별도 소유 프로세스 재시작 필요. Release 게시만으로 origin 코드가 교체되지 않음 |
 
-공개 저장소는 `Team-HJD-21/team-hjd-game-test-launcher`다. 런처 버전은 `CMakeLists.txt`의 project VERSION, GitHub 태그는 `v<version>`을 쓴다. 게임 BUILD 번호와 런처 버전은 별개다. 런처의 latest stable 조회 주기는 성공한 확인 후 최대 한 시간이다. 게임 목록은 연결 시 약 2분, 오프라인 재시도는 약 30초이며 선택/앱 재활성화 등에서도 확인한다.
+클라이언트와 다운로드 사이트는 `testlauncher.teamhjd.com/updates/stable.json`의 P-256 서명을 검증합니다. 네이티브 보조 경로는 GitHub 최신 Release의 `launcher-stable.json` 직접 파일이며 REST latest API가 아닙니다. 성공 확인은 약15분 주기, 오류는15초부터 최대약5분 간격으로 재시도합니다. 업데이트/동의 확인 전 온라인 기능은 차단하며 설치 게임은 명시적 오프라인 실행을 제공합니다. 다운로드·해시·서명·시각·sequence·health 검사를 끄지 않습니다.
 
-공개 다운로드 웹페이지는 `testlauncher.teamhjd.com`이며 대표 사이트 푸터의 관련 사이트에서만 연결한다. 세 OS/CPU 버튼은 GitHub `releases/latest/download/<고정 파일명>`을 쓰므로 모든 stable Release에 세 portable ZIP을 유지한다. 자세한 도메인/Pages 계약은 [공개 배포 안내](PUBLIC_DOWNLOADS.ko.md)를 따른다. 기존 playtest의 `/`와 `/downloads` HTML은 인증 후410으로 종료했고, 같은 호스트의 로그인·게임 API는 유지한다.
+0.1.4 등 구형 클라이언트의 첫 전환은 여전히 그 버전의 GitHub API 제약을 받습니다. 따라서 팀원에게는 이번 한 번 최신 Setup/DMG 설치와 안정된 실행기 재고정을 안내합니다. 인터넷 단절·배포처 차단·디스크/권한/OS 차단까지 소프트웨어가 강제로 해결한다고 보장하지 않습니다.
 
-공개 자산에는 게임·음악·Unity 데이터·사용자 로그·이메일 목록·설정·인증·서명 개인키를 넣지 않는다. 공개 CI에는 합성 게임 fixture만 보낸다. 게임 원본을 새로 만들거나 수정해 배포 문제를 우회하지 않는다.
+## 2. 소스·비밀·출력을 분리한다
 
-## 2. 릴리즈 작업 디렉터리를 분리한다
-
-다음 값은 **다음 릴리즈를 위한 예시**다. 0.1.4가 자동으로 승인되거나 이미 배포됐다는 의미가 아니다.
+- 공개 저장소/CI/Release에는 런처·의존성·라이선스만 넣습니다. Unity 게임, BGM, 실제 이메일/로그/설정/토큰/서명 개인키는 제외합니다.
+- 원본 `dist/`는 실제 사용자 설치/작업표시줄 대상일 수 있습니다. **이동·삭제·덮어쓰지 않습니다.** 모든 패키징은 새로운 `-OutputRoot`를 사용합니다.
+- CMake의 project VERSION을 새 버전으로 변경합니다. 기존 공개 태그/자산은 바꾸지 않습니다. 아래 값은 매 릴리즈 실제 값으로 수정합니다.
 
 ```powershell
-$releaseVersion = '0.1.4'
-$qtRoot = 'C:/Qt/6.8.3/msvc2022_64'
-$releaseRun = Join-Path $PWD ('.local/releases/' + $releaseVersion + '-' + (Get-Date -Format yyyyMMdd-HHmmss))
+$version = '0.2.0'
+$qtRoot = 'C:/Qt/6.8.3/msvc2022_64' # 실제 설치된 Qt6.8.3 MSVC x64
+$releaseRun = Join-Path $PWD ('.local/releases/' + $version + '-' + (Get-Date -Format yyyyMMdd-HHmmss))
 $releaseDist = Join-Path $releaseRun 'dist'
 New-Item -ItemType Directory -Path $releaseRun -ErrorAction Stop | Out-Null
-git status --short
 ```
 
-`$qtRoot`는 실제 설치된 **Qt 6.8.3 MSVC x64** 경로로 지정한다. 개인 PC의 다른 프로젝트 SDK 경로에 의존하는 명령을 공개 기본값으로 만들지 않는다. `build/`를 다른 작업자가 사용 중이면 별도 checkout/worktree에서 빌드한다. `build-windows.ps1 -Deploy`는 새 OutputRoot를 전달하지 못하고 기본 `dist/`에 패키징하므로 운영 PC에서는 사용하지 않는다.
+`build-windows.ps1 -Deploy`는 기본dist를 사용하므로 운영PC에서 사용하지 않습니다. 변경 소스를 검토·커밋한 뒤 full40SHA를 기록하고 최종 빌드와 원본을 연결합니다. 패키지 생성 이후 재패키징한 파일에는 새 해시/검증 기록이 필요합니다.
 
-**기존 `dist/`를 비우거나 이동하지 않는다.** 이 PC의 사용자 런처와 작업표시줄 고정 대상이 실제로 그 폴더를 썼다. 새 출력에는 `-OutputRoot $releaseDist`를 사용한다. 복구/정리 대상은 작업 전용 절대 경로와 reparse 여부를 확인한다.
-
-버전을 변경한 뒤 client뿐 아니라 bootstrap도 빌드한다. 기존 사용자에게 자동 전달되는 것은 payload이므로, bootstrap의 상태/receipt/실행 경로/health 계약을 바꿨다면 **구형 bootstrap과 새 payload의 호환성**을 검증하고 portable 교체가 필요한지 릴리즈 노트에 쓴다. 별도의 bootstrap 호환 버전을 자동 판정하는 필드는 현재 없다.
-
-## 3. Windows 빌드·검증·패키징
+## 3. Windows·설치기 검증
 
 ```powershell
 ./tools/build-windows.ps1 -QtRoot $qtRoot
 ./tools/verify-bootstrap.ps1 -QtRoot $qtRoot
 ./tools/package-windows.ps1 -QtRoot $qtRoot -OutputRoot $releaseDist
-& ./build/LauncherCoreTests.exe --verify-payload `
-  (Join-Path $releaseDist 'TeamHJD-LauncherPayload-Windows-x64.zip') `
-  (Join-Path $releaseRun 'payload-check')
-if ($LASTEXITCODE -ne 0) { throw 'Final payload verification failed.' }
+$bundle = Join-Path $releaseDist 'TeamHJD-GameTestLauncher-Windows-x64'
+./tools/package-installer-windows.ps1 -BundleRoot $bundle -OutputDirectory (Join-Path $releaseRun 'installer-tests') -TestPackage
+./tools/verify-installer-windows.ps1 -Installer (Join-Path $releaseRun 'installer-tests/TeamHJD-GameTestLauncher-Windows-x64-Setup-test.exe') -Fixture './build/LauncherFixtureGame.exe'
+# 위 출력의 정확한 새result.json을 지정:
+./tools/verify-installer-update-windows.ps1 -VerificationResult '<새 테스트 run/result.json>' -Installer (Join-Path $releaseRun 'installer-tests/TeamHJD-GameTestLauncher-Windows-x64-Setup-test.exe')
+./tools/package-installer-windows.ps1 -BundleRoot $bundle -OutputDirectory $releaseDist
 ```
 
-`build-windows.ps1`의 CTest는 core, GUI startup/shutdown, 수동 게임 업데이트 Controller, native window frame의 네 대상을 포함한다. 실행 당시 실제 대상/결과를 기록한다. bootstrap 검사는 정상 활성화, 실패 복원, 중단 복구와 다음 실행 queue를 확인한다. 단순히 프로세스가 보이는 것만으로 최대화/복원을 통과로 판정하지 않는다.
+NSIS3.13은 `Get-Nsis.ps1`가 공식 ZIP 크기2363925/SHA256고정과 추출된 파일 bytes를 검증합니다. 기존 캐시는 `-Offline`으로 확인할 수 있습니다. HTML을 ZIP으로 실행하거나 전역ASLR/PATH/권한을 변경하지 않습니다. NSIS 자체를 시스템에 설치하지 않습니다.
 
-변경 범위가 서버/카탈로그/인증을 포함하면 필요한 Python 합성 검사를 **의존성이 준비된 서버 venv**로 실행한다. 배포·이어받기/실행 중 차단 변경에는 `verify-local.ps1`, UI 변경에는 `verify-ui.ps1`와 실제 메뉴·최대화 검수를 추가한다. CTest가 이미 실행한 같은 검사를 이유 없이 반복하지 않는다.
+TestPackage는 별도HKCU `TeamHJDGameTestLauncher-Test` 등록/바로가기 생략/합성프로필만 사용합니다. 기존 테스트 등록이 남아 있으면 소유 위치를 먼저 확인합니다. 제작기·검증기·실제 사용자 설치를 혼용하지 않습니다. 정상 설치·복구·제거·재설치, unknown 파일/게임/설정 보존, 정확한 부모wait·실제GUIhealth·ARP버전을 확인합니다.
+
+C++/Controller 필수 회귀는 서명 피드, bootstrap transaction, 인증 상태/개별 동의, 실제 core, GUI창/최대화, 수동 게임 업데이트와 Windows의 자동 업데이터 흐름을 포함합니다. 환경에 따라 대상 수가 다르므로 실제 결과를 기록합니다. `LauncherUpdaterTests`는 ephemeral키/합성 transport로 실패→재시도→해시 차단→queue→helper handoff를 확인하며, 실제 네트워크 검사를 대체하지 않습니다.
+
+실패 health 복원/사용 중 제거/다운그레이드/손상 경로는 `verify-installer-rollback-windows.ps1`, `verify-installer-negative-windows.ps1`의 명시적 합성 bundle로 검수합니다. fixture의 정상/실패 Client와 receipt 해시를 함께 만들며, 검증을 끄거나 Unity 게임을 재빌드하지 않습니다. synthetic health와 실제제품 GUI health를 구분합니다. Windows가 잠긴 경우 픽셀/새GUIframe 검증에 영향을 줄 수 있으므로 결과를 추정하지 않습니다.
+
+서버 변경은 준비된 venv에서 전체 `python -X utf8 -m unittest discover -s tests -p 'test_*.py' -v`를 실행합니다. 제한TEMP/socket 오류는 공통 장애 기록의 정상 사용자 실행 경계와 구분합니다. assert를 줄이지 않습니다.
+
+## 4. 실제 ARM·Intel Mac 검사
+
+개인Mac 없이도 `macos-15` ARM과 `macos-15-intel` runner에서 빌드·실행합니다. Windows ZIP 구조 확인만으로 합격시키지 않습니다. C++/버전/QML/assets/vendor/C++테스트 변경 시 전체 빌드합니다.
 
 ```powershell
-./.deps/server-venv/Scripts/python.exe -m unittest discover -s tests -p 'test_*.py' -v
-# HTTPS/서명/이어받기 경로 변경 시:
-./tools/verify-local.ps1 -QtRoot $qtRoot
+gh workflow run macos-release.yml --ref '<커밋을 올린 브랜치>'
+gh run list --workflow macos-release.yml --limit 5 --json databaseId,headSha,status,conclusion
 ```
 
-새 ZIP을 별도 폴더에 완전히 풀어 실행한다. 개발 Qt가 PATH에 없는 새 프로세스에서도 켜져야 한다. UI 검수에는 격리된 `--data-root`, 실제 배포 바이너리, 캡처와 stderr를 사용한다. `build/TeamHJDClient.exe`가 개발 SDK PATH 덕분에 실행되는 것은 배포 DLL 검사가 아니다. 사용자 인증 프로필이나 설치된 실제 게임을 합성 검사에 사용하지 않는다.
+후속 Python패키징/검사만 변경했을 때 `-f native_run_id=<원본run>`을 사용할 수 있으나, **validate-native-macos-reuse.py**가 원본동일저장소/두build성공/미만료artifact/전체native tree와변경allowlist를 통과해야 합니다. 조건을 느슨하게 바꾸지 않습니다. SDK/컴파일러/플래그 변경도 전체빌드 대상입니다.
 
-최종 ZIP 생성 후 다시 패키징하면 **다른 산출물**이다. 이전 해시/크기/receipt 검사 결과를 새 ZIP에 옮겨 적지 않는다.
+| artifact | 공개 가능 여부 |
+| --- | --- |
+| macOS-native-arm64/x64 | 원본빌드. 공개불가 |
+| macOS-candidate-arm64/x64 | 감사후보. delivery전 공개불가 |
+| macOS-arm64/x64 | 아래 최종 증거를 확인한 뒤 정확한2ZIP+DMG만 선택 |
 
-## 4. macOS는 두 실제 Mac runner에서 확인한다
+원본보관3일/최종14일입니다. 최종run에서 `audit-result.json`, `dmg-result.json`, `delivery-result.json`, 재사용시 `native-source-result.json`, `macos-ui.png`를 확인합니다. 파일 수는 버전마다 달라지며 과거 고정 숫자와 비교하지 않습니다. 실제core payload roundtrip, 의존성·실행권한·strict codesign, DMG read-only mount의 전체앱 bytes/modes·Applications링크·약관, 첫seed·queue·건강확인·실패복원을 모두 확인합니다. 사람이OTP/Unity플레이/실제재부팅을 하지 않았으면 미검증으로 기록합니다.
 
-개인 소유 Mac이 없어도 GitHub의 `macos-15` ARM / `macos-15-intel` runner에서 빌드·실행 검사가 가능하다. Windows에서 만든 ZIP 구조 검사로 이를 대체하지 않는다. Apple Developer ID/공증은 현재 구성에 없다.
+**DMG 생성에서 `hdiutil -srcfolder`로 되돌리지 않습니다.** `._teamhjd-receipt.json`이 AppleDouble로 분류되어 누락된 이력이 있습니다. 현재는 writable image→POSIX파일복사→unmount→UDZO변환이며 최종mount에서 원본과 완전 대조합니다. receipt누락을 무시하도록 검사하지 않습니다. Mac ZIP은 Windows에서 풀고 재압축하지 않습니다.
 
-버전 변경이나 새 네이티브 코드가 있는 릴리즈는 **전체 빌드**를 dispatch한다. 소스를 먼저 검토·커밋·push하고 정확한 head SHA를 기록한다.
+## 5. 최종11개 파일·로컬 서명
 
-```powershell
-gh workflow run macos-release.yml --ref main
-gh run list --workflow macos-release.yml --branch main --limit 5 `
-  --json databaseId,headSha,status,conclusion
-# 위 목록에서 의도한 head SHA의 run ID를 선택한다.
-$macRunId = '<실제 run ID>'
-gh run watch $macRunId --interval 15 --exit-status
-```
-
-반드시 `Build and test macOS arm64/x64`와 `Package and verify macOS arm64/x64`의 결과를 구분한다. runner queue나 `steps: []`, 로그 HTTP404만 보고 컴파일 실패/성공을 추정하지 않는다. 자세한 로그 수집은 장애 대응 문서를 따른다.
-
-### 패키징만 다시 실행할 수 있는 조건
-
-앞선 빌드가 성공했고 Python 패키저/검사만 고칠 때에 한해 다음을 사용할 수 있다.
+모든 플랫폼 최종파일을 releaseDist에 모으되 와일드카드로 업로드하지 않습니다.
 
 ```powershell
-$nativeRunId = '<원본 네이티브 빌드 run ID>'
-gh workflow run macos-release.yml --ref main -f "native_run_id=$nativeRunId"
-gh run list --workflow macos-release.yml --branch main --limit 5 `
-  --json databaseId,headSha,status,conclusion
-$macRunId = '<방금 생성된 패키징 run ID>'
-gh run watch $macRunId --interval 15 --exit-status
-```
-
-`$nativeRunId`는 원본 빌드, `$macRunId`는 **새로 실행한 최종 패키징/검사**다. 아래 다운로드에도 갱신한 `$macRunId`를 사용한다. 과거 run의 산출물을 새 검사 결과로 대신하지 않는다.
-
-`validate-native-macos-reuse.py`가 같은 저장소/워크플로/원본 SHA, 두 build job의 성공, 두 미만료 원본 artifact를 검증해야 한다. 원본 run 전체가 패키징 실패여도 build job 두 개가 성공했다면 검토 가능하다. **CMake 버전, src, qml, assets, vendor의 Git tree가 동일**해야 하며 그 밖의 변경도 allowlist를 통과해야 한다. C++ 테스트 변경이나 새 `AGENTS.md`처럼 allowlist 밖 변경도 거절될 수 있다. 거절 시 전체 빌드를 실행하며 검증을 완화하지 않는다. 새 버전으로 올리면 CMake가 달라지므로 구버전 바이너리를 재사용하지 않는다.
-
-이 게이트가 SDK/컴파일러/빌드 플래그까지 완전한 설정 지문으로 검증하지는 않는다. workflow에서 Qt/aqt/컴파일러/빌드 옵션을 바꿨다면 allowlist가 허용해도 **전체 빌드를 다시 한다**. tests 폴더는 전체 Git diff의 확장자 규칙으로 검사하며, 폴더 전체 tree 해시를 대조한다고 설명하지 않는다.
-
-현재 원본/후보 artifact 보관은 **3일**, 최종 artifact는 **14일**이다. 만료되면 새 빌드를 한다. Qt SDK 캐시는 빌드 결과나 성공 증거를 대신하지 않는다.
-
-| Artifact | 의미 | 공개 릴리즈에 사용할 수 있는가 |
-| --- | --- | --- |
-| `macOS-native-arm64`, `macOS-native-x64` | 앱 2개와 native probe 2개의 원본 빌드 | 아니오, 배포용 Qt 패키징 전 |
-| `macOS-candidate-arm64`, `macOS-candidate-x64` | 의존성/서명/전체 payload 검증 통과 | 아니오, delivery 검사 전 |
-| `macOS-arm64`, `macOS-x64` | native bootstrap/update/실패 복원까지 통과 | 아래 증거 확인 후 ZIP만 선택 |
-
-각 최종 artifact를 별도 폴더로 받는다.
-
-```powershell
-gh run download $macRunId -n macOS-arm64 -D (Join-Path $releaseRun 'macos-arm64')
-gh run download $macRunId -n macOS-x64 -D (Join-Path $releaseRun 'macos-x64')
-```
-
-두 아키텍처 모두 `audit-result.json`의 native checks, `delivery-result.json`의 실제 GUI·중단 seed 복구·frame ACK·queue 적용·실패 복원, 재사용했다면 `native-source-result.json`을 확인한다. `macos-ui.png`도 직접 본다. v0.1.3의 파일 수 1,642/145 Mach-O는 **과거 결과**이며 차기 버전의 고정 합격 숫자가 아니다.
-
-패키저는 Qt framework 심볼릭 링크를 일반 dylib로 평탄화하고 install ID/의존성/RPATH를 상대 경로로 바꾼다. bootstrap에는 client 전체 QML을 넣지 않는다. 외부 Homebrew SQL 의존성은 제외하고 app-relative `qt.conf`와 Unix 실행권한을 보존한다. 변환 후 codesign 검사를 실행한다. Windows에서 풀고 다시 압축해 Mac 실행권한·서명 검증 결과를 잃지 않는다.
-
-`test-macos-delivery.py`의 합성 seed/bad-fixture 버전 문자열도 새 버전에서 의도한 장애를 여전히 재현하는지 검토한다. 실패 fixture가 종료 코드 4/ACK 없음으로 선검증되고 receipt에 실패 플래그까지 포함되어야 한다. 제품을 고치기 전에 fixture가 실제로 실패하는지부터 확인한다.
-
-cloudflared는 현재 **2026.10.5**의 공식 플랫폼별 SHA 고정본이다. 업데이트하려면 `src/core/CloudflareLogin.h`, Windows `Get-Cloudflared.ps1`/패키저와 Mac 패키저의 pin·provenance·라이선스를 함께 검토하고 관련 패키지를 다시 검증한다. 공식 helper를 강제로 재서명하면 원본 SHA pin이 깨진다. SDK/도구 기준은 Qt **6.8.3**, aqtinstall **3.3.0**, 전체 커밋 SHA로 고정된 Actions다. 무조건 최신 바이너리로 갈아끼우지 않는다.
-
-Mac 패키저와 delivery 검사는 `--arch x64`, 감사 도구 `verify-macos.py`는 `--arch x86_64`를 사용한다. ARM은 모두 `arm64`다. 감사 도구의 `--structural-only`는 네이티브 서명·의존성·실행 합격의 대체가 아니다.
-
-## 5. 정확한 공개 파일 목록과 checksum을 만든다
-
-Mac 최종 artifact의 **portable/payload ZIP 네 개만** `$releaseDist`로 모은다. CI evidence, 원본 native ZIP이나 private 게임 ZIP을 같이 올리지 않는다. 각 ZIP에서 링크·경로 충돌·비공개 파일 유입을 확인하고 receipt 파일 목록/크기/해시와 실행권한을 검증한다. macOS native audit와 Windows `--verify-payload` 결과를 보관한다.
-
-```powershell
-$assetNames = @(
-  'TeamHJD-GameTestLauncher-Windows-x64.zip',
-  'TeamHJD-LauncherPayload-Windows-x64.zip',
-  'TeamHJD-GameTestLauncher-macOS-arm64.zip',
-  'TeamHJD-LauncherPayload-macOS-arm64.zip',
-  'TeamHJD-GameTestLauncher-macOS-x64.zip',
-  'TeamHJD-LauncherPayload-macOS-x64.zip'
+$names = @(
+ 'TeamHJD-GameTestLauncher-Windows-x64.zip',
+ 'TeamHJD-LauncherPayload-Windows-x64.zip',
+ 'TeamHJD-GameTestLauncher-Windows-x64-Setup.exe',
+ 'TeamHJD-GameTestLauncher-macOS-arm64.zip',
+ 'TeamHJD-LauncherPayload-macOS-arm64.zip',
+ 'TeamHJD-GameTestLauncher-macOS-arm64.dmg',
+ 'TeamHJD-GameTestLauncher-macOS-x64.zip',
+ 'TeamHJD-LauncherPayload-macOS-x64.zip',
+ 'TeamHJD-GameTestLauncher-macOS-x64.dmg'
 )
-$releaseFiles = @($assetNames | ForEach-Object { Join-Path $releaseDist $_ })
-$sumLines = foreach ($name in ($assetNames | Sort-Object)) {
-  $file = Get-Item -LiteralPath (Join-Path $releaseDist $name) -ErrorAction Stop
-  $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-  "$hash  $name"
+$releaseCommit = (git rev-parse HEAD).Trim() # full40SHA
+./tools/Write-LauncherFeed.ps1 -ReleaseDirectory $releaseDist -OutputFile (Join-Path $releaseDist 'launcher-stable.json') -SourceCommit $releaseCommit -Version $version -MinimumVersion $version
+$names += 'launcher-stable.json'
+$lines = foreach($name in ($names|Sort-Object)) {
+ $file = Get-Item -LiteralPath (Join-Path $releaseDist $name) -ErrorAction Stop
+ ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $name)
 }
-[IO.File]::WriteAllLines((Join-Path $releaseDist 'SHA256SUMS.txt'), [string[]]$sumLines, [Text.Encoding]::ASCII)
-$releaseFiles += Join-Path $releaseDist 'SHA256SUMS.txt'
+[IO.File]::WriteAllLines((Join-Path $releaseDist 'SHA256SUMS.txt'),[string[]]$lines,[Text.Encoding]::ASCII)
+$names += 'SHA256SUMS.txt'
+$files = @($names|ForEach-Object {Join-Path $releaseDist $_})
 ```
 
-와일드카드 대신 위에서 명시한 **ZIP 6개＋checksum 1개**를 사용한다. `SHA256SUMS.txt`는 사람이 대조하는 용도이며, updater는 정확한 GitHub HTTPS API의 asset `digest`를 검증한다. 다른 곳에서 받은 checksum만으로 배포본의 진위를 판단하지 않는다.
+서명키는 최초에만 `New-LauncherPublisher.ps1`로 생성하며 공개키가 제품에고정됩니다. 기존 `.local/launcher-publisher/publisher.dpapi`를 재생성하지 않습니다. 현재Windows계정DPAPI/DACL보호이며 공개CI에 개인키를 보내지 않습니다. 다른PC에 암호화파일만복사하면복호화된다는뜻이 아닙니다. 키유실시새서명키를기존클라이언트가자동신뢰하지 않으므로 공식새Setup/DMG로복구·키회전계획이필요합니다.
 
-## 6. 초안 업로드 → GitHub digest 대조 → 공개
+피드sequence는단조증가, 유효기간365일입니다. 새릴리즈가없어도만료전에동일한검증산출물로상위sequence 피드를갱신해사이트에게시해야합니다. 기존공개Release asset을덮어쓰지않고, 기본피드와직접Release보조피드의유효기간차이를기록합니다. sourceCommit/파일크기/해시가최종검증본과같은지서명후다시확인합니다.
 
-소스를 push하고 전체 40자리 대상 SHA를 기록한다. docs-only 후속 커밋이라면 검증한 네이티브 source tree와 같음을 확인한다. 미커밋 코드로 만든 산출물을 다른 커밋의 결과로 표시하지 않는다. `docs/RELEASE_VALIDATION_<version>.md`와 릴리즈 노트에는 환경/검사/실제 성공 범위/미검증 범위를 쓴다. 여러 줄 본문은 UTF-8 파일과 `--notes-file`을 사용한다.
-
-```powershell
-$releaseCommit = (git rev-parse HEAD).Trim()
-if ($releaseCommit -notmatch '^[0-9a-f]{40}$') { throw 'Expected full commit SHA.' }
-$notesPath = Join-Path $releaseRun 'release-notes.ko.md' # 검토한 본문 파일을 먼저 작성
-gh release create "v$releaseVersion" @releaseFiles --draft --target $releaseCommit `
-  --title "v$releaseVersion — Windows + macOS" --notes-file $notesPath
-```
-
-초안의 실제 REST metadata를 읽고 **tag/target/draft**, 정확한 파일명 7개, `state: uploaded`, 모든 크기와 `digest: sha256:<로컬해시>`를 대조한다. 업로드 프로세스 시작/성공 메시지만으로 공개하지 않는다. 짧은 SHA는 API가 target으로 거절한 이력이 있다. 이미 공개된 버전의 tag/ZIP은 수정하지 않는다.
+## 6. Draft 대조→공개→사이트/운영 정책
 
 ```powershell
-gh api 'repos/Team-HJD-21/team-hjd-game-test-launcher/releases?per_page=10'
-# 위 metadata와 일곱 로컬 파일의 크기/SHA256 대조가 끝난 뒤:
-gh release edit "v$releaseVersion" --draft=false --latest
+gh release create "v$version" @files --draft --target $releaseCommit --title "v$version — Setup + macOS DMG" --notes-file '<검토한UTF8릴리즈노트파일>'
+# Draft API에서정확11이름/stateuploaded/크기/digest:sha256:<로컬>대조후:
+gh release edit "v$version" --draft=false --latest
 gh api repos/Team-HJD-21/team-hjd-game-test-launcher/releases/latest
 ```
 
-공개 후 latest가 정확한 stable 버전이고 draft/prerelease가 아니며, 여섯 ZIP의 `browser_download_url`이 정확한 저장소/태그/파일명이고 크기·digest가 그대로인지 확인한다. GitHub 화면의 Assets 수에는 자동 source ZIP/tar도 포함되므로 업로드 자산 7개와 혼동하지 않는다.
+fullSHA/최종source일치/모든필수회귀/양쪽Mac최종증거를대조한뒤공개합니다. 공개태그/자산은불변입니다. 후보·prototype·합성bad-health installer·원본CI로그를올리지않습니다.
 
-### 게시 후 기존 Windows 클라이언트 확인
+**사이트피드는모든파일을공개대조한뒤마지막에게시합니다.** `launcher-stable.json`을 `website/updates/stable.json`으로동일bytes복사하고 `node tools/check-download-site.mjs --update-asset-versions`, `node tools/test-release-feed.mjs`를실행합니다. Pages배포성공및실제HTTPS피드서명/모든URL을확인합니다. 새필수버전/개인정보gate는이후에비공개 `client-policy.json`으로활성화합니다. 포털 `/downloads`를살리지않고기존playtest API도메인도삭제하지않습니다.
 
-```powershell
-./tools/verify-launcher-auto.ps1 -QtRoot $qtRoot -ExpectedRelease $releaseVersion `
-  -Executable '<검증할 이전 배포본의 TeamHJDClient.exe 절대 경로>'
-```
+공개후실제latest API의정확버전/11digest, 기존0.1.4다운로드·검증·queue, 새피드기반다운로드·설치/handoff를검사합니다. 격리테스트의비교override와사용자실제설치활성화는별도로기록합니다. 오류를숨기기위해비교버전/상태파일/active포인터를실제사용자설치에수동주입하지않습니다.
 
-이 도구는 이전 client EXE를 복사하고 테스트 전용 profile/install root에서 **실제 latest API·다운로드·GitHub digest·전체 파일·다음 실행 queue**를 검증한다. 유일한 합성 입력은 비교 버전 `0.0.9`이며 실제 보고 버전/API/응답을 바꾸지 않는다. 보호 조건 4개도 확인한다. 따라서 이 결과는 **사용자의 현재 설치가 이미 새 버전으로 활성화됐다는 증거가 아니다.** 실제 활성화를 별도로 관찰했을 때만 그 범위를 기록한다. 테스트 override를 운영 설정에 저장하지 않는다.
-
-`-ExpectedRelease`는 매번 명시한다. 현재 스크립트 기본값 `0.1.0`에 의존하면 새 릴리즈 확인이 잘못된 대상으로 실패한다.
-
-문제가 있는 공개 버전을 고칠 때에는 원인을 수정한 **더 높은 버전**을 다시 검증해 낸다. latest를 과거 태그로 돌리는 것만으로 이미 설치된 더 높은 client가 자동 downgrade되지는 않는다. 다운로드/활성화 실패 시 정상 이전 버전을 지키는 bootstrap 복원 동작을 유지한다.
+`docs/RELEASE_VALIDATION_<version>.md`에환경·원인확실도·수정·증거·미검증범위를남기고운영handoff와팀원안내를갱신합니다. 모든필수작업이끝나기전목표를complete로표시하지않습니다.
 
 ## 7. 게임만 새 BUILD로 발행하기
 

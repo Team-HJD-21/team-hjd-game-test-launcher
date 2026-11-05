@@ -42,6 +42,20 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(result['requestedRemoval'], 1)
         self.assertEqual(result['remaining'], 1)
         self.assertEqual(json.loads(self.path.read_text(encoding='utf-8-sig'))['users'][0]['email'], 'two@example.invalid')
+    def test_consent_receipt_requires_known_version_and_does_not_inflate_sessions(self):
+        identity=VerifiedIdentity('consent@example.invalid','b'*64,int(self.now+3600))
+        with mock.patch('cloudflare_auth.time.time',return_value=self.now):
+            self.auth.record_access(identity,consent_version='2026-11-05.1')
+        first=json.loads(self.path.read_text(encoding='utf-8-sig'))['users'][0]
+        with mock.patch('cloudflare_auth.time.time',return_value=self.now+60):
+            self.auth.record_access(identity,consent_version='2026-11-05.1')
+        second=json.loads(self.path.read_text(encoding='utf-8-sig'))['users'][0]
+        self.assertEqual(first['privacyConsent'],second['privacyConsent'])
+        self.assertEqual(second['loginCount'],1)
+        before=self.path.read_bytes()
+        with mock.patch('cloudflare_auth.time.time',return_value=self.now+120):
+            with self.assertRaises(AuditUnavailable):self.auth.record_access(identity,consent_version='unknown')
+        self.assertEqual(self.path.read_bytes(),before)
     def test_bad_and_future_times_preserve_original(self):
         for value in ('not-a-date', '2026-11-06T00:00:00Z', '2026-11-05T09:00:00+09:00'):
             record = self.record('one@example.invalid', 1)

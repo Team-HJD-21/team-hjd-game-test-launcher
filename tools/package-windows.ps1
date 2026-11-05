@@ -29,6 +29,13 @@ $env:PATH="$QtRoot/bin;$env:PATH"
 if($LASTEXITCODE){throw 'Client deployment failed.'}
 & (Join-Path $QtRoot 'bin/windeployqt.exe') --release --no-translations --no-compiler-runtime --dir $bundle (Join-Path $bundle 'TeamHJDLauncher.exe')
 if($LASTEXITCODE){throw 'Bootstrap deployment failed.'}
+$sdkRoot=Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
+foreach($name in @('d3dcompiler_47.dll','dxcompiler.dll','dxil.dll')){
+    $source=Join-Path $sdkRoot ('Redist/D3D/x64/'+$name);$target=Join-Path $payload $name
+    if(-not(Test-Path -LiteralPath $source -PathType Leaf)){throw 'Install the Windows SDK x64 D3D redistributable components before packaging.'}
+    if((Test-Path -LiteralPath $target) -and (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash){throw 'The deployed shader DLL differs from the selected official SDK redistributable.'}
+    if(-not(Test-Path -LiteralPath $target)){Copy-Item -LiteralPath $source -Destination $target}
+}
 # App-local Microsoft runtime keeps the portable launcher usable without an installer or elevation.
 $vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -42,6 +49,9 @@ $licenses=Join-Path $payload 'licenses';New-Item -ItemType Directory -Path $lice
 Copy-Item -LiteralPath (Join-Path $root 'licenses/Qt') -Destination $licenses -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'licenses/Qt') -Destination (Join-Path $bundle 'licenses') -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'vendor/miniz/LICENSE') -Destination (Join-Path $licenses 'miniz-LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $root 'vendor/miniz/LICENSE') -Destination (Join-Path $bundle 'licenses/miniz-LICENSE.txt')
+& python (Join-Path $PSScriptRoot 'Add-WindowsD3DNotices.py') --output $licenses --sdk $sdkRoot
+if($LASTEXITCODE){throw 'Windows shader redistribution notices could not be verified.'}
 Copy-Item -LiteralPath (Join-Path $helperDirectory 'LICENSE.txt') -Destination (Join-Path $licenses 'cloudflared-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $helperDirectory 'provenance.json') -Destination (Join-Path $licenses 'cloudflared-provenance.json')
 Copy-Item -LiteralPath (Join-Path $root 'licenses/NSIS') -Destination $licenses -Recurse
@@ -56,6 +66,7 @@ $bootstrap=Join-Path $payload 'bootstrap'
 New-Item -ItemType Directory -Path $bootstrap|Out-Null
 Get-ChildItem -LiteralPath $bundle -File|ForEach-Object {Copy-Item -LiteralPath $_.FullName -Destination $bootstrap}
 Copy-Item -LiteralPath (Join-Path $bundle 'licenses') -Destination $bootstrap -Recurse
+Copy-Item -LiteralPath (Join-Path $bundle 'legal') -Destination $bootstrap -Recurse
 $bootstrapFiles=@(Get-ChildItem -LiteralPath $bootstrap -Recurse -File|ForEach-Object {@{path=[IO.Path]::GetRelativePath($bootstrap,$_.FullName).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
 @{version=$version;files=$bootstrapFiles}|ConvertTo-Json -Depth 8 -Compress|Set-Content -LiteralPath (Join-Path $payload 'bootstrap-manifest.json') -Encoding utf8NoBOM
 [IO.Compression.ZipFile]::CreateFromDirectory($payload,(Join-Path $output 'TeamHJD-LauncherPayload-Windows-x64.zip'),[IO.Compression.CompressionLevel]::Optimal,$false)

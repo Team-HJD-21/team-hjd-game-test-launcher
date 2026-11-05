@@ -1,5 +1,5 @@
 #Requires -Version 7.0
-param([Parameter(Mandatory)][string]$PrivateRoot,[string]$Email,[switch]$Apply,
+param([Parameter(Mandatory)][string]$PrivateRoot,[switch]$RemoveUser,[switch]$Apply,
       [string]$Python=(Join-Path (Split-Path $PSScriptRoot) '.deps/server-venv/Scripts/python.exe'))
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'HostingCommon.ps1')
@@ -10,9 +10,10 @@ $start.UseShellExecute=$false;$start.CreateNoWindow=$true
 $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
 foreach($argument in @('-X','utf8',(Join-Path (Split-Path $PSScriptRoot) 'server/manage_verified_users.py'),'--root',$root)){$start.ArgumentList.Add($argument)}
 if($Apply){$start.ArgumentList.Add('--apply')}
-if($PSBoundParameters.ContainsKey('Email')){$start.ArgumentList.Add('--delete-email-stdin')}
+if($RemoveUser){$start.ArgumentList.Add('--delete-email-stdin')}
+if($RemoveUser){$removeEmail=Read-Host '삭제할 이메일 (화면·명령행 기록에 표시하지 않음)' -MaskInput}
 $process=[Diagnostics.Process]::Start($start)
-if($PSBoundParameters.ContainsKey('Email')){$process.StandardInput.WriteLine($Email)}
+if($RemoveUser){$process.StandardInput.WriteLine($removeEmail);$removeEmail=$null}
 $process.StandardInput.Close()
 $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
 $process.WaitForExit();$raw=$stdout.GetAwaiter().GetResult();$errorText=$stderr.GetAwaiter().GetResult()

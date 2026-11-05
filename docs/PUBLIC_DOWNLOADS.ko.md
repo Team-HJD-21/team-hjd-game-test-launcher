@@ -2,7 +2,7 @@
 
 ## 역할과 진입점
 
-`https://testlauncher.teamhjd.com/`은 Windows x64, Apple Silicon Mac, Intel Mac용 **공개 런처 ZIP**을 받는 정적 페이지다. 대표 사이트 `https://teamhjd.com/`에서는 **푸터 → 관련 사이트 → Game Test Launcher**에만 연결한다. 메인의 현재 관련 사이트 항목, header·hero·본문은 보존한다. 한국어/English/简体中文의 `?lang=ko/en/zh-CN` 선택을 전달한다.
+`https://testlauncher.teamhjd.com/`은 Windows x64, Apple Silicon Mac, Intel Mac용 **공개 Windows Setup·macOS DMG**을 받는 정적 페이지다. 대표 사이트 `https://teamhjd.com/`에서는 **푸터 → 관련 사이트 → Game Test Launcher**에만 연결한다. 메인의 현재 관련 사이트 항목, header·hero·본문은 보존한다. 한국어/English/简体中文의 `?lang=ko/en/zh-CN` 선택을 전달한다.
 
 푸터만을 진입 링크로 제공하는 것은 접근 인증 정책이 아니다. 다운로드 페이지는 공개이며 주소를 알면 직접 열 수 있다. 검색 노출은 `noindex,nofollow`로 억제하고 sitemap에는 넣지 않는다. 공개 런처를 받는 데 이메일 인증을 요구하지 않는다. **비공개 게임 설치·업데이트는 런처에서 기존 이메일 인증을 거친다.**
 
@@ -22,14 +22,14 @@
 세 버튼은 다음 공식 링크를 사용한다. 버전 번호를 HTML에 고정하지 않는다.
 
 ```text
-https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-Windows-x64.zip
-https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-macOS-arm64.zip
-https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-macOS-x64.zip
+https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-Windows-x64-Setup.exe
+https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-macOS-arm64.dmg
+https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/download/TeamHJD-GameTestLauncher-macOS-x64.dmg
 ```
 
-이 `latest/download/<고정 파일명>` 계약은 [GitHub 공식 안내](https://docs.github.com/en/repositories/releasing-projects-on-github/linking-to-releases)를 따른다. 새 stable Release는 이 세 portable ZIP을 **모두** 포함해야 한다. 자동 업데이트용 `LauncherPayload-*`는 웹 다운로드 버튼으로 제공하지 않는다. 파일명을 변경하거나 일부 플랫폼을 생략하면 최신 링크가 깨질 수 있으므로 [릴리즈 체크리스트](RELEASING.ko.md)를 따른다.
+이 `latest/download/<고정 파일명>` 계약은 [GitHub 공식 안내](https://docs.github.com/en/repositories/releasing-projects-on-github/linking-to-releases)를 따른다. 새 stable Release는 이 세 설치 파일과 기존 호환 portable ZIP을 **모두** 포함해야 한다. 자동 업데이트용 `LauncherPayload-*`는 웹 다운로드 버튼으로 제공하지 않는다. 파일명을 변경하거나 일부 플랫폼을 생략하면 최신 링크가 깨질 수 있으므로 [릴리즈 체크리스트](RELEASING.ko.md)를 따른다.
 
-**사이트를 다시 배포할 필요는 없다.** GitHub에서 `Latest`로 지정한 공개 정식 Release가 바뀌면 버튼의 대상 파일도 바뀐다. 단순한 commit/push, draft 또는 prerelease만으로는 변경되지 않는다. 버전·게시일 표시는 페이지를 열거나 새로고침할 때 공개 latest API로 확인하므로, 계속 열어 둔 페이지의 글자가 즉시 갱신된다는 뜻은 아니다. 비공개 게임 BUILD 게시와 런처 Release는 별도다.
+기본 `latest/download` 링크는 새 stable Release의 같은 파일명으로 자동 전환됩니다. 단순 commit/push, draft 또는 prerelease로는 바뀌지 않습니다. 버전 표시와 새 클라이언트는 별도의 **서명된 정적 피드**를 사용하므로, 발행자는 최종 자산 대조 후 피드를 Pages에 게시해야 합니다. 사이트는 약5분/탭 복귀에 다시 확인합니다. 피드의 날짜는 GitHub 게시 시각이 아닌 서명 피드 발행일입니다. 비공개 게임 BUILD와 런처 Release는 별도입니다.
 
 페이지에는 제품명, 플레이테스트용 런처라는 짧은 소개, 이메일 인증 후 설치·실행·업데이트·파일 관리를 할 수 있다는 설명과 간단한 실행 안내를 둔다. 세 다운로드 버튼과 버전·게시일, **런처의 이메일 인증 시 인증된 이메일 주소와 인증·접속 시각이 수집·보관된다**는 안내를 유지한다. 마케팅 문구·앱 모형·큰 단계별 카드는 추가하지 않는다. 사용자는 2026-10-31에 짧은 설명 보강과 메인과 동일한 푸터를 요청한 뒤, 서명 관련 첫 실행 FAQ를 추가하도록 요청했다.
 
@@ -37,7 +37,7 @@ https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/downl
 
 2026-10-31 FAQ 추가 검수: Node 구문·공개 사이트 경계 검사 통과. Chrome의 데스크톱1278px과 모바일390px에서 세 FAQ와 한국어·English·简体中文의 번역 누락/가로 넘침 없음, 마우스 펼침과 Enter 접기·펼치기를 확인했다. Windows·macOS 보호 설정이나 릴리즈 ZIP은 변경하지 않았으며, 실제 경고 창을 이 작업에서 재현·승인한 것은 아니다.
 
-페이지 JS는 공개 latest API에서 stable 태그, 정확한 세 파일명·공식 URL·크기를 검증하고 버전·게시일을 `textContent`로 표시한다. 토큰/쿠키를 GitHub API에 보내지 않으며 **이 웹페이지 자체는** 이메일이나 로그를 수집하지 않는다. 위 수집 안내의 대상은 런처의 이메일 인증이다. API 제한·오프라인·JS 비활성화가 있어도 기본 다운로드 링크는 HTML에 남아 작동한다. 버전 표시를 얻기 위해 비공개 인증정보를 브라우저에 넣지 않는다.
+페이지 JS는 updates/stable.json의 P-256 서명·버전·sequence·유효기간·플랫폼·정확한 공식 URL/크기/hash를 검증하고 버전과 피드 발행일을 textContent로 표시한다. 약5분 및 탭 복귀 시 다시 확인한다. 개인키는 공개하지 않는다. 토큰/쿠키를 GitHub API에 보내지 않으며 **이 웹페이지 자체는** 이메일이나 로그를 수집하지 않는다. 위 수집 안내의 대상은 런처의 이메일 인증이다. 피드 오류·오프라인·JS 비활성화가 있어도 기본 다운로드 링크는 HTML에 남아 작동한다. 버전 표시를 얻기 위해 비공개 인증정보를 브라우저에 넣지 않는다.
 
 ## 소스와 배포
 
@@ -96,3 +96,9 @@ gh run list --workflow download-site.yml --branch main --limit 5 --json database
 - 세 latest ZIP 링크는 공식 CDN의200과 GitHub metadata 크기(Windows51,371,973 / ARM60,753,121 / Intel66,788,026 bytes)를 대조했다. 이는 링크와 배포 파일 검증이며 새 Mac 게임 플레이 검증은 아니다. 기존 v0.1.3 ZIP·태그는 변경하지 않았다.
 - 포털 종료 회귀20개와 Cloudflare 인증·감사 회귀13개가 통과했다. 실제 인증 GET/HEAD의 `/`·`/downloads`는 본문과 redirect 없는410, 기존 catalog는200/원본 동일, 게임 이어받기는206/정본4096bytes 동일이었다. 익명 catalog의 기존 Access302도 유지됐다. 이 확인을 PC 재부팅·절전 복구 검증으로 확대하지 않는다.
 - 상세 비공개 증거는 `.local/download-site-validation/`의 `final-production.json`, `portal-retirement-production.json`, `latest-portable-links.json`, `final-desktop.png`, `final-mobile.png`에 보관한다. 인증정보·개인 이메일·서명 다운로드 URL은 기록하지 않았다.
+
+## 설치형 전환0.2.0
+
+기본버튼은Windows Setup과ARM/Intel DMG입니다. portableZIP은FAQ보조링크로보존하며payload는사용자다운로드버튼에넣지않습니다. 이용조건·전용개인정보는privacy.html에있고대표사이트개인정보푸터링크도유지합니다. 홈페이지의관련사이트푸터진입계약은변경하지않습니다.
+
+Release의Latest가바뀌면기본고정파일명링크는자동으로새파일을가리킵니다. 다만서명된버전표시/클라이언트업데이트피드는발행자가최종파일대조후갱신해야합니다. 따라서임의로GitHub에ZIP하나만올리는것은정식릴리즈완료가아닙니다. 피드발행은릴리즈절차에포함하며만료전갱신이필요합니다.

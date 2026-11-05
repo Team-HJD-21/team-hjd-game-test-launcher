@@ -289,3 +289,18 @@ Get-FileHash -LiteralPath '검증할-artifact.zip' -Algorithm SHA256
 **원인·확실도:** origin·터널·감시의 PID/시각/실행 경로와8443 listener는 일치했고 공개 인증 gate는302였다. 운영자 PC의 저장된 세션은 만료된 것으로 확인했다. 기존0.1.3은 needsLogin으로 catalog 요청을 건너뛰면서 UI에서는 hasServer만 보고 자동 재연결로 표시했다. 실제 인증 만료와 표시 오류를 확인했으며 서버 프로세스 실행만으로 로그인 이후 다운로드 성공을 주장하지 않는다.
 
 **수정·검증:** 인증 필요/서버 확인 중/온라인/오프라인을 구분하고 재인증 모달을 표시한다. 업데이트는 이메일 인증보다 먼저 강제로 한 번 확인하고 별도 모달로 다운로드·검증·다음 실행 적용을 안내한다. 설치된 Client 직접 실행은 receipt/self hash가 일치하는 관리 경로만 찾아 복원한다. 인증/업데이트 확인 실패에서도 설치 게임을 오프라인으로 선택할 수 있다. 만료·모드 전환·실제 합성 게임 실행과22개 connection assertion, Windows5개 및 양쪽 Mac native/delivery 검사를 통과했다. 상세는 v0.1.4 검증 문서에 있다. 세션 만료·토큰·서명 검증을 없애는 수정은 하지 않았다.
+
+
+## 2026-11-05 — 설치형·서명 피드 전환의 회귀
+
+- Windows11/Qt6.8.3/MSVC2022/NSIS3.13. 제거가unknown사용자파일을보존한뒤ownership marker를지워재설치를차단했던문제를실제TestPackage에서확인했습니다. C++은removed marker를남기고NSIS가등록/제거기정리후폴더가완전히비었을때만지우도록수정했습니다. 실제설치·복구·제거·재설치와합성game/settings/unknown파일보존을재검증했습니다. 전체폴더재귀삭제로우회하지않습니다.
+- 정확한PID/생성시각/EXE/Qt인수대조에서Windows와Qt의경로구분자혼용이검사fixture를거절했습니다. exe는GetFullPath, Qt의root/profile은실제전달형태로통일했습니다. 소유권검사자체는유지했습니다. 수정후실제설치GUI의Setup /UPDATE를visible/silent모두통과했습니다. 잠금화면에서의실제픽셀/새frame검증과합성health를혼동하지않습니다.
+- 실제Windows bootstrap의정상전환·bad health복원·중단복구·queue, 별도실제C++Installer의합성badhealth→정확이전slot재시작/marker/bootstrap/데이터보존을확인했습니다. 사용중제거·다운그레이드는거부하고손상/상위경로receipt는보존하며외부데이터를따라삭제하지않습니다.
+
+## 2026-11-05 — macOS DMG에서검증JSON한개가누락됨
+
+- 환경: GitHub macos-15 ARM/macOS-15-intel, Qt6.8.3, Python3.13, hdiutil HFS+/UDZO. native코드원본run41933632479 두build성공.
+- 증상/최소확인: ZIP/완전한payload roundtrip/codesign은성공했으나최종DMGread-onlymount후tree대조에서 `Contents/Resources/seed/._teamhjd-receipt.json` 한개만missing, extra0/changed0을관측했습니다.
+- 원인/확실도: hdiutil -srcfolder가dot-underscore JSON을AppleDouble파일로처리하는경로와일치했으며POSIX복사방식변경후그파일을포함한전체대조가통과해진단을뒷받침했습니다. `._` 파일을검사에서빼는수정은하지않았습니다.
+- 수정: 빈writable이미지→Python파일복사→원본receiptbytesassert→unmount→UDZO변환→최종read-onlymount전체bytes/modes·Applications링크·strictsignature검증. blank create에는 -format을지정하지않고convert에서UDZO를지정합니다(실제hdiutil오류로확인).
+- 성공증거: 최종run41937605235 ARM/Intelpackage/nativeaudit/DMGmount/delivery모두success. native-source검증기가동일한native source와미만료원본을확인했습니다. 사람이메일OTP/Unity실제플레이/재부팅이나macOS12실기를통과했다는증거는아닙니다.
