@@ -1,6 +1,6 @@
 # Mac에서 플레이테스트 시작하기
 
-[다운로드 페이지](https://testlauncher.teamhjd.com/)는 TeamHJD 홈페이지 푸터 **관련 사이트 → Game Test Launcher**에서 열 수 있습니다. macOS12 이상에서 Apple Silicon(M1 이상)은 **ARM DMG**, Intel은 **Intel DMG**를 받으세요.
+[다운로드 페이지](https://testlauncher.teamhjd.com/)는 TeamHJD 홈페이지 푸터 **관련 사이트 → Game Test Launcher**에서 열 수 있습니다. macOS15 이상에서 Apple Silicon(M1 이상)은 **ARM DMG**, Intel은 **Intel DMG**를 받으세요.
 
 1. DMG를 열고 **TeamHJDLauncher.app**을 응용 프로그램 폴더로 옮깁니다. DMG 안에서 계속 실행하지 말고 복사한 앱을 실행합니다. Dock에도 이 앱을 고정합니다.
 2. 런처 업데이트 확인 후 온라인 참여 안내의 개인정보 수집·이용과 Cloudflare 국외 처리 선택을 각각 확인합니다. 만14세 미만은 법정대리인 동의 절차를 담당자에게 문의하세요.
@@ -8,6 +8,8 @@
 4. **설치 → 플레이**로 Mac 게임을 시작합니다. 새 게임 버전은 **업데이트**를 눌러 직접 적용합니다. **현재 버전 플레이**로 기존 게임을 유지할 수 있습니다.
 
 기존 ZIP 사용자는 런처를 종료하고 새 DMG의 앱으로 교체하세요. 같은 사용자 계정의 게임과 설정을 이어서 사용합니다. Windows 게임 파일을 Mac에 복사해 설치하지 않습니다.
+
+공식 이메일 인증 도구의 실제 최소 요구 버전에 따라 macOS15 이상을 지원합니다. 앱 번들의 최소 버전도15.0이며 더 낮은 버전의 동작을 지원한다고 안내하지 않습니다.
 
 ## 첫 실행과 업데이트
 

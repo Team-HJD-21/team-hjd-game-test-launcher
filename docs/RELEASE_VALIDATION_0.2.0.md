@@ -10,7 +10,7 @@ Windows 사용자 단위 Setup과 ARM/Intel Mac DMG, P-256 정적 피드, 인증
 
 - 최초 native 소스: `7c3a516f1019a07f590bae6d07740d48a79bbeb4`, 전체 native 빌드 run `41933632479`의 ARM·Intel 두 job 성공.
 - 최종 Mac 패키징·추가 앱 교체 QA: source `a01f3d24d401149ab09c6fdd4f97ef60b01116e2`, run `41939539019`의 ARM·Intel 두 package/delivery 성공. `validate-native-macos-reuse.py`가 동일 native tree와 허용 변경·미만료 원본을 확인했습니다.
-- Windows11, VS2022 17.14.39, Qt6.8.3 MSVC x64, PowerShell7.6.5, Python3.13.3, NSIS3.13. Mac runner는 macos-15 ARM / macos-15-intel, Qt6.8.3, deployment target12.0. macOS12 실제 기기 실행과는 구분합니다.
+- Windows11, VS2022 17.14.39, Qt6.8.3 MSVC x64, PowerShell7.6.5, Python3.13.3, NSIS3.13. Mac runner는 macos-15 ARM / macos-15-intel, Qt6.8.3, deployment target12.0. 네이티브 컴파일 target과 실제 제품 요구사항은 구분합니다. 공식 cloudflared의 LC_BUILD_VERSION이 ARM/Intel 모두15.0인 것을 확인해 앱/웹의 최소 버전을15.0으로 맞추고 모든 Mach-O 최소 요구가 광고 버전 이하인지 검증합니다.
 - Windows D3D 라이브러리는 설치된 공식 SDK Redist/x64로 통일하고 복사 후 SHA256을 검증합니다. DLL/SDK/LLVM/Microsoft 라이선스 및 정확한 라이선스 원본 provenance를 포함합니다. 게시자 서명·Apple Developer ID·공증은 구성되지 않았습니다.
 
 ## 검증 증거
@@ -42,6 +42,6 @@ Controller updater fixture는 일회용 테스트키·합성 전송만 사용하
 
 ## 남은 검증 범위
 
-사람의 신규 이메일 OTP·macOS Keychain 승인, Unity 실제 게임/크로스플레이, 실제 재부팅·로그온 자동 시작, macOS12 실기·Windows10 실기·조직 보안 정책의 경고 승인은 이번 자동 검증 범위 밖입니다. Windows 잠금 중 CUA 픽셀 캡처는 잠금 화면을 반환해 실제 앱 화면 증거로 쓰지 않았습니다. 앱 자체 캡처/실제 frame ACK와 Windows·Mac native 실행 증거를 구분했습니다.
+사람의 신규 이메일 OTP·macOS Keychain 승인, Unity 실제 게임/크로스플레이, 실제 재부팅·로그온 자동 시작, macOS12–14(지원 대상 아님)·Windows10 실기·조직 보안 정책의 경고 승인은 이번 자동 검증 범위 밖입니다. Windows 잠금 중 CUA 픽셀 캡처는 잠금 화면을 반환해 실제 앱 화면 증거로 쓰지 않았습니다. 앱 자체 캡처/실제 frame ACK와 Windows·Mac native 실행 증거를 구분했습니다.
 
 일회용 개인정보 선택을 사람 대신 수락하지 않았습니다. 프로그램 제거와 서버 기록 삭제는 별개이며, 국외 지역 제한·특정 DPA 체결·법적 적합성 인증을 확인 없이 주장하지 않습니다. 인터넷/배포처·권한·디스크·OS 차단까지 강제로 해결한다는 뜻의 업데이트 보장은 하지 않습니다. 정상 조건에서는 온라인 사용 전에 서명된 최신 버전을 확인·적용하고 실패를 숨기지 않습니다.

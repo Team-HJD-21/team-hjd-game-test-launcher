@@ -52,7 +52,9 @@ def deploy(app, qt, arch):
     print(f'Deploying Qt into {app.name}', flush=True)
     info_path = app / 'Contents/Info.plist'
     info = plistlib.loads(info_path.read_bytes())
-    info.update(LSMinimumSystemVersion='12.0', NSHighResolutionCapable=True)
+    # The pinned official cloudflared 2026.10.5 binaries declare macOS15.0
+    # in LC_BUILD_VERSION. The full product must honor its highest dependency.
+    info.update(LSMinimumSystemVersion='15.0', NSHighResolutionCapable=True)
     info_path.write_bytes(plistlib.dumps(info))
     deploy_args = [qt / 'bin/macdeployqt', app, '-always-overwrite']
     if app.name == 'TeamHJDClient.app':

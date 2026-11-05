@@ -120,12 +120,30 @@ def run(*arguments: str) -> str:
     return result.stdout
 
 
+def macos_version(value: str) -> tuple[int, int, int]:
+    require(bool(re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,2}",value)),"Invalid macOS version metadata")
+    parts=list(map(int,value.split('.')));return tuple(parts+[0]*(3-len(parts)))
+
+def component_minimum(load_commands: list[str]) -> tuple[int, int, int]:
+    versions=[]
+    for index,line in enumerate(load_commands):
+        command=line.strip()
+        if command not in ('cmd LC_BUILD_VERSION','cmd LC_VERSION_MIN_MACOSX'):continue
+        field='minos' if command=='cmd LC_BUILD_VERSION' else 'version'
+        for item in load_commands[index+1:]:
+            if item.strip().startswith('Load command '):break
+            words=item.split()
+            if len(words)==2 and words[0]==field:versions.append(macos_version(words[1]));break
+    require(bool(versions),'Mach-O deployment minimum is missing')
+    return max(versions)
+
 def native_audit(app: Path, arch: str) -> int:
     require(sys.platform == "darwin", "Native macOS code-signature and dependency checks require macOS")
     run("/usr/bin/codesign", "--verify", "--deep", "--strict", str(app))
     all_files = [path for path in app.rglob("*") if path.is_file()]
     names = {path.name for path in all_files}
     count = 0
+    advertised=macos_version(plistlib.loads((app/'Contents/Info.plist').read_bytes())['LSMinimumSystemVersion'])
     for path in all_files:
         with path.open("rb") as handle:
             if handle.read(4) not in MACHO_MAGICS:
@@ -142,6 +160,7 @@ def native_audit(app: Path, arch: str) -> int:
             require(PurePosixPath(dependency).name in names, "Bundled Mach-O dependency missing")
             require(".framework/Versions/" not in dependency, "Framework symlink dependency was not flattened")
         load_commands = run("/usr/bin/otool", "-l", str(path)).splitlines()
+        require(component_minimum(load_commands)<=advertised,f"Bundled component requires a newer macOS than advertised: {path.relative_to(app)}")
         for index, line in enumerate(load_commands):
             if line.strip() == "cmd LC_RPATH":
                 require(index + 2 < len(load_commands), "Malformed Mach-O LC_RPATH")
@@ -164,7 +183,7 @@ def main() -> None:
     all_files = tree_files(app)
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     require(info["CFBundleExecutable"] == "TeamHJDLauncher", "Incorrect bootstrap entrypoint")
-    require(tuple(map(int, info["LSMinimumSystemVersion"].split("."))) >= (12, 0), "macOS minimum target predates Qt support")
+    require(macos_version(info["LSMinimumSystemVersion"]) >= (15, 0, 0), "Advertised macOS minimum predates the pinned authentication helper")
     icon = info.get("CFBundleIconFile", "")
     if icon and not icon.endswith(".icns"):
         icon += ".icns"
@@ -183,7 +202,7 @@ def main() -> None:
     macho_count = 0 if args.structural_only else native_audit(app, args.arch)
     print(json.dumps({"result": "PASS", "architecture": args.arch, "appFiles": len(all_files),
                       "payloadFiles": len(expected), "nativeMachOFilesChecked": macho_count,
-                      "nativeChecksPerformed": not args.structural_only}, sort_keys=True))
+                      "nativeChecksPerformed": not args.structural_only,"minimumMacOS":info['LSMinimumSystemVersion'],"nativeComponentMinimumsChecked":not args.structural_only}, sort_keys=True))
 
 
 if __name__ == "__main__":
