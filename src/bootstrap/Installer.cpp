@@ -182,8 +182,27 @@ bool handleInstaller(const QStringList &arguments,const InstallHealthCheck &heal
         auto parent=OpenProcess(SYNCHRONIZE|PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);
         if(parent){
             auto expected=Store(wait).currentDirectory("launcher")+"/"+clientExecutable();
-            auto stamp=processStamp(pid,expected);
-            if(!stamp||QString::number(stamp)!=arguments[stampIndex+1]){CloseHandle(parent);fail(QStringLiteral("업데이트를 요청한 런처를 확인하지 못했습니다."));}
+            // Keep identity separate from liveness: a terminated process can
+            // remain queryable while its creator retains a handle. Validate
+            // the exact image and creation time on this one retained handle.
+            wchar_t image[32768];DWORD length=32768;
+            FILETIME created{},exited{},kernel{},user{};
+            const bool imageKnown=QueryFullProcessImageNameW(parent,0,image,&length);
+            const bool timeKnown=GetProcessTimes(parent,&created,&exited,&kernel,&user);
+            const auto stamp=(quint64(created.dwHighDateTime)<<32)|created.dwLowDateTime;
+            bool imageMatches=imageKnown&&QDir::cleanPath(QString::fromWCharArray(image,int(length))).compare(QDir::cleanPath(expected),Qt::CaseInsensitive)==0;
+            if(!imageKnown&&timeKnown&&WaitForSingleObject(parent,0)==WAIT_OBJECT_0){
+                // Windows can discard image metadata before the last handle
+                // closes. Only an already terminated object may use the exact
+                // bootstrap record, OS creation time and verified installed
+                // tree. This never authorizes an unknown live process.
+                const auto recordPath=wait+"/launcher/running.json";
+                if(QFileInfo::exists(recordPath)){
+                    const auto record=readJson(recordPath);Store installed(wait);
+                    imageMatches=record["pid"].toInteger()==pid&&record["stamp"].toString()==arguments[stampIndex+1]&&record["folder"]==installed.state("launcher")["current"]&&record["executable"].toString()==clientExecutable()&&installed.currentReceipt("launcher")["executable"].toString()==clientExecutable()&&installed.verify("launcher");
+                }
+            }
+            if(!timeKnown||!imageMatches||QString::number(stamp)!=arguments[stampIndex+1]){CloseHandle(parent);fail(QStringLiteral("업데이트를 요청한 런처를 확인하지 못했습니다."));}
             auto finished=WaitForSingleObject(parent,120000);CloseHandle(parent);
             if(finished!=WAIT_OBJECT_0)fail(QStringLiteral("실행 중인 런처가 종료되지 않았습니다."));
         }else if(GetLastError()!=ERROR_INVALID_PARAMETER)fail(QStringLiteral("업데이트 요청자를 확인할 수 없습니다."));

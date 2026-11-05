@@ -12,7 +12,7 @@
 | 게임 | 비공개 서명 catalog를 자동 확인·알림하고 **업데이트 버튼으로만 적용** |
 | 운영 서버 | 별도 소유 프로세스 재시작 필요. Release 게시만으로 origin 코드가 교체되지 않음 |
 
-클라이언트와 다운로드 사이트는 `testlauncher.teamhjd.com/updates/stable.json`의 P-256 서명을 검증합니다. 네이티브 보조 경로는 GitHub 최신 Release의 `launcher-stable.json` 직접 파일이며 REST latest API가 아닙니다. 성공 확인은 약15분 주기, 오류는15초부터 최대약5분 간격으로 재시도합니다. 업데이트/동의 확인 전 온라인 기능은 차단하며 설치 게임은 명시적 오프라인 실행을 제공합니다. 다운로드·해시·서명·시각·sequence·health 검사를 끄지 않습니다.
+클라이언트와 다운로드 사이트는 `testlauncher.teamhjd.com/updates/stable.json`의 P-256 서명을 검증합니다. 네이티브 보조 경로는 GitHub 최신 Release의 `launcher-stable.json` 직접 파일이며 REST latest API가 아닙니다. 성공 확인은 약15분 주기, 오류는15초부터 최대약5분 간격으로 재시도합니다. 0.2.2부터 업데이트가 있으면 이메일 인증 전에 승인을 요구합니다. 업데이트/연결/동의 확인 전에는 게임 실행을 포함한 런처 기능이 차단되며 오프라인 우회는 제공하지 않습니다. 다운로드·해시·서명·시각·sequence·health 검사를 끄지 않습니다.
 
 0.1.4 등 구형 클라이언트의 첫 전환은 여전히 그 버전의 GitHub API 제약을 받습니다. 따라서 팀원에게는 이번 한 번 최신 Setup/DMG 설치와 안정된 실행기 재고정을 안내합니다. 인터넷 단절·배포처 차단·디스크/권한/OS 차단까지 소프트웨어가 강제로 해결한다고 보장하지 않습니다.
 
@@ -23,8 +23,8 @@
 - CMake의 project VERSION을 새 버전으로 변경합니다. 기존 공개 태그/자산은 바꾸지 않습니다. 아래 값은 매 릴리즈 실제 값으로 수정합니다.
 
 ```powershell
-$version = '0.2.0'
-$qtRoot = 'C:/Qt/6.8.3/msvc2022_64' # 실제 설치된 Qt6.8.3 MSVC x64
+$version = '0.2.2'
+$qtRoot = '.deps/QtSecurity/6.11.3/msvc2022_64' # install-qt-sdk.py로 검증한 Qt6.11.3
 $releaseRun = Join-Path $PWD ('.local/releases/' + $version + '-' + (Get-Date -Format yyyyMMdd-HHmmss))
 $releaseDist = Join-Path $releaseRun 'dist'
 New-Item -ItemType Directory -Path $releaseRun -ErrorAction Stop | Out-Null

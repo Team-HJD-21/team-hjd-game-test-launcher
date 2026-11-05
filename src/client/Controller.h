@@ -1,6 +1,7 @@
 #pragma once
 #include "core/Core.h"
 #include "core/Platform.h"
+#include "core/LauncherUpdate.h"
 #include <QFuture>
 #include <QObject>
 #include <QTimer>
@@ -49,7 +50,6 @@ public:
     Q_INVOKABLE void applyLauncherUpdate();
     Q_INVOKABLE void restartForUpdate();
     Q_INVOKABLE void retryFailedUpdate();
-    Q_INVOKABLE void continueOffline();
     Q_INVOKABLE void showLicenses();
     Q_INVOKABLE QString privacyNotice() const;
     Q_INVOKABLE void acceptPrivacy(bool collection,bool overseas,bool ageConfirmed);
@@ -80,6 +80,7 @@ private:
     void updateProgress(qint64 done,qint64 total,const QString &phase);
     bool deferDuringCheck(std::function<void()> action);
     void updateFailed(const QString &error);
+    hjd::updates::Release latestLauncherRelease(QByteArray *raw,qint64 minimum);
     const hjd::Game *selected() const;
     QString m_dataRoot,m_launcherRoot,m_gamesRoot,m_key,m_selected="hose-for-hire";
     hjd::NetConfig m_config;
@@ -104,6 +105,7 @@ private:
     bool m_updateInstaller=false;
     bool m_knownFailedRelease=false,m_retryFailedOnce=false;
     QString m_readyInstaller;
+    QString m_readyCandidate;
     qint64 m_progressStart=0;
     qint64 m_lastRefresh=0,m_lastLauncherCheck=0;
     bool m_wasRunning=false;

@@ -1,5 +1,6 @@
 param([Parameter(Mandatory)][string]$QtRoot)
 $ErrorActionPreference='Stop'
+$QtRoot=[IO.Path]::GetFullPath($QtRoot)
 $project=Split-Path $PSScriptRoot
 $root=Join-Path $project ('.local/bootstrap-'+[DateTime]::Now.ToString('yyyyMMdd-HHmmss'))
 $env:PATH="$QtRoot/bin;$env:PATH"

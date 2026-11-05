@@ -14,6 +14,7 @@ Var UpdateMode
 Var UpdatePid
 Var UpdateStamp
 Var UpdateProfile
+Var UpdateApproved
 Var MaintenanceMutex
 Var MaintenancePhase
 Var HeroFont
@@ -89,7 +90,30 @@ Function un.ThemeShow
 FunctionEnd
 
 Function WelcomePage
-  Call SkipWhenUpdating
+  ${If} $UpdateMode == "1"
+    ${If} $UpdateApproved == "1"
+      Abort
+    ${EndIf}
+    !insertmacro MUI_HEADER_TEXT "TeamHJD Game Test Launcher" "런처 업데이트 확인"
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+      Abort
+    ${EndIf}
+    ${NSD_CreateLabel} 0 3u 100% 26u "런처 업데이트가 있습니다"
+    Pop $0
+    SendMessage $0 ${WM_SETFONT} $HeroFont 0
+    ReadRegStr $1 HKCU "${REG_KEY}" "DisplayVersion"
+    ${NSD_CreateLabel} 0 42u 100% 25u "현재 v$1  →  새 버전 v${VERSION}"
+    Pop $0
+    ${NSD_CreateLabel} 0 76u 100% 42u "업데이트를 시작하면 파일을 검증하고 설치한 뒤 런처를 자동으로 다시 실행합니다.$\r$\n게임과 사용자 설정은 보존됩니다."
+    Pop $0
+    GetDlgItem $0 $HWNDPARENT 1
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:업데이트"
+    TeamHJDTheme::Apply
+    nsDialogs::Show
+    Return
+  ${EndIf}
   !insertmacro MUI_HEADER_TEXT "TeamHJD Game Test Launcher" "플레이테스트 런처 설치"
   nsDialogs::Create 1018
   Pop $0
@@ -194,6 +218,11 @@ Function .onInit
     ${GetOptions} $R0 "/WAITPID=" $UpdatePid
     ${GetOptions} $R0 "/WAITSTAMP=" $UpdateStamp
     ${GetOptions} $R0 "/PROFILE=" $UpdateProfile
+    ClearErrors
+    ${GetOptions} $R0 "/APPROVED" $R1
+    ${IfNot} ${Errors}
+      StrCpy $UpdateApproved "1"
+    ${EndIf}
     ${If} $UpdatePid == ""
     ${OrIf} $UpdateStamp == ""
     ${OrIf} $UpdateProfile == ""
@@ -281,7 +310,7 @@ Section "런처 (필수)" MainSection
   File /r "${BUNDLE_ROOT}\*"
   ${If} $UpdateMode == "1"
     DetailPrint "실행 중인 런처가 종료되면 업데이트를 적용합니다."
-    nsExec::ExecToStack /TIMEOUT=125000 '"$PLUGINSDIR\bundle\TeamHJDLauncher.exe" --wait-client "$INSTDIR" --wait-pid $UpdatePid --wait-stamp $UpdateStamp --noninteractive-test'
+    nsExec::ExecToStack /TIMEOUT=125000 '"$PLUGINSDIR\bundle\TeamHJDLauncher.exe" --wait-client "$INSTDIR" --wait-pid $UpdatePid --wait-stamp $UpdateStamp --noninteractive-test --installer-unicode-output'
     Pop $0
     Pop $1
     ${If} $0 != 0
@@ -300,7 +329,7 @@ Section "런처 (필수)" MainSection
   ${If} $UpdateMode == "1"
     StrCpy $R2 '$R2 --require-health'
   ${EndIf}
-  nsExec::ExecToStack /TIMEOUT=180000 '"$PLUGINSDIR\bundle\TeamHJDLauncher.exe" --install-to "$INSTDIR" $R2 --noninteractive-test'
+  nsExec::ExecToStack /TIMEOUT=180000 '"$PLUGINSDIR\bundle\TeamHJDLauncher.exe" --install-to "$INSTDIR" $R2 --noninteractive-test --installer-unicode-output'
   Pop $0
   Pop $1
   ${If} $0 != 0
@@ -344,7 +373,7 @@ Section "Uninstall"
   SetOutPath "$PLUGINSDIR\helper"
   File /r "${BOOTSTRAP_ROOT}\*"
   StrCpy $MaintenancePhase "1"
-  nsExec::ExecToStack /TIMEOUT=180000 '"$PLUGINSDIR\helper\TeamHJDLauncher.exe" --uninstall-from "$INSTDIR" --noninteractive-test'
+  nsExec::ExecToStack /TIMEOUT=180000 '"$PLUGINSDIR\helper\TeamHJDLauncher.exe" --uninstall-from "$INSTDIR" --noninteractive-test --installer-unicode-output'
   Pop $0
   Pop $1
   StrCpy $MaintenancePhase "0"

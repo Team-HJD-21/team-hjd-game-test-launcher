@@ -43,14 +43,15 @@ ApplicationWindow {
     property string reviewMode: ""
     property bool advancedSettings: false
     property bool uiReady: false
-    readonly property bool blockingFlow: !!v.updateGate || ((v.needsLogin || v.needsPrivacy) && !v.offlineMode) || !!v.authenticating || loginNotice.opened || updateNotice.opened || privacyDialog.opened
+    readonly property bool blockingFlow: !!v.updateGate || ((v.needsLogin || v.needsPrivacy) && !v.offlineMode) || !!v.authenticating || loginNotice.opened || updateNotice.opened || updateProgressNotice.opened || privacyDialog.opened
     function syncGates() {
         if(!uiReady) return
         if(v.updateGate) {
             privacyDialog.close(); loginNotice.close(); settings.close(); helpDialog.close(); fileMenu.close(); viewMenu.close(); helpMenu.close(); gameMenu.close()
-            updateNotice.open()
+            if(v.updateGate==="downloading" || v.updateGate==="ready" || v.updateGate==="restarting") {updateNotice.close();updateProgressNotice.open()}
+            else {updateProgressNotice.close();updateNotice.open()}
         } else {
-            updateNotice.close()
+            updateNotice.close(); updateProgressNotice.close()
             if(v.needsPrivacy && !v.offlineMode) {loginNotice.close();privacyDialog.open()}
             else {privacyDialog.close();if((v.needsLogin && !v.offlineMode) || v.authenticating) loginNotice.open();else loginNotice.close()}
         }
@@ -230,7 +231,7 @@ ApplicationWindow {
             Label { text: "플레이테스트"; font.pixelSize: 16; font.bold: true; color: "#E8EBE8" }
             Item { Layout.fillWidth: true }
             Rectangle { width: 6; height: 6; radius: 3; color: v.online ? "#8CBD9E" : v.needsLogin ? "#E8C76A" : "#7B8389" }
-            Caption { text: v.offlineMode ? "오프라인 플레이" : v.connectionLabel; font.pixelSize: 11; Accessible.description: v.connectionDetail }
+            Caption { text: v.connectionLabel; font.pixelSize: 11; Accessible.description: v.connectionDetail }
         }
         RowLayout {
             visible: v.needsLogin; Layout.fillWidth: true; Layout.bottomMargin: 16; spacing: 12
@@ -358,25 +359,35 @@ ApplicationWindow {
     }
     Popup {
         id: updateNotice
-        anchors.centerIn: Overlay.overlay; width: Math.min(520,window.width-60)
+        anchors.centerIn: Overlay.overlay; width: Math.min(540,window.width-60)
         modal: true; focus: true; padding: 28; closePolicy: Popup.NoAutoClose
         Overlay.modal: Rectangle { color: "#CC000000" }
         background: Rectangle { color: "#20262B"; radius: 9; border.color: "#776941" }
-        contentItem: ColumnLayout {
-            spacing: 18
-            Label { text: v.updateGate==="ready" || v.updateGate==="restarting" ? "업데이트를 적용하고 다시 시작합니다" : v.updateGate==="error" ? "런처 업데이트를 확인해 주세요" : v.updateGate==="downloading" ? "런처를 업데이트하고 있어요" : "런처 업데이트 확인 중"; color: "#F0F0EA"; font.pixelSize: 21; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-            Caption { text: v.updateGate==="ready" || v.updateGate==="restarting" ? "새 버전 검증을 마쳤습니다. 잠시 후 자동으로 다시 시작합니다." : v.updateGate==="error" ? v.updateError+"\n잠시 후 자동으로 다시 시도합니다." : v.updateGate==="downloading" ? "v"+v.updateVersion+"을 다운로드하고 파일을 검증합니다. 완료될 때까지 다른 기능은 사용할 수 없습니다." : "이메일 인증과 별개로 최신 런처를 먼저 확인합니다."; Layout.fillWidth: true; lineHeight: 1.5 }
-            BusyIndicator { running: v.updateGate==="checking" || v.updateGate==="ready" || v.updateGate==="restarting"; visible: running; Layout.alignment: Qt.AlignHCenter }
-            ProgressBar { visible: v.updateGate==="downloading"; Layout.fillWidth: true; value: v.progress; indeterminate: v.progress<=0 }
-            Caption { visible: v.updateGate==="downloading"; text: v.transfer || "업데이트 파일 준비 중"; Layout.fillWidth: true }
-            Caption { visible: v.updateGate==="error" && v.canPlay; text: "연결을 확인할 수 없어도 설치된 게임은 오프라인으로 플레이할 수 있습니다."; Layout.fillWidth: true }
-            ActionButton { text: "공식 설치 파일로 복구"; visible: v.updateGate==="error"; onClicked: Qt.openUrlExternally("https://testlauncher.teamhjd.com/#faq") }
-            RowLayout { Layout.fillWidth: true; Item { Layout.fillWidth: true }
-                ActionButton { text: "오프라인 플레이"; visible: v.updateGate==="error" && v.canPlay; onClicked: launcher.continueOffline() }
-                ActionButton { text: "런처 종료"; visible: v.updateGate==="ready" || v.updateGate==="error"; onClicked: window.close() }
-                ActionButton { text: "다시 확인"; prominent: true; visible: v.updateGate==="error"; onClicked: launcher.checkLauncherUpdate(true) }
-                ActionButton { text: "다시 설치 시도"; visible: v.updateGate==="error" && v.failedRelease; onClicked: launcher.retryFailedUpdate() }
+        contentItem: ColumnLayout {spacing: 18
+            Label {text: v.updateGate==="available" ? "런처 업데이트가 있습니다" : v.updateGate==="connection-error" ? "인터넷 연결을 확인해 주세요" : v.updateGate==="error" ? "업데이트 정보를 확인하지 못했습니다" : "런처 업데이트 확인 중";color: "#F0F0EA";font.pixelSize: 21;font.bold: true;wrapMode: Text.WordWrap;Layout.fillWidth: true}
+            Caption {text: v.updateGate==="available" ? "현재 v"+launcher.version+"  →  새 버전 v"+v.updateVersion+"\n업데이트를 시작하면 다운로드와 검증 후 런처가 자동으로 다시 실행됩니다. 이메일 인증은 업데이트가 끝난 뒤 진행합니다." : v.updateGate==="error" || v.updateGate==="connection-error" ? v.updateError+"\n연결이 복구되면 자동으로 다시 확인합니다. 확인 전에는 런처 기능을 사용할 수 없습니다." : "이메일 인증 전에 최신 버전을 확인하고 있습니다.";Layout.fillWidth: true;lineHeight: 1.5}
+            BusyIndicator {running: v.updateGate==="checking";visible: running;Layout.alignment: Qt.AlignHCenter}
+            RowLayout {Layout.fillWidth: true;Item {Layout.fillWidth: true}
+                ActionButton {text: "런처 종료";visible: v.updateGate!=="checking";onClicked: window.close()}
+                ActionButton {text: "다시 확인";visible: v.updateGate==="error" || v.updateGate==="connection-error";onClicked: launcher.checkLauncherUpdate(true)}
+                ActionButton {text: "다시 설치 시도";visible: v.updateGate==="error" && v.failedRelease;onClicked: launcher.retryFailedUpdate()}
+                ActionButton {text: "업데이트 시작";prominent: true;visible: v.updateGate==="available";onClicked: launcher.applyLauncherUpdate()}
             }
+            ActionButton {text: "공식 설치 파일로 복구";visible: v.updateGate==="error";onClicked: Qt.openUrlExternally("https://testlauncher.teamhjd.com/#faq")}
+        }
+    }
+    Popup {
+        id: updateProgressNotice
+        anchors.centerIn: Overlay.overlay; width: Math.min(540,window.width-60)
+        modal: true;focus: true;padding: 28;closePolicy: Popup.NoAutoClose
+        Overlay.modal: Rectangle {color: "#DD000000"}
+        background: Rectangle {color: "#20262B";radius: 9;border.color: "#776941"}
+        contentItem: ColumnLayout {spacing: 20
+            Label {text: v.updateGate==="downloading" ? "런처 업데이트 중" : "업데이트 적용 후 다시 시작합니다";color: "#F0F0EA";font.pixelSize: 21;font.bold: true;wrapMode: Text.WordWrap;Layout.fillWidth: true}
+            Caption {text: "v"+v.updateVersion+" · "+(v.updateGate==="downloading" ? "업데이트 파일을 다운로드하고 검증합니다." : "검증을 마쳤습니다. 잠시 후 자동으로 다시 실행됩니다.");Layout.fillWidth: true}
+            ProgressBar {Layout.fillWidth: true;value: v.progress;indeterminate: v.updateGate!=="downloading" || v.progress<=0}
+            Caption {text: v.updateGate==="downloading" ? v.transfer || "다운로드 준비 중" : "설치 프로그램에 업데이트를 전달하는 중";Layout.fillWidth: true}
+            Caption {text: "완료될 때까지 잠시 기다려 주세요.";Layout.fillWidth: true}
         }
     }
     Popup {
@@ -405,7 +416,6 @@ ApplicationWindow {
             AppCheckBox {id: ageConsent;text: "만 14세 이상입니다";Layout.fillWidth: true}
             Caption {text: v.error || "동의하지 않아도 설치된 게임은 오프라인으로 실행할 수 있습니다.";Layout.fillWidth: true}
             RowLayout {Layout.fillWidth: true;Item {Layout.fillWidth: true}
-                ActionButton {text: "오프라인 플레이";visible: !!v.canPlay;enabled: !v.working;onClicked: launcher.continueOffline()}
                 ActionButton {text: "종료";onClicked: window.close()}
                 ActionButton {text: "동의하고 계속";prominent: true;enabled: collectionConsent.checked&&overseasConsent.checked&&ageConsent.checked&&!v.working;onClicked: launcher.acceptPrivacy(collectionConsent.checked,overseasConsent.checked,ageConsent.checked)}
             }
@@ -428,7 +438,6 @@ ApplicationWindow {
             }
             Caption { text: window.isMac ? "연결 정보는 macOS 키체인으로 보호합니다. 인증은 Cloudflare Access에서 처리합니다." : "연결 정보는 이 PC의 Windows 계정으로 암호화해 보관합니다. 인증은 Cloudflare Access에서 처리합니다."; Layout.fillWidth: true; lineHeight: 1.5 }
             RowLayout { Layout.fillWidth: true; Item {Layout.fillWidth: true}
-                ActionButton { text: "오프라인 플레이"; visible: !!v.canPlay; enabled: !v.working; onClicked: {loginNotice.close();launcher.continueOffline()} }
                 ActionButton { text: v.authenticating ? "인증 취소" : v.needsLogin && !v.offlineMode ? "런처 종료" : "닫기"; onClicked: {if(v.authenticating)launcher.cancel();else if(v.needsLogin&&!v.offlineMode)window.close();else loginNotice.close()} }
                 ActionButton { text: "브라우저에서 인증"; prominent: true; enabled: !v.working; onClicked: launcher.login() }
             }

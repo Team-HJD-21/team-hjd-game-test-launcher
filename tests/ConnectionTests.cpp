@@ -81,20 +81,10 @@ int main(int argc,char **argv){
         hjd::writeJson(gameFolder+"/._teamhjd-receipt.json",{{"version","1.0.0"},{"executable",gameEntry},{"platform",gamePlatform},{"expandedBytes",bytes},{"files",QJsonArray{QJsonObject{{"path",gameEntry},{"bytes",bytes},{"sha256",hjd::fileHash(gameFile)},{"executableFile",true}}}}});
         hjd::writeJson(expired.path()+"/games/hose-for-hire/active.json",{{"current","1.0.0"}});
         Controller offline(expired.path(),{},false);
-        check(offline.view()["needsLogin"].toBool()&&offline.view()["canPlay"].toBool(),"expired email authentication preserves installed-game playback eligibility");
-        offline.continueOffline();
-        check(offline.view()["offlineMode"].toBool()&&!offline.view()["online"].toBool(),"explicit offline choice dismisses authentication without claiming a server connection");
+        check(offline.view()["needsLogin"].toBool()&&!offline.view()["canPlay"].toBool(),"expired authentication cannot unlock installed-game playback");
         offline.playInstalled();
-        bool observed=false;
-        QTimer poll;poll.setInterval(75);
-        QObject::connect(&poll,&QTimer::timeout,&app,[&]{
-            auto view=offline.view();
-            if(view["running"].toBool())observed=true;
-            if(!view["working"].toBool()&&!view["error"].toString().isEmpty()){QTextStream(stderr)<<view["error"].toString()<<'\n';app.exit(1);}
-            else if(observed&&!view["running"].toBool())app.quit();
-        });poll.start();
-        QTimer::singleShot(12000,&app,[&]{QTextStream(stderr)<<"Offline game process was not observed and completed\n";app.exit(1);});
-        const auto exit=app.exec();check(exit==0&&observed,"real installed synthetic game starts and exits with expired authentication and no network access");
+        check(!offline.view()["working"].toBool()&&!offline.view()["running"].toBool()&&!offline.view()["error"].toString().isEmpty(),"direct backend playback is blocked without an authenticated connection");
+        check(hjd::Store(expired.path()+"/games").verify("hose-for-hire"),"blocking offline play preserves installed game bytes");
         QTextStream(stdout)<<"RESULT "<<assertions<<" connection-state assertions passed; no real credentials or network requests used.\n";
         return 0;
     }catch(const std::exception &error){QTextStream(stderr)<<error.what()<<'\n';return 1;}
