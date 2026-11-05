@@ -36,9 +36,20 @@ public:
         Controller controller(profile,root,true);controller.m_releaseKey=key.publicKey;controller.m_config.server=QUrl();
         int fetched=0,downloaded=0,checks=0;bool bad=true,done=false,handedOff=false;
         auto check=[&](bool ok,const char *label){if(!ok)fail(QString::fromUtf8(label));++checks;QTextStream(stdout)<<"PASS "<<label<<'\n';};
+        auto payload=QJsonDocument::fromJson(QByteArray::fromBase64(wire["payload"].toString().toLatin1())).object();
+        auto sign=[&](QJsonObject value){auto out=QJsonDocument::fromJson(key.envelope(value)).object();out["keyId"]=updates::keyId;return QJsonDocument(out).toJson();};
+        auto older=payload;older["sequence"]=1;const auto olderEnvelope=sign(older);QByteArray selectedBytes;
+        controller.m_updateFetch=[&](const QUrl &url){return url==QUrl(updates::fallbackFeedUrl)?envelope:olderEnvelope;};
+        check(controller.latestLauncherRelease(&selectedBytes,1).sequence==2&&selectedBytes==envelope,"a stale valid website feed cannot hide a newer signed GitHub release");
+        controller.m_updateFetch=[&](const QUrl &url){return url==QUrl(updates::fallbackFeedUrl)?olderEnvelope:envelope;};
+        check(controller.latestLauncherRelease(&selectedBytes,2).sequence==2,"a stale fallback cannot downgrade the current signed feed");
+        auto conflict=payload;conflict["publishedAt"]=now.addSecs(-120).toString(Qt::ISODate);const auto conflictingEnvelope=sign(conflict);
+        controller.m_updateFetch=[&](const QUrl &url){return url==QUrl(updates::fallbackFeedUrl)?conflictingEnvelope:envelope;};
+        bool rejected=false;try{controller.latestLauncherRelease(&selectedBytes,1);}catch(const Error&){rejected=true;}
+        check(rejected,"different signed contents with the same sequence fail closed");
         controller.m_updateFetch=[&](const QUrl &url){++fetched;if(url.host()!="testlauncher.teamhjd.com"&&url!=QUrl(updates::fallbackFeedUrl))fail("unexpected update endpoint");if(fetched<=2)fail("synthetic temporary connection failure");return envelope;};
         controller.m_updateDownload=[&](const QJsonObject&,const QString &destination){++downloaded;atomicWrite(destination,bad?QByteArray("corrupt transport fixture"):readFile(archive));};
-        enum class Phase{NetworkFailure,FailedLatch,DigestFailure,Ready,Wait};Phase phase=Phase::NetworkFailure;
+        enum class Phase{NetworkFailure,FailedLatch,AwaitBadApproval,DigestFailure,AwaitGoodApproval,Ready,Wait};Phase phase=Phase::NetworkFailure;
         QElapsedTimer elapsed,afterHandoff;elapsed.start();
         QObject::connect(&controller,&Controller::quitForUpdate,&app,[&]{handedOff=true;afterHandoff.start();});
         QTimer poll;poll.setInterval(20);
@@ -54,10 +65,17 @@ public:
                     writeJson(root+"/launcher/failed-release.json",{{"version","9.0.0"}});controller.m_updateRetry.start(10);phase=Phase::FailedLatch;
                 }else if(phase==Phase::FailedLatch&&gate=="error"&&controller.m_knownFailedRelease&&!controller.m_busy){
                     check(downloaded==0&&controller.m_updateRetry.interval()==300000,"failed-health release waits for a new patch instead of restarting in a loop");
-                    controller.retryFailedUpdate();phase=Phase::DigestFailure;
+                    controller.retryFailedUpdate();phase=Phase::AwaitBadApproval;
+                }else if(phase==Phase::AwaitBadApproval&&gate=="available"&&!controller.m_busy){
+                    check(downloaded==0&&!controller.m_updateVerified,"a verified update requires explicit approval before any download");
+                    controller.login();check(!controller.m_authenticating,"email authentication cannot precede update approval");
+                    controller.applyLauncherUpdate();controller.applyLauncherUpdate();phase=Phase::DigestFailure;
                 }else if(phase==Phase::DigestFailure&&gate=="error"&&downloaded==1&&!controller.m_busy){
                     check(!QFileInfo::exists(root+"/queued-launcher.json")&&!controller.m_updateVerified,"corrupt downloaded bytes cannot be queued or enable online access");
-                    bad=false;controller.m_retryFailedOnce=true;controller.m_updateRetry.start(10);phase=Phase::Ready;
+                    bad=false;controller.m_retryFailedOnce=true;controller.m_updateRetry.start(10);phase=Phase::AwaitGoodApproval;
+                }else if(phase==Phase::AwaitGoodApproval&&gate=="available"&&!controller.m_busy){
+                    check(downloaded==1&&!QFileInfo::exists(root+"/queued-launcher.json"),"retry returns to approval and cannot silently apply an update");
+                    controller.applyLauncherUpdate();phase=Phase::Ready;
                 }else if(phase==Phase::Ready&&handedOff){
                     auto candidate=readJson(root+"/queued-launcher.json")["candidate"].toString();auto directory=root+"/launcher/versions/"+candidate;
                     check(downloaded==2&&verifyTree(directory,readJson(directory+"/._teamhjd-receipt.json")),"automatic retry stages the complete signed, hashed payload");

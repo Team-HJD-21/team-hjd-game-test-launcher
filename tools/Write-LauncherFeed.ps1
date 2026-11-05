@@ -2,8 +2,8 @@
 param([Parameter(Mandatory)][string]$ReleaseDirectory,[Parameter(Mandatory)][string]$OutputFile,
       [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$SourceCommit,
       [string]$PrivateRoot=(Join-Path (Split-Path $PSScriptRoot) '.local/launcher-publisher'),
-      [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')][string]$Version='0.2.0',
-      [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')][string]$MinimumVersion='0.2.0')
+      [Parameter(Mandatory)][ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')][string]$Version,
+      [Parameter(Mandatory)][ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')][string]$MinimumVersion)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'CatalogCommon.ps1')
 $release=[IO.Path]::GetFullPath($ReleaseDirectory)

@@ -311,3 +311,20 @@ Get-FileHash -LiteralPath '검증할-artifact.zip' -Algorithm SHA256
 저장한Python PID와현재CIM의svchost.exe/다른생성시각을대조했고8443listener가없었습니다. 보호된Windows프로세스의Get-Process.StartTime/Path는null이라기존helper가소유권확인불가로중지했습니다. 시스템프로세스는종료하지않았습니다.
 
 HostingCommon은이미지가다르면접근가능한생성시각또는CIM의일치하는이미지/생성시각으로저장값과다름을증명할때만stale로반환합니다. 정확한시각인데실행파일/인수가다르거나확인불가하면계속거부합니다. 원래보안회귀8개와추가소유권6개를통과했고서버가다시시작됐습니다. 미래의PID를현재값으로고정하거나임의프로세스를kill하지않습니다. 실제재부팅·로그온시험은별도이며최초서버종료원인은미확정입니다.
+
+
+## 2026-11-05 — 실제 자동 업데이트의 종료된 부모 HANDLE·한글 오류
+
+Windows11/Qt6.11.3/NSIS3.13. 실제0.2.0이0.2.1 설치기를 실행한 뒤 종료되었지만 프로세스 HANDLE이 남았습니다. QueryFullProcessImageName은 ERROR_GEN_FAILURE31, GetProcessTimes 생성 시각은 원본 일치, WaitForSingleObject는 종료 상태였습니다. 기존 liveness용 processStamp의0을 잘못된 요청자로 취급했습니다. controlled Setup만으로는 이 전체 자동 흐름의 성공을 증명하지 못했습니다.
+
+0.2.2는 살아 있는 요청자의 이미지·시각 검사를 유지합니다. 이미 종료된 객체의 이미지 조회가 실패한 경우만 OS 생성 시각, 정확한 bootstrap running 기록의PID/stamp/folder/executable, 활성 슬롯·receipt·전체 파일을 모두 대조합니다. 기록 없음·다른시각·다른이미지·손상 파일은 거부합니다. retained-HANDLE 단위 검사와 실제GUI→Setup 전환을 재현했고 검사·hash·health를 끄지 않았습니다.
+
+한글 helper 오류는 UTF-16LE+BOM으로 전달합니다. CRT text mode가 UTF-16의LF 바이트를CRLF로 늘려55bytes 홀수가 된 것을 원시 출력에서 확인하고, 해당 installer 출력에만 binary mode를 적용했습니다. 최종 배포 helper의54bytes 짝수/BOM/엄격 Unicode/한글 원문·줄바꿈 검사가 통과했습니다. nsExec에 UTF-8을 ANSI로 해석시키거나 깨진 문자열을 정상 메시지로 취급하지 않습니다. 실제 사용자 전환 결과는 해당 릴리즈 검증 문서를 함께 확인합니다.
+
+## 2026-11-05 — 새 버전이 늦게 보이고 승인 없이 업데이트됨
+
+0.2.0/0.2.1의 성공 후 확인 주기는약15분이며 유효한 사이트 피드를 받으면 GitHub 보조 피드를 보지 않았습니다. 새Release 공개와Pages 피드 게시 사이에는 이전 버전으로 표시될 수 있었습니다.0.2.2는약1분/창복귀/시작에 두서명피드를 확인해높은sequence를선택하며 같은sequence·다른내용은거부합니다. 업데이트가있으면available상태에서승인을기다리고별도진행모달을거쳐자동재실행합니다. 서버의온라인최소버전은공개피드검증뒤에만올립니다. 오프라인우회는사용자요청으로제거했습니다. 구형Windows가넘긴최초Setup에도적용전승인페이지를둡니다. 구형바이너리의승인전다운로드동작을소급변경했다고주장하지않습니다.
+
+## 2026-11-05 — Intel Mac macdeployqt 240초 시간 초과
+
+0.2.2 중간run41957825831의Intel native빌드는성공했으나첫macdeployqt호출이240초TimeoutExpired로종료했습니다. Qt내부지연원인은미확정입니다. 검증/기한을유지한채실패job만새runner에서1회재실행해통과했습니다. 이후C++최종수정때에는전체ARM/Intel native를다시빌드했고run41960606630이모두성공했습니다. timeout시captured도구출력64KiB를남겨반복오류진단을돕습니다. 같은실패를원인확인없이반복재시도하거나Mac검증을생략하지않습니다.

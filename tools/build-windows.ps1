@@ -2,6 +2,7 @@ param([string]$QtRoot=$env:QT_ROOT_DIR,[switch]$Deploy)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 if(-not $QtRoot){$QtRoot=Join-Path $root '.deps/QtSecurity/6.11.3/msvc2022_64'}
+$QtRoot=[IO.Path]::GetFullPath($QtRoot)
 if(-not(Test-Path -LiteralPath (Join-Path $QtRoot 'bin/qmake.exe'))){throw 'Set QT_ROOT_DIR or pass -QtRoot to a Qt 6.11.3 MSVC x64 installation.'}
 $vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath

@@ -21,6 +21,7 @@
 #include <QVersionNumber>
 #include <QRandomGenerator>
 #include <QtConcurrent>
+#include <optional>
 
 using namespace hjd;
 namespace {
@@ -35,8 +36,8 @@ Controller::Controller(QString data,QString launcher,bool test,QObject *parent):
     connect(&m_updateRetry,&QTimer::timeout,this,[this]{if(!m_offlineMode&&!m_busy)checkLauncherUpdate(true);else if(!m_offlineMode)m_updateRetry.start(1000);});
     try { load(); } catch(const std::exception &e) { m_error=exceptionText(e); }
     m_runningTimer.setInterval(1500); connect(&m_runningTimer,&QTimer::timeout,this,[this]{try{bool active=Store(m_gamesRoot).running(m_selected);if(active!=m_wasRunning){if(m_wasRunning)emit toast(QStringLiteral("게임을 종료했어요"),QStringLiteral("새 버전은 업데이트 버튼을 눌러 적용하세요."),"info");m_wasRunning=active;emit changed();if(!active&&!m_busy&&!m_config.server.isEmpty())refresh();}}catch(const Error&){} }); m_runningTimer.start();
-    m_autoTimer.setInterval(30000);connect(&m_autoTimer,&QTimer::timeout,this,[this]{if(m_busy||!m_updateGate.isEmpty()||m_offlineMode)return;auto now=QDateTime::currentSecsSinceEpoch();if(now-m_lastLauncherCheck>=900&&!m_launcherRoot.isEmpty())checkLauncherUpdate();else if(!m_config.server.isEmpty()&&now-m_lastRefresh>=(m_online?120:30))refresh();});m_autoTimer.start();
-    connect(qGuiApp,&QGuiApplication::applicationStateChanged,this,[this](Qt::ApplicationState state){if(state==Qt::ApplicationActive&&!m_busy&&m_updateGate.isEmpty()&&!m_offlineMode&&!m_config.server.isEmpty()&&QDateTime::currentSecsSinceEpoch()-m_lastRefresh>15)refresh();});
+    m_autoTimer.setInterval(30000);connect(&m_autoTimer,&QTimer::timeout,this,[this]{if(m_busy||!m_updateGate.isEmpty()||m_offlineMode)return;auto now=QDateTime::currentSecsSinceEpoch();if(now-m_lastLauncherCheck>=60&&!m_launcherRoot.isEmpty())checkLauncherUpdate();else if(!m_config.server.isEmpty()&&now-m_lastRefresh>=(m_online?120:30))refresh();});m_autoTimer.start();
+    connect(qGuiApp,&QGuiApplication::applicationStateChanged,this,[this](Qt::ApplicationState state){if(state==Qt::ApplicationActive&&!m_busy&&m_updateGate.isEmpty()){if(!m_launcherRoot.isEmpty()&&QDateTime::currentSecsSinceEpoch()-m_lastLauncherCheck>=15)checkLauncherUpdate(true);else if(!m_config.server.isEmpty()&&QDateTime::currentSecsSinceEpoch()-m_lastRefresh>15)refresh();}});
     QTimer::singleShot(400,this,[this]{if(!m_launcherRoot.isEmpty())checkLauncherUpdate(true);else if(!m_config.server.isEmpty())refresh();});
 }
 Controller::~Controller(){m_cancel=true;if(m_future.isStarted())m_future.waitForFinished();}
@@ -114,7 +115,7 @@ QVariantMap Controller::view() const {
     if(needsLogin()&&!installedOk&&!m_busy)status=QStringLiteral("이메일 인증 후 테스트에 참여할 수 있어요");
     if(!m_status.isEmpty()&&!m_busy&&!running) status=m_status;
     if(g&&!compatible&&!needsLogin()&&!m_busy){action=QStringLiteral("지원 빌드 준비 중");status=QStringLiteral("이 운영체제용 게임 빌드가 아직 배포되지 않았어요.");}
-    return {{"needsPrivacy",m_cloudflare&&m_config.policyVersion!=privacy::version},{"failedRelease",m_knownFailedRelease},{"updateGate",m_updateGate},{"updateError",m_updateError},{"updateVersion",m_updateVersion},{"offlineMode",m_offlineMode},{"authenticating",m_authenticating},{"connectionState",connection.id},{"connectionLabel",connection.label},{"connectionDetail",connection.detail},{"hadEmailSession",m_hadSession},{"compatible",compatible},{"gamePlatform",g?g->platform:QString()},{"name",g?g->name:receipt["name"].toString(QStringLiteral("Hose for Hire"))},{"description",g?g->description:receipt["description"].toString(QStringLiteral("함께 출동하고, 함께 해결하세요.\nTeamHJD의 다음 플레이테스트가 여기에서 시작됩니다."))},{"notes",g?g->notes:receipt["notes"].toString(QStringLiteral("이메일로 인증하면 최신 테스트 빌드와 변경사항을 확인할 수 있습니다.\n\n인증은 브라우저에서 진행됩니다. 설치와 업데이트, 실행은 런처에서 한 번에 관리하세요."))},{"latest",g?g->version:QString()},{"installed",installed},{"installedAt",receipt["installedAt"].toString()},{"installedSize",sizeText(installedBytes)},{"versionCount",versionCount},{"previousVersion",previousVersion},{"canUninstall",versionCount>0||QFileInfo::exists(m_gamesRoot+"/"+m_selected+"/uninstall-pending.json")},{"canCancel",!m_deleting},{"folder",folder},{"online",online},{"running",running},{"previous",previous},{"busy",m_busy&&!m_background},{"working",m_busy},{"checking",m_busy&&m_background},{"progress",m_progress},{"transfer",m_transfer},{"action",action},{"status",status},{"error",!m_error.isEmpty()?m_error:localError},{"hasServer",!m_config.server.isEmpty()},{"canPlay",installedOk&&!running&&(!m_busy||m_background)},{"updateAvailable",update},{"updateMessage",m_updateMessage},{"launcherUpdate",!m_updateAsset.isEmpty()},{"cloudflare",m_cloudflare},{"needsLogin",needsLogin()},{"authExpires",m_authExpires.toString(Qt::ISODate)},{"serverHost",m_config.server.host()},{"size",g?sizeText(g->bytes):QString()}};
+    return {{"needsPrivacy",m_cloudflare&&m_config.policyVersion!=privacy::version},{"failedRelease",m_knownFailedRelease},{"updateGate",m_updateGate},{"updateError",m_updateError},{"updateVersion",m_updateVersion},{"offlineMode",m_offlineMode},{"authenticating",m_authenticating},{"connectionState",connection.id},{"connectionLabel",connection.label},{"connectionDetail",connection.detail},{"hadEmailSession",m_hadSession},{"compatible",compatible},{"gamePlatform",g?g->platform:QString()},{"name",g?g->name:receipt["name"].toString(QStringLiteral("Hose for Hire"))},{"description",g?g->description:receipt["description"].toString(QStringLiteral("함께 출동하고, 함께 해결하세요.\nTeamHJD의 다음 플레이테스트가 여기에서 시작됩니다."))},{"notes",g?g->notes:receipt["notes"].toString(QStringLiteral("이메일로 인증하면 최신 테스트 빌드와 변경사항을 확인할 수 있습니다.\n\n인증은 브라우저에서 진행됩니다. 설치와 업데이트, 실행은 런처에서 한 번에 관리하세요."))},{"latest",g?g->version:QString()},{"installed",installed},{"installedAt",receipt["installedAt"].toString()},{"installedSize",sizeText(installedBytes)},{"versionCount",versionCount},{"previousVersion",previousVersion},{"canUninstall",versionCount>0||QFileInfo::exists(m_gamesRoot+"/"+m_selected+"/uninstall-pending.json")},{"canCancel",!m_deleting},{"folder",folder},{"online",online},{"running",running},{"previous",previous},{"busy",m_busy&&!m_background},{"working",m_busy},{"checking",m_busy&&m_background},{"progress",m_progress},{"transfer",m_transfer},{"action",action},{"status",status},{"error",!m_error.isEmpty()?m_error:localError},{"hasServer",!m_config.server.isEmpty()},{"canPlay",installedOk&&online&&!needsLogin()&&!running&&m_updateGate.isEmpty()&&(!m_busy||m_background)},{"updateAvailable",update},{"updateMessage",m_updateMessage},{"launcherUpdate",!m_updateAsset.isEmpty()},{"cloudflare",m_cloudflare},{"needsLogin",needsLogin()},{"authExpires",m_authExpires.toString(Qt::ISODate)},{"serverHost",m_config.server.host()},{"size",g?sizeText(g->bytes):QString()}};
 }
 void Controller::selectGame(const QString &id){if(!m_updateGate.isEmpty())return;if(m_busy)return; if(id==m_selected)return; m_selected=id;m_status.clear();m_error.clear();emit changed();if(!m_config.server.isEmpty())refresh();}
 bool Controller::deferDuringCheck(std::function<void()> action){if(m_busy&&m_background){m_cancel=true;QTimer::singleShot(125,this,std::move(action));return true;}return false;}
@@ -147,8 +148,9 @@ void Controller::refresh() {
         if(error==QStringLiteral("취소했습니다.")){m_error.clear();return;}
         bool wasOnline=m_online;m_online=error.isEmpty();m_error=error;if(m_cloudflare&&error.contains(QStringLiteral("이메일 인증"))){m_config.cloudflareToken.clear();try{save();}catch(const Error&){} }
         if(needsLogin()&&m_hadSession&&!m_authNoticeShown){m_authNoticeShown=true;emit toast(QStringLiteral("이메일 재인증이 필요해요"),QStringLiteral("이메일 인증을 갱신하면 다시 연결됩니다."),"warning");}
-        else if(wasOnline&&!m_online)emit toast(QStringLiteral("서버 연결이 끊겼어요"),QStringLiteral("자동으로 다시 연결할게요. 설치된 게임은 계속 플레이할 수 있어요."),"warning");
+        else if(wasOnline&&!m_online)emit toast(QStringLiteral("서버 연결이 끊겼어요"),QStringLiteral("연결을 복구한 뒤 다시 이용해 주세요."),"warning");
         if(!wasOnline&&m_online)emit toast(QStringLiteral("테스트 서버 연결됨"),QStringLiteral("최신 테스트 버전을 자동으로 확인하고 있어요."),"success");
+        if(!error.isEmpty()&&!needsLogin()){m_updateGate="connection-error";m_updateError=error;m_updateRetry.start(15000);}
         if(error.isEmpty()){m_catalog=*result;m_minSequence=result->sequence;if(!selected()&&!result->games.isEmpty())m_selected=result->games.first().id;try{atomicWrite(m_dataRoot+"/catalog-cache.json",*raw);save();}catch(const std::exception &e){m_error=exceptionText(e);}}
         try{if(m_online&&selected()){auto receipt=Store(m_gamesRoot).currentReceipt(m_selected);auto installed=receipt["version"].toString();if(!installed.isEmpty()&&(installed!=selected()->version||receipt["archiveSha256"].toString()!=selected()->sha256)&&m_updateNotices[m_selected].toString()!=selected()->sha256){m_updateNotices[m_selected]=selected()->sha256;emit toast(QStringLiteral("새 게임 버전이 있어요"),selected()->version+QStringLiteral(" · 업데이트 버튼을 눌러 적용하세요."),"info");}}}catch(const Error&){}
         QTimer::singleShot(600,this,[this]{checkLauncherUpdate();});
@@ -204,11 +206,16 @@ void Controller::primary(){if(!m_updateGate.isEmpty())return;
 void Controller::playInstalled(){if(!m_updateGate.isEmpty())return;
     if(deferDuringCheck([this]{playInstalled();}))return;
     if(m_busy)return;
+    if(!m_online||needsLogin()||(m_cloudflare&&m_config.policyVersion!=privacy::version)){m_error=QStringLiteral("인터넷 연결과 이메일 인증을 확인한 뒤 플레이할 수 있습니다.");emit changed();return;}
     try{
         Store store(m_gamesRoot);if(store.running(m_selected))return;
         if(store.currentReceipt(m_selected).isEmpty())fail(QStringLiteral("설치된 게임이 없습니다."));
-        auto root=m_gamesRoot,id=m_selected;m_phase=QStringLiteral("게임 파일을 확인하는 중");
-        work([root,id]{Store(root).launch(id);},[this](const QString &error){m_error=error;if(!error.isEmpty())emit toast(QStringLiteral("게임 실행을 확인해 주세요"),error,"error");});
+        auto root=m_gamesRoot,id=m_selected;auto cfg=m_config;auto key=m_key;auto minimum=m_minSequence;auto updateMinimum=m_updateSequence;const bool managed=!m_launcherRoot.isEmpty();m_phase=QStringLiteral("연결과 최신 버전을 확인하는 중");
+        work([this,root,id,cfg,key,minimum,managed,updateMinimum]{
+            if(managed){QByteArray raw;auto release=latestLauncherRelease(&raw,updateMinimum);if(QVersionNumber::fromString(release.version)>QVersionNumber::fromString(version()))throw Error(QStringLiteral("새 런처 업데이트를 먼저 적용하세요."),FailureCode::LauncherUpgradeRequired);}
+            verifyCatalog(Http::get(cfg.server.resolved(QUrl("catalog.json")),cfg,m_cancel),key,cfg.server,minimum);
+            Store(root).launch(id);
+        },[this](const QString &error){m_error=error;if(!error.isEmpty()){m_online=false;m_updateGate="connection-error";m_updateError=error;m_updateRetry.start(15000);emit toast(QStringLiteral("게임 실행을 확인해 주세요"),error,"error");}});
     }catch(const std::exception &error){m_error=exceptionText(error);emit changed();}
 }
 void Controller::install(bool force){if(deferDuringCheck([this,force]{install(force);}))return;if(m_busy)return;if(!selected())return;if(!m_online){m_error=QStringLiteral("설치하려면 테스트 서버에 다시 연결하세요.");emit changed();return;}auto g=*selected();auto cfg=m_config;auto key=m_key;auto root=m_gamesRoot;auto minimum=m_minSequence;auto part=m_dataRoot+"/downloads/"+g.sha256+".part";m_phase=QStringLiteral("다운로드를 준비하는 중");
@@ -268,9 +275,24 @@ void Controller::setTestUpdateFrom(const QString &value){
         fail(QStringLiteral("업데이트 비교 검증은 격리된 loopback 테스트에서만 사용할 수 있습니다."));
     m_testUpdateFrom=value;
 }
+hjd::updates::Release Controller::latestLauncherRelease(QByteArray *raw,qint64 minimum){
+    std::optional<updates::Release> chosen;QByteArray bytes;QString error;bool conflicting=false;
+    const QList<QUrl> sources{QUrl(QString::fromLatin1(updates::feedUrl)+"?check="+QString::number(QDateTime::currentMSecsSinceEpoch())),QUrl(updates::fallbackFeedUrl)};
+    for(const auto &url:sources){
+        try{
+            const auto candidateBytes=m_updateFetch?m_updateFetch(url):Http::get(url,{},m_cancel,256*1024,true);
+            const auto candidate=updates::verifyRelease(candidateBytes,m_releaseKey,minimum);
+            if(chosen&&candidate.sequence==chosen->sequence&&QJsonDocument::fromJson(candidateBytes).object()["payload"]!=QJsonDocument::fromJson(bytes).object()["payload"])conflicting=true;
+            if(!chosen||candidate.sequence>chosen->sequence){chosen=candidate;bytes=candidateBytes;}
+        }catch(const Error &failure){if(m_cancel)throw;error=exceptionText(failure);}
+    }
+    if(conflicting)fail(QStringLiteral("동일한 업데이트 순서의 배포 정보가 서로 다릅니다. 공식 설치 파일을 확인해 주세요."));
+    if(!chosen)fail(error.isEmpty()?QStringLiteral("인터넷에서 최신 런처 정보를 확인하지 못했습니다."):error);
+    *raw=bytes;return *chosen;
+}
 void Controller::checkLauncherUpdate(bool force){
-    if(m_busy||m_launcherRoot.isEmpty()||m_updateGate=="ready"||m_updateGate=="restarting"||m_updateGate=="downloading")return;
-    if(!force&&QDateTime::currentSecsSinceEpoch()-m_lastLauncherCheck<900)return;
+    if(m_busy||m_launcherRoot.isEmpty()||m_updateGate=="available"||m_updateGate=="ready"||m_updateGate=="restarting"||m_updateGate=="downloading")return;
+    if(!force&&QDateTime::currentSecsSinceEpoch()-m_lastLauncherCheck<60)return;
     m_updateRetry.stop();m_lastLauncherCheck=QDateTime::currentSecsSinceEpoch();m_updateVerified=false;
     m_updateGate="checking";m_updateError.clear();m_background=true;m_phase=QStringLiteral("런처 업데이트를 확인하는 중");
     auto raw=std::make_shared<QByteArray>();auto release=std::make_shared<updates::Release>();
@@ -278,10 +300,7 @@ void Controller::checkLauncherUpdate(bool force){
     auto inspection=std::make_shared<Inspection>();const bool inspectBootstrap=m_testUpdateFrom.isEmpty();
     auto minimum=m_updateSequence;
     work([this,raw,release,minimum,inspection,inspectBootstrap]{
-        const auto url=QUrl(QString::fromLatin1(updates::feedUrl)+"?check="+QString::number(QDateTime::currentMSecsSinceEpoch()));
-        try{*raw=m_updateFetch?m_updateFetch(url):Http::get(url,{},m_cancel,256*1024,true);}
-        catch(const Error&){if(m_cancel)throw;*raw=m_updateFetch?m_updateFetch(QUrl(updates::fallbackFeedUrl)):Http::get(QUrl(updates::fallbackFeedUrl),{},m_cancel,256*1024,true);}
-        *release=updates::verifyRelease(*raw,m_releaseKey,minimum);
+        *release=latestLauncherRelease(raw.get(),minimum);
         if(inspectBootstrap){
             Store store(m_launcherRoot);auto directory=store.currentDirectory("launcher");
             if(!directory.isEmpty()&&QFileInfo::exists(directory+"/bootstrap-manifest.json")){
@@ -310,10 +329,7 @@ void Controller::checkLauncherUpdate(bool force){
             const bool needsBootstrap=inspection->needsBootstrap;
             if(!inspection->candidate.isEmpty()){
                         const auto candidate=inspection->candidate;
-                        atomicWrite(m_launcherRoot+"/launcher/update-evidence/"+candidate+".json",*raw);
-                        writeJson(m_launcherRoot+"/queued-launcher.json",{{"candidate",candidate}});
-                        m_updateVersion=release->version;m_updateGate="ready";m_updateMessage=QStringLiteral("실행기를 갱신하고 다시 시작합니다");
-                        QTimer::singleShot(1200,this,&Controller::restartForUpdate);return;
+                        m_readyCandidate=candidate;m_updateVersion=release->version;m_updateGate="available";m_updateMessage=QStringLiteral("런처 업데이트 승인 필요");return;
             }
             if(needsBootstrap&&QVersionNumber::fromString(release->version)<QVersionNumber::fromString(version()))fail(QStringLiteral("이 실행기 버전에 맞는 공식 설치 파일로 복구해 주세요."));
             if(!needsBootstrap&&QVersionNumber::fromString(release->version)<=QVersionNumber::fromString(comparison)){
@@ -330,8 +346,7 @@ void Controller::checkLauncherUpdate(bool force){
             }
 #endif
             m_updateAsset=m_updateInstaller?release->installer:release->payload;m_updateVersion=release->version;
-            m_updateGate="downloading";m_updateMessage=QStringLiteral("런처 %1 업데이트").arg(release->version);
-            QTimer::singleShot(0,this,&Controller::applyLauncherUpdate);
+            m_readyCandidate.clear();m_updateGate="available";m_updateMessage=QStringLiteral("런처 %1 업데이트 승인 필요").arg(release->version);
         }catch(const std::exception &failure){updateFailed(exceptionText(failure));}
     });
 }
@@ -347,7 +362,9 @@ void Controller::retryFailedUpdate(){
     if(m_busy)return;m_retryFailedOnce=true;m_offlineMode=false;checkLauncherUpdate(true);
 }
 void Controller::applyLauncherUpdate(){
-    if(m_busy||m_updateAsset.isEmpty()||m_launcherRoot.isEmpty())return;
+    if(m_busy||m_updateGate!="available"||m_launcherRoot.isEmpty())return;
+    if(!m_readyCandidate.isEmpty()){try{const auto candidate=m_readyCandidate;atomicWrite(m_launcherRoot+"/launcher/update-evidence/"+candidate+".json",m_releaseEnvelope);writeJson(m_launcherRoot+"/queued-launcher.json",{{"candidate",candidate}});m_readyCandidate.clear();m_updateGate="ready";emit changed();QTimer::singleShot(1200,this,&Controller::restartForUpdate);}catch(const std::exception &e){updateFailed(exceptionText(e));emit changed();}return;}
+    if(m_updateAsset.isEmpty())return;
     auto asset=m_updateAsset;auto ver=m_updateVersion;auto root=m_launcherRoot;
     auto archive=m_dataRoot+"/downloads/launcher-"+asset["sha256"].toString()+".part";
     const auto envelope=m_releaseEnvelope;
@@ -398,7 +415,7 @@ void Controller::restartForUpdate(){
             QProcess setup;setup.setProgram(m_readyInstaller);setup.setWorkingDirectory(QFileInfo(m_readyInstaller).absolutePath());
             // NSIS /D consumes the rest of the command line and must be last,
             // without surrounding quotes. No shell interprets this string.
-            setup.setNativeArguments(QStringLiteral("/UPDATE /WAITPID=%1 /WAITSTAMP=%2 /PROFILE=\"%3\" /D=%4").arg(QString::number(QCoreApplication::applicationPid()),QString::number(stamp),QDir::toNativeSeparators(m_dataRoot),QDir::toNativeSeparators(m_launcherRoot)));
+            setup.setNativeArguments(QStringLiteral("/UPDATE /APPROVED /WAITPID=%1 /WAITSTAMP=%2 /PROFILE=\"%3\" /D=%4").arg(QString::number(QCoreApplication::applicationPid()),QString::number(stamp),QDir::toNativeSeparators(m_dataRoot),QDir::toNativeSeparators(m_launcherRoot)));
             if(!setup.startDetached())fail(QStringLiteral("업데이트 설치 프로그램을 시작하지 못했습니다."));
             m_updateRetry.stop();m_updateGate="restarting";emit changed();emit quitForUpdate();return;
 #endif
@@ -424,13 +441,6 @@ void Controller::restartForUpdate(){
     }catch(const std::exception &error){updateFailed(exceptionText(error));emit changed();}
 }
 
-void Controller::continueOffline(){
-    if(m_busy||(!needsLogin()&&m_updateGate!="error"&&(!m_cloudflare||m_config.policyVersion==privacy::version)))return;
-    try{
-        if(Store(m_gamesRoot).currentReceipt(m_selected).isEmpty())return;
-        m_updateRetry.stop();m_offlineMode=true;m_online=false;m_updateGate.clear();m_updateError.clear();m_error.clear();emit changed();
-    }catch(const std::exception &error){m_error=exceptionText(error);emit changed();}
-}
 QString Controller::privacyNotice() const{return privacy::notice();}
 void Controller::acceptPrivacy(bool collection,bool overseas,bool ageConfirmed){
     if(m_busy||!m_updateGate.isEmpty()||!m_cloudflare||!collection||!overseas||!ageConfirmed)return;

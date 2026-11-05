@@ -35,6 +35,8 @@ if(Test-Path -LiteralPath (Join-Path $root 'launcher/running.json')){$existing=O
 $start=Start-Process -FilePath (Join-Path $root 'TeamHJDLauncher.exe') -ArgumentList ('--data-root "'+$profile.Replace('\','/')+'" --noninteractive-test') -PassThru -WindowStyle Hidden
 if(-not $start.WaitForExit(45000) -or $start.ExitCode -ne 0){throw 'Stable bootstrap failed before update.'}
 $client=Wait-Client
+$retainedParent=$client.SafeHandle;$parentHandleRetained=$false
+$retainedParent.DangerousAddRef([ref]$parentHandleRetained)
 try {
     $original=Read-HostingJson (Join-Path $root 'launcher/active.json') 16384
     $running=Read-HostingJson (Join-Path $root 'launcher/running.json') 16384
@@ -65,6 +67,7 @@ try {
     Write-Output 'PASS real Setup update waits for its exact parent, appends a slot, starts the new GUI and commits its health acknowledgment.'
 } finally {
     $owned=Owned-Client;if($owned){$owned.Kill();$owned.WaitForExit()}
+    if($parentHandleRetained){$retainedParent.DangerousRelease()}
 }
 if((Get-FileHash -LiteralPath (Join-Path $profile 'settings.json') -Algorithm SHA256).Hash -cne $beforeSettings -or (Get-FileHash -LiteralPath (Join-Path $profile 'games/hose-for-hire/versions/1.0.0/Fixture.exe') -Algorithm SHA256).Hash -cne $beforeGame){throw 'Automatic maintenance changed a preexisting profile or game.'}
 Write-HostingJson (Join-Path (Split-Path $root) 'update-result.json') @{result='PASS';realInstalledGui=$true;exactParentWait=$true;setupAppliesAndRestarts=$true;healthAcknowledged=$true;previousSlotPreserved=$true;installedAppsVersion=$true;existingGameAndSettingsPreserved=$true;humanEmailAuthentication=$false}

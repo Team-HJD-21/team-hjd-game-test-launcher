@@ -12,7 +12,7 @@
 | 게임 | 비공개 서명 catalog를 자동 확인·알림하고 **업데이트 버튼으로만 적용** |
 | 운영 서버 | 별도 소유 프로세스 재시작 필요. Release 게시만으로 origin 코드가 교체되지 않음 |
 
-클라이언트와 다운로드 사이트는 `testlauncher.teamhjd.com/updates/stable.json`의 P-256 서명을 검증합니다. 네이티브 보조 경로는 GitHub 최신 Release의 `launcher-stable.json` 직접 파일이며 REST latest API가 아닙니다. 성공 확인은 약15분 주기, 오류는15초부터 최대약5분 간격으로 재시도합니다. 업데이트/동의 확인 전 온라인 기능은 차단하며 설치 게임은 명시적 오프라인 실행을 제공합니다. 다운로드·해시·서명·시각·sequence·health 검사를 끄지 않습니다.
+클라이언트와 다운로드 사이트는 `testlauncher.teamhjd.com/updates/stable.json`의 P-256 서명을 검증합니다. 네이티브 보조 경로는 GitHub 최신 Release의 `launcher-stable.json` 직접 파일이며 REST latest API가 아닙니다. 성공 확인은 약1분 주기, 오류는15초부터 최대약5분 간격으로 재시도합니다. 0.2.2부터 업데이트가 있으면 이메일 인증 전에 승인을 요구합니다. 업데이트/연결/동의 확인 전에는 게임 실행을 포함한 런처 기능이 차단되며 오프라인 우회는 제공하지 않습니다. 다운로드·해시·서명·시각·sequence·health 검사를 끄지 않습니다.
 
 0.1.4 등 구형 클라이언트의 첫 전환은 여전히 그 버전의 GitHub API 제약을 받습니다. 따라서 팀원에게는 이번 한 번 최신 Setup/DMG 설치와 안정된 실행기 재고정을 안내합니다. 인터넷 단절·배포처 차단·디스크/권한/OS 차단까지 소프트웨어가 강제로 해결한다고 보장하지 않습니다.
 
@@ -23,8 +23,8 @@
 - CMake의 project VERSION을 새 버전으로 변경합니다. 기존 공개 태그/자산은 바꾸지 않습니다. 아래 값은 매 릴리즈 실제 값으로 수정합니다.
 
 ```powershell
-$version = '0.2.0'
-$qtRoot = 'C:/Qt/6.8.3/msvc2022_64' # 실제 설치된 Qt6.8.3 MSVC x64
+$version = '0.2.2'
+$qtRoot = '.deps/QtSecurity/6.11.3/msvc2022_64' # install-qt-sdk.py로 검증한 Qt6.11.3
 $releaseRun = Join-Path $PWD ('.local/releases/' + $version + '-' + (Get-Date -Format yyyyMMdd-HHmmss))
 $releaseDist = Join-Path $releaseRun 'dist'
 New-Item -ItemType Directory -Path $releaseRun -ErrorAction Stop | Out-Null
@@ -121,6 +121,12 @@ gh api repos/Team-HJD-21/team-hjd-game-test-launcher/releases/latest
 fullSHA/최종source일치/모든필수회귀/양쪽Mac최종증거를대조한뒤공개합니다. 공개태그/자산은불변입니다. 후보·prototype·합성bad-health installer·원본CI로그를올리지않습니다.
 
 **사이트피드는모든파일을공개대조한뒤마지막에게시합니다.** `launcher-stable.json`을 `website/updates/stable.json`으로동일bytes복사하고 `node tools/check-download-site.mjs --update-asset-versions`, `node tools/test-release-feed.mjs`를실행합니다. Pages배포성공및실제HTTPS피드서명/모든URL을확인합니다. 새필수버전/개인정보gate는이후에비공개 `client-policy.json`으로활성화합니다. 포털 `/downloads`를살리지않고기존playtest API도메인도삭제하지않습니다.
+
+0.2.2부터 정식 `release.published`도 사이트 배포를 실행합니다. 워크플로는 검토된 main의 도구로 공개 immutable Release의11개 자산, 고정 공개키의 피드 서명·버전·전체SHA·sequence와6개 설치기/payload의 실제 digest를 확인한 뒤 **이미 서명된 피드 bytes**와 전체 릴리즈 기록을 Pages에 반영합니다. 현재 배포 피드의 sequence보다 낮아지면 거부합니다. 개인키나 운영 인증을 CI에 보내지 않습니다. 배포 실패·도메인 장애·피드 만료를 성공으로 취급하지 말고 해당 Pages run과 실제HTTPS를 확인합니다. main에 아직 이 워크플로가 없던 전환 릴리즈는 위 수동 게시 절차도 수행합니다.
+
+서명 도구의 Version/MinimumVersion은 필수 인수입니다. 기본값으로 옛 버전을 서명하지 않습니다. 새 안정 버전 공개가 완료되어야 legacy latest 링크와 release event가 바뀌며, 초안·단순 커밋으로는 바뀌지 않습니다.
+
+0.2.2의 실제 설치기 검증에는 종료된 부모 HANDLE 보유 회귀와 원시 한글 오류 검사를 포함합니다. `verify-installer-update-windows.ps1`는 정확한 부모의 SafeHandle을 전환 완료까지 유지합니다. `verify-installer-encoding-windows.ps1 -Executable '<최종번들/TeamHJDLauncher.exe>'`는 잘못된 live 이미지 거부·BOM·짝수 UTF-16 바이트·한글 원문·줄바꿈을 확인합니다. 실제 사용자 데이터는 `verify-user-data-preservation.ps1 -Stage Before/After -EvidenceFile '<보호된 로컬 증거 파일>'`로 비교하며 인증값·게임 내용은 출력하지 않습니다.
 
 Windows의 새 서명 피드 실제 전환 검사는 아래 도구로 재현합니다. 공개한 최종 dist를 지정하며, 별도 `.local/static-feed-live-*` 설치/프로필만 만듭니다. 비교 버전만0.0.9로 두고 실제 앱 버전·공개 응답·서명·SHA·tree 검사는 유지합니다. 실제 사용자 설치를 시험하는 명령이 아닙니다.
 
