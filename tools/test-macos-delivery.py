@@ -4,6 +4,7 @@ import ctypes
 import hashlib
 import json
 import os
+import plistlib
 from pathlib import Path
 import shutil
 import signal
@@ -112,13 +113,29 @@ def main():
     seed = launch()
     print('PASS initial bootstrap seed and first-frame acknowledgment', flush=True)
     stop_owned(runtime)
+    # Force an actual outer-app replacement without pretending the fixture is
+    # an older binary. Its valid ad hoc signature and version resources differ
+    # from the new embedded app; the executable is still this compiled build.
+    info_path=args.app/'Contents/Info.plist'
+    info=plistlib.loads(info_path.read_bytes())
+    info['CFBundleVersion']='0.1.0';info['CFBundleShortVersionString']='0.1.0'
+    info_path.write_bytes(plistlib.dumps(info))
+    subprocess.run(['codesign','--force','--sign','-','--timestamp=none',str(args.app)],check=True,timeout=90,capture_output=True)
+    subprocess.run(['codesign','--verify','--deep','--strict',str(args.app)],check=True,timeout=90,capture_output=True)
     target = runtime / 'launcher/versions' / active
     shutil.copytree(extracted, target)
     save(runtime / 'queued-launcher.json', {'candidate': active})
     applied = launch(active)
     assert applied['current'] == active and applied['previous'] == seed['current']
+    assert plistlib.loads(info_path.read_bytes())['CFBundleShortVersionString']==version
+    assert not (args.app/'Contents/Resources/seed').exists(), 'Updated wrapper must use the managed runtime without a recursive seed'
+    subprocess.run(['codesign','--verify','--deep','--strict',str(args.app)],check=True,timeout=90,capture_output=True)
+    assert not (runtime/'bootstrap-update.json').exists(), 'Stable-app transaction was not committed'
     print('PASS queued native launcher payload activation', flush=True)
     stop_owned(runtime)
+    launch(active)
+    stop_owned(runtime)
+    print('PASS actual stable app replacement and seed-free relaunch',flush=True)
     bad = version + '-bad-native-fixture'
     rejected = runtime / 'launcher/versions' / bad
     shutil.copytree(extracted, rejected)
@@ -134,6 +151,7 @@ def main():
     result = {'result': 'PASS', 'arch': args.arch, 'nativePackagedGUI': True,
               'interruptedInitialCopyRecovery': True,
               'nativeBootstrapSeedAndFrameAck': True, 'queuedPayloadActivation': True,
+              'nativeStableAppAtomicallyRefreshedFromVersionInfoFixture': True, 'seedFreeStableAppRelaunch': True,
               'failedNativeFixtureExitWithoutAck': True, 'failedNativeHealthRollback': True, 'humanEmailOTPTested': False,
               'unityGameOrCrossPlatformMultiplayerTested': False}
     save(output / 'delivery-result.json', result)
