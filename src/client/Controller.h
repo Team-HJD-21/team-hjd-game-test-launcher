@@ -15,6 +15,7 @@ class Controller : public QObject {
     Q_PROPERTY(QString serverUrl READ serverUrl NOTIFY settingsChanged)
     Q_PROPERTY(QString publisherKey READ publisherKey NOTIFY settingsChanged)
     Q_PROPERTY(QString installRoot READ installRoot NOTIFY settingsChanged)
+    Q_PROPERTY(QString launcherInstallRoot READ launcherInstallRoot CONSTANT)
     Q_PROPERTY(bool reduceMotion READ reduceMotion NOTIFY settingsChanged)
     Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(QString platform READ platform CONSTANT)
@@ -26,6 +27,7 @@ public:
     QString serverUrl() const { return m_config.server.toString(); }
     QString publisherKey() const { return m_key; }
     QString installRoot() const { return m_gamesRoot; }
+    QString launcherInstallRoot() const;
     bool reduceMotion() const { return m_reduceMotion; }
     QString version() const { return QStringLiteral(HJD_VERSION); }
     QString platform() const { return hjd::platformLabel(); }
@@ -63,9 +65,11 @@ signals:
     void requestLogin();
     void inviteAccepted();
     void quitForUpdate();
+    void authenticationCompleted();
     void toast(const QString &title,const QString &message,const QString &tone);
 private:
     friend class LauncherUpdaterFixture;
+    friend class ClientExperienceFixture;
     // Private transport seam for signed, isolated regression fixtures. There
     // is no command-line, settings, QObject or QML access to these callbacks.
     QString m_releaseKey;
@@ -80,6 +84,7 @@ private:
     void updateProgress(qint64 done,qint64 total,const QString &phase);
     bool deferDuringCheck(std::function<void()> action);
     void updateFailed(const QString &error);
+    void finishLogin(const hjd::NetConfig &config,const QDateTime &expires,const hjd::Catalog &catalog,const QByteArray &raw,const QString &error);
     hjd::updates::Release latestLauncherRelease(QByteArray *raw,qint64 minimum);
     const hjd::Game *selected() const;
     QString m_dataRoot,m_launcherRoot,m_gamesRoot,m_key,m_selected="hose-for-hire";
@@ -101,6 +106,7 @@ private:
     qint64 m_updateSequence=0;
     int m_updateAttempts=0;
     bool m_updateVerified=false;
+    bool m_launcherChecking=false;
     bool m_serverUpgradeRequired=false;
     bool m_updateInstaller=false;
     bool m_knownFailedRelease=false,m_retryFailedOnce=false;

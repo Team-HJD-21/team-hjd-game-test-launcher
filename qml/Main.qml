@@ -43,6 +43,12 @@ ApplicationWindow {
     property string reviewMode: ""
     property bool advancedSettings: false
     property bool uiReady: false
+    property int launcherCheckDots: 0
+    Timer {
+        interval: 400; repeat: true; running: !!v.launcherChecking && !launcher.reduceMotion
+        onTriggered: window.launcherCheckDots=(window.launcherCheckDots+1)%4
+        onRunningChanged: window.launcherCheckDots=launcher.reduceMotion ? 3 : 0
+    }
     readonly property bool blockingFlow: !!v.updateGate || ((v.needsLogin || v.needsPrivacy) && !v.offlineMode) || !!v.authenticating || loginNotice.opened || updateNotice.opened || updateProgressNotice.opened || privacyDialog.opened
     function syncGates() {
         if(!uiReady) return
@@ -164,6 +170,7 @@ ApplicationWindow {
         AppMenuItem { text: "이 PC의 로그인 정보 삭제…"; visible: v.cloudflare; enabled: !v.working; onTriggered: forgetDialog.open() }
         AppMenuItem { text: "설정…"; shortcutText: "Ctrl+,"; onTriggered: settings.open() }
         AppMenuItem { text: "게임 설치 폴더 열기"; onTriggered: launcher.openFolder("root") }
+        AppMenuItem { objectName: "launcherInstallFolderAction"; text: "런처 설치 폴더 열기"; onTriggered: launcher.openFolder("launcher") }
         AppMenuSeparator {}
         AppMenuItem { text: "종료"; shortcutText: "Alt+F4"; onTriggered: window.close() }
     }
@@ -300,7 +307,14 @@ ApplicationWindow {
             Layout.fillWidth: true; Layout.topMargin: 19
             Caption { text: "Happy Journey of Developers"; font.family: window.isMac ? "Apple SD Gothic Neo" : "Segoe UI"; font.pixelSize: 10; color: "#66747D" }
             Item { Layout.fillWidth: true }
-            Caption { text: v.updateMessage; font.pixelSize: 10; color: "#849099" }
+            RowLayout {
+                spacing: 0
+                Caption { objectName: "launcherVersionStatus"; text: v.launcherChecking ? "버전 확인중" : v.updateMessage; font.pixelSize: 10; color: "#849099" }
+                Item {
+                    visible: !!v.launcherChecking; Layout.preferredWidth: 13; Layout.preferredHeight: 15
+                    Caption { text: "...".slice(0,launcher.reduceMotion ? 3 : window.launcherCheckDots); font.pixelSize: 10; color: "#849099" }
+                }
+            }
         }
     }
 
@@ -358,7 +372,7 @@ ApplicationWindow {
         contentItem: ColumnLayout { spacing: 20; Label { text: "작업을 마친 뒤 종료할 수 있어요"; color: "#F0F0EA"; font.bold: true } Caption { text: "다운로드나 설치 중에는 취소를 누른 뒤 창을 닫아 주세요."; Layout.fillWidth: true } ActionButton { text: "확인"; Layout.alignment: Qt.AlignRight; onClicked: closeNotice.close() } }
     }
     Popup {
-        id: updateNotice
+        id: updateNotice; objectName: "launcherUpdateNotice"
         anchors.centerIn: Overlay.overlay; width: Math.min(540,window.width-60)
         modal: true; focus: true; padding: 28; closePolicy: Popup.NoAutoClose
         Overlay.modal: Rectangle { color: "#CC000000" }
@@ -533,7 +547,7 @@ ApplicationWindow {
             TabBar { id: helpTabs; Layout.fillWidth: true; palette.button: "#2D353C"; palette.buttonText: "#DFE5E5"; palette.highlight: "#E8C76A"; HelpTab { text: "시작하기" } HelpTab { text: "문제 해결" } HelpTab { text: "런처 정보" } }
             ScrollView { Layout.fillWidth: true; Layout.fillHeight: true; clip: true
                 TextArea { readOnly: true; wrapMode: Text.WordWrap; selectByMouse: true; textFormat: TextEdit.PlainText; color: "#C4CED3"; font.pixelSize: 13; padding: 0; rightPadding: 14; background: null
-                    text: helpTabs.currentIndex===0 ? "1. 이메일로 시작\n이메일로 시작을 누르고 브라우저에서 이메일과 일회용 코드를 입력하세요. 인증을 마치면 런처로 돌아오세요. 별도 초대 파일이 전달된 경우 설정에서 가져올 수도 있습니다.\n\n2. 설치하고 플레이\n게임의 설치 버튼을 누르면 다운로드와 파일 확인이 이어집니다. 준비가 끝나면 플레이를 선택하세요.\n\n3. 새 버전은 직접 업데이트\n연결과 최신 버전은 자동 확인합니다. 게임의 새 버전은 업데이트를 눌러 다운로드하고 적용하세요. 현재 버전 플레이로 기존 버전을 계속 실행할 수도 있습니다. 게임 실행 중이라면 종료한 뒤 업데이트를 눌러 주세요. 런처의 새 버전은 자동으로 준비해 다음 실행에 적용됩니다.\n\n단축키\nCtrl+,  설정   ·   Ctrl+B  사이드바   ·   F1  도움말" : helpTabs.currentIndex===1 ? "서버에 연결할 수 없어요\n인터넷을 확인하세요. 이메일 인증이 만료되면 파일 메뉴 또는 설정에서 이메일로 다시 연결하세요. 연결이 돌아오면 자동으로 다시 확인합니다. 설치된 버전은 오프라인에서도 플레이할 수 있습니다.\n\n인증 정보와 개인정보\n인증된 이메일, 최초·최근 인증 시각과 최근 접속 시각은 TeamHJD 운영 서버에 저장됩니다. 게임 로그는 자동 전송하지 않습니다. 초대 파일을 사용하는 경우 팀에서 새 초대를 받을 수 있습니다.\n\n설치가 중단됐어요\n설치를 다시 선택하면 이어받습니다. 기존 정상 버전은 유지됩니다.\n\n파일 문제 또는 새 버전 문제\n게임 관리 ··· 메뉴에서 파일 복구 또는 이전 버전 복원을 사용할 수 있습니다. 게임을 먼저 종료하세요.\n\n테스트 로그\n게임 관리에서 로그 폴더를 열 수 있습니다. 로그를 자동으로 외부에 전송하지 않습니다." : "TeamHJD Game Test Launcher\nv"+launcher.version+"  ·  "+launcher.platform+"\n\nHappy Journey of Developers\n팀의 다음 플레이테스트를 위한 게임 라이브러리입니다.\n\nC++ · Qt 6.8.3\nQt is used under LGPLv3. Copyright The Qt Company Ltd. and other contributors.\n라이브러리 라이선스와 소스 안내는 함께 제공되는 THIRD_PARTY_NOTICES.md 및 licenses 폴더에 있습니다.\n\n공개 런처 업데이트와 비공개 게임 배포는 분리됩니다. 게임과 접근 암호는 공개 Release에 포함되지 않습니다."
+                    text: helpTabs.currentIndex===0 ? "1. 이메일로 시작\n이메일로 시작을 누르고 브라우저에서 이메일과 일회용 코드를 입력하세요. 인증과 서버 확인을 마치면 런처 창으로 자동 복귀합니다. 별도 초대 파일이 전달된 경우 설정에서 가져올 수도 있습니다.\n\n2. 설치하고 플레이\n게임의 설치 버튼을 누르면 다운로드와 파일 확인이 이어집니다. 준비가 끝나면 플레이를 선택하세요.\n\n3. 새 버전은 직접 업데이트\n연결과 최신 버전은 자동 확인합니다. 게임의 새 버전은 업데이트를 눌러 다운로드하고 적용하세요. 현재 버전 플레이로 기존 버전을 계속 실행할 수도 있습니다. 게임 실행 중이라면 종료한 뒤 업데이트를 눌러 주세요. 런처의 새 버전은 업데이트 시작을 승인하면 검증 후 적용되고 자동으로 다시 실행됩니다. 평소 버전 확인은 우측 하단에만 표시합니다.\n\n단축키\nCtrl+,  설정   ·   Ctrl+B  사이드바   ·   F1  도움말" : helpTabs.currentIndex===1 ? "서버에 연결할 수 없어요\n인터넷을 확인하세요. 이메일 인증이 만료되면 파일 메뉴 또는 설정에서 이메일로 다시 연결하세요. 연결이 돌아오면 자동으로 다시 확인합니다. 연결·최신 런처 확인·이메일 인증을 마친 뒤 플레이할 수 있습니다.\n\n인증 정보와 개인정보\n인증된 이메일, 최초·최근 인증 시각과 최근 접속 시각은 TeamHJD 운영 서버에 저장됩니다. 게임 로그는 자동 전송하지 않습니다. 초대 파일을 사용하는 경우 팀에서 새 초대를 받을 수 있습니다.\n\n설치가 중단됐어요\n설치를 다시 선택하면 이어받습니다. 기존 정상 버전은 유지됩니다.\n\n파일 문제 또는 새 버전 문제\n게임 관리 ··· 메뉴에서 파일 복구 또는 이전 버전 복원을 사용할 수 있습니다. 게임을 먼저 종료하세요.\n\n테스트 로그\n게임 관리에서 로그 폴더를 열 수 있습니다. 로그를 자동으로 외부에 전송하지 않습니다." : "TeamHJD Game Test Launcher\nv"+launcher.version+"  ·  "+launcher.platform+"\n\n설치 경로\n"+launcher.launcherInstallRoot+"\n\nHappy Journey of Developers\n팀의 다음 플레이테스트를 위한 게임 라이브러리입니다.\n\nC++ · Qt 6.11.3\nQt is used under LGPLv3. Copyright The Qt Company Ltd. and other contributors.\n라이브러리 라이선스와 소스 안내는 함께 제공되는 THIRD_PARTY_NOTICES.md 및 licenses 폴더에 있습니다.\n\n공개 런처 업데이트와 비공개 게임 배포는 분리됩니다. 게임과 접근 암호는 공개 Release에 포함되지 않습니다."
                 }
             }
             ActionButton { visible: helpTabs.currentIndex===2; text: "오픈소스 고지 열기"; onClicked: launcher.showLicenses(); Layout.alignment: Qt.AlignLeft }

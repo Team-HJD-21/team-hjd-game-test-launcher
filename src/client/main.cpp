@@ -62,6 +62,7 @@ int main(int argc,char **argv) {
     engine.load(QUrl("qrc:/qml/Main.qml"));if(engine.rootObjects().isEmpty())return 3;
     auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     std::unique_ptr<WindowFrame> frame;if(window)frame=std::make_unique<WindowFrame>(window);
+    if(window)QObject::connect(&controller,&Controller::authenticationCompleted,window,[&frame]{if(frame)frame->restoreAfterAuthentication();},Qt::QueuedConnection);
     if(parser.isSet("invite")){auto invite=QUrl::fromLocalFile(QFileInfo(parser.value("invite")).absoluteFilePath());QTimer::singleShot(600,&app,[&controller,invite]{controller.importInvite(invite);});}
     if(window&&parser.isSet("window-size")){auto parts=parser.value("window-size").split('x');if(parts.size()==2)window->resize(parts[0].toInt(),parts[1].toInt());}
     if(window&&parser.isSet("review-ui")){auto mode=parser.value("review-ui");QTimer::singleShot(700,&app,[window,mode]{window->setProperty("reviewMode",mode);});}
