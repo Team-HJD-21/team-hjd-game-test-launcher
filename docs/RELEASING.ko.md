@@ -166,12 +166,12 @@ $privateRoot = Join-Path $PWD '.local/production-distribution'
 - [ ] ARM/Intel 양쪽 최종 delivery와 실제 GUI 이미지를 확인했다.
 - [ ] 원본 빌드 재사용을 검증했거나 전체 빌드를 실행했다.
 - [ ] 공개 ZIP 6개에 게임/개인정보/인증/키가 없고 라이선스와 helper provenance가 있다.
-- [ ] draft의 자산 7개 크기/digest가 로컬 검증본과 일치한다.
+- [ ] draft의 자산11개(6ZIP·Setup·2DMG·피드·체크섬) 크기/digest가 로컬 검증본과 일치한다.
 - [ ] stable 공개 후 latest API/URL/digest가 일치한다.
 - [ ] 구형 client의 실제 API 업데이트 검사와 사용자 설치의 적용 상태를 구분해 기록했다.
 - [ ] 게임도 발행했다면 인증 경로·catalog 서명·정본 ZIP을 확인했다.
 - [ ] 새 장애의 원인/확실도/수정/증거/한계를 적절한 문서에 기록했다.
-- [ ] 팀원에게 portable 다운로드, 이메일 인증→설치→플레이, Mac 첫 실행 승인과 남은 실기기 검증을 안내했다.
+- [ ] 팀원에게 기존 ZIP에서 Setup/DMG로 한 번 전환, 개인정보 선택·이메일 인증→게임 설치→플레이, 게임 수동 업데이트와 오프라인·제거/복구를 안내했다.
 
 ## 2026-11-03 추가 기준
 

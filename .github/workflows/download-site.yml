@@ -32,6 +32,8 @@ jobs:
       - name: Verify public files and latest download contract
         run: |
           node --check website/app.js
+          node --check website/release-feed.js
+          node tools/test-release-feed.mjs
           node tools/check-download-site.mjs
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
