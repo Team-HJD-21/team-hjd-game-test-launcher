@@ -11,7 +11,7 @@
 #include <stdexcept>
 
 namespace hjd {
-enum class FailureCode { General, LauncherUpgradeRequired, PrivacyConsentRequired };
+enum class FailureCode { General, LauncherUpgradeRequired, PrivacyConsentRequired, DeviceAuthenticationRequired };
 struct Error : std::runtime_error {
     FailureCode code;
     explicit Error(const QString &s,FailureCode code=FailureCode::General) : std::runtime_error(s.toUtf8().constData()),code(code) {}
@@ -58,10 +58,12 @@ QJsonObject inspectArchive(const QString &archive, const QString &destination, c
                           std::atomic_bool &cancel, const std::function<void(qint64,qint64)> &progress = {});
 bool verifyTree(const QString &directory, const QJsonObject &receipt, std::atomic_bool *cancel = nullptr);
 
-struct NetConfig { QUrl server; QByteArray password; QByteArray caPem; bool testLoopback = false; QByteArray cloudflareToken; QString policyVersion; };
+class DeviceIdentity;
+struct NetConfig { QUrl server; QByteArray password; QByteArray caPem; bool testLoopback = false; QByteArray cloudflareToken; QString policyVersion; std::shared_ptr<DeviceIdentity> device; };
 using Progress = std::function<void(qint64,qint64)>;
 class Http {
 public:
+    static QByteArray post(const QUrl &url,const NetConfig &config,const QByteArray &json,std::atomic_bool &cancel);
     static QByteArray get(const QUrl &url, const NetConfig &config, std::atomic_bool &cancel, qint64 maximum = 32*1024*1024,
                           bool publicDownload = false);
     static void download(const QUrl &url, const NetConfig &config, const QString &path, qint64 bytes,

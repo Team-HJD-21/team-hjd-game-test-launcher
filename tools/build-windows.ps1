@@ -18,6 +18,11 @@ if($LASTEXITCODE){throw 'CMake configure failed.'}
 & $cmake --build (Join-Path $root 'build') --parallel 4
 if($LASTEXITCODE){throw 'Build failed.'}
 $env:PATH="$QtRoot/bin;$env:PATH"
+# The production images restrict import resolution to app-local/system DLLs.
+# Stage official runtime files beside development/test images as well; do not
+# weaken the release loader flags just to let a development PATH find Qt.
+& (Join-Path $QtRoot 'bin/windeployqt.exe') --release --force --no-translations --no-compiler-runtime --qmldir (Join-Path $root 'qml') --dir (Join-Path $root 'build') (Join-Path $root 'build/TeamHJDClient.exe')
+if($LASTEXITCODE){throw 'App-local development runtime deployment failed.'}
 & (Join-Path (Split-Path $cmake) 'ctest.exe') --test-dir (Join-Path $root 'build') --output-on-failure
 if($LASTEXITCODE){throw 'Core checks failed.'}
 if($Deploy){& (Join-Path $PSScriptRoot 'package-windows.ps1') -QtRoot $QtRoot}

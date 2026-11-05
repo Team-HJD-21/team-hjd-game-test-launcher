@@ -1,4 +1,4 @@
-"""Read-only TeamHJD distribution server. No execution or upload endpoint."""
+"""TeamHJD file distribution and bounded authenticated device registration. No file upload or execution."""
 from __future__ import annotations
 import argparse
 from contextlib import nullcontext
@@ -18,10 +18,14 @@ if __package__:
     from .cloudflare_auth import AuditUnavailable, CloudflareAccess
     from .access_policy import check_client
     from .download_limits import DownloadLimits
+    from .device_auth import DeviceRegistry, DeviceRejected, DeviceCapacity, DeviceStorageUnavailable, DeviceNonceExpired, account_key
+    from .cloudflare_auth import _json
 else:
     from cloudflare_auth import AuditUnavailable, CloudflareAccess
     from access_policy import check_client
     from download_limits import DownloadLimits
+    from device_auth import DeviceRegistry, DeviceRejected, DeviceCapacity, DeviceStorageUnavailable, DeviceNonceExpired, account_key
+    from cloudflare_auth import _json
 
 
 TESTER_TOKEN_PATTERN = re.compile(rb"hjd1\.([0-9a-f]{16})\.[A-Za-z0-9_-]{43}")
@@ -127,6 +131,7 @@ def serve(args):
     slots = threading.BoundedSemaphore(12)
     download_limits = DownloadLimits(per_account=2)
     cloudflare = CloudflareAccess(root)
+    devices = DeviceRegistry(root)
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -153,6 +158,10 @@ def serve(args):
 
         def authorized(self):
             self.download_account = None
+            self.verified_identity = None
+            self.device_identity = None
+            if self.path.startswith("/client-device/"):
+                return self.device_authorized()
             peer = self.client_address[0]
             now = time.monotonic()
             audit_unavailable = False
@@ -162,7 +171,7 @@ def serve(args):
                 if identity is not None:
                     try:
                         try:
-                            policy_status, consent_version = check_client(root, self.headers)
+                            policy_status, consent_version = check_client(root, self.headers, device_login=self.path == "/launcher-device/enroll")
                         except (OSError, ValueError, TypeError, UnicodeError, RecursionError):
                             self.reject(503, True)
                             return False
@@ -170,6 +179,7 @@ def serve(args):
                             self.reject(policy_status)
                             return False
                         cloudflare.record_access(identity, consent_version=consent_version)
+                        self.verified_identity = identity
                         self.download_account = hashlib.sha256(b"access:" + identity.email.casefold().encode("utf-8")).digest()
                         return True
                     except AuditUnavailable:
@@ -211,6 +221,110 @@ def serve(args):
             self.download_account = hashlib.sha256(b"bearer:" + password).digest()
             return True
 
+        def one_header(self, name, *, optional=False):
+            values = self.headers.get_all(name, [])
+            if not values and optional:
+                return ""
+            if len(values) != 1 or len(values[0]) > 512:
+                raise DeviceRejected("Invalid device header")
+            return values[0]
+
+        def device_authorized(self):
+            try:
+                path = self.path
+                allowed = path in ("/client-device/catalog.json", "/client-device/revoke") or re.fullmatch(r"/client-device/packages/[0-9a-f]{64}\.zip", path)
+                if not allowed or self.headers.get_all("Origin", []):
+                    self.reject(403)
+                    return False
+                device = devices.verify(self.one_header("X-TeamHJD-Device"), self.one_header("X-TeamHJD-Challenge"),
+                                        self.command, path, self.one_header("Range", optional=True),
+                                        self.one_header("X-TeamHJD-Launcher-Version"), self.one_header("X-TeamHJD-Privacy-Version"),
+                                        self.one_header("X-TeamHJD-Proof"))
+                if path != "/client-device/revoke":
+                    status, consent = check_client(root, self.headers, device_login=True)
+                    if status:
+                        self.reject(status)
+                        return False
+                    if not cloudflare.record_device_access(device["email"], consent_version=consent):
+                        self.reject(401)
+                        return False
+                    devices.touch(device["id"])
+                self.device_identity = device
+                self.download_account = account_key(device["email"])
+                return True
+            except DeviceNonceExpired:
+                self.reject(409)
+            except DeviceRejected:
+                self.reject(401)
+            except (OSError, ValueError, TypeError, AuditUnavailable, DeviceStorageUnavailable, UnicodeError, RecursionError):
+                self.reject(503, True)
+            return False
+
+        def json_response(self, value):
+            raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(raw)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_POST(self):
+            if not slots.acquire(blocking=False):
+                self.reject(503, True)
+                return
+            try:
+                if self.path not in ("/client-device/challenge", "/client-device/revoke", "/launcher-device/enroll"):
+                    self.reject(404)
+                    return
+                if self.headers.get_all("Origin", []) or self.headers.get_all("Transfer-Encoding", []):
+                    self.reject(403)
+                    return
+                sizes = self.headers.get_all("Content-Length", [])
+                if len(sizes) != 1 or not re.fullmatch(r"[0-9]{1,4}", sizes[0]) or not 2 <= int(sizes[0]) <= 4096:
+                    self.reject(400)
+                    return
+                try:
+                    body = _json(self.rfile.read(int(sizes[0])))
+                except (ValueError, UnicodeError, RecursionError):
+                    self.reject(400)
+                    return
+                if not isinstance(body, dict):
+                    self.reject(400)
+                    return
+                if self.path == "/client-device/challenge":
+                    if set(body) != {"deviceId"}:
+                        self.reject(400)
+                        return
+                    self.json_response({"schema": 1, "challenge": devices.challenge(body["deviceId"]), "expiresIn": 60})
+                elif self.path == "/launcher-device/enroll":
+                    if not self.authorized():
+                        return
+                    if self.verified_identity is None:
+                        self.reject(401)
+                        return
+                    if set(body) != {"publicKey"}:
+                        self.reject(400)
+                        return
+                    device_id = devices.enroll(self.verified_identity.email, body["publicKey"])
+                    self.json_response({"schema": 1, "deviceId": device_id})
+                else:
+                    if body or not self.device_authorized():
+                        if body:
+                            self.reject(400)
+                        return
+                    devices.revoke(self.device_identity["id"])
+                    self.json_response({"schema": 1, "revoked": True})
+            except DeviceCapacity:
+                self.reject(429, True)
+            except DeviceRejected:
+                self.reject(401)
+            except (OSError, ValueError, TypeError, AuditUnavailable, DeviceStorageUnavailable, UnicodeError, RecursionError):
+                self.reject(503, True)
+            finally:
+                slots.release()
+
         def do_GET(self):
             if not slots.acquire(blocking=False):
                 self.reject(503, True)
@@ -233,6 +347,8 @@ def serve(args):
                 self.reject(404)
                 return
             path = request.path
+            if self.device_identity is not None:
+                path = path[len("/client-device"):]
             if path in ("/", "/downloads"):
                 # Retire the manual game-download HTML without moving the
                 # launcher's Access application or weakening its auth/audit gate.

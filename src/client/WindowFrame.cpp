@@ -1,12 +1,30 @@
 #include "WindowFrame.h"
 #include <QGuiApplication>
 #include <QQuickWindow>
+#include <QTimer>
+
+void WindowFrame::restoreAfterAuthentication(){
+    if(!m_window)return;
+    if(m_window->windowStates().testFlag(Qt::WindowMinimized))m_window->setWindowStates(m_restoreStates);
+    m_window->setVisible(true);m_window->raise();m_window->requestActivate();
+    // The OS can refuse focus while the user is working in another app.
+    // Use its normal taskbar/Dock attention signal instead of stealing input.
+    QTimer::singleShot(500,&m_callbacks,[this]{if(m_window&&!m_window->isActive())m_window->alert(5000);});
+}
+
+namespace {
+void rememberRestoreState(QQuickWindow *window,QObject *context,Qt::WindowStates *restore){
+    *restore=window->windowStates()&~Qt::WindowMinimized;
+    QObject::connect(window,&QWindow::windowStateChanged,context,[window,restore]{if(!window->windowStates().testFlag(Qt::WindowMinimized))*restore=window->windowStates();});
+}
+}
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
 #include <dwmapi.h>
 
 WindowFrame::WindowFrame(QQuickWindow *window):m_window(window){
+    rememberRestoreState(window,&m_callbacks,&m_restoreStates);
     HWND handle=reinterpret_cast<HWND>(window->winId());
     m_handle=reinterpret_cast<quintptr>(handle);
     qGuiApp->installNativeEventFilter(this);
@@ -59,7 +77,7 @@ bool WindowFrame::nativeEventFilter(const QByteArray &type,void *message,qintptr
     return false;
 }
 #else
-WindowFrame::WindowFrame(QQuickWindow *window):m_window(window){}
+WindowFrame::WindowFrame(QQuickWindow *window):m_window(window){rememberRestoreState(window,&m_callbacks,&m_restoreStates);}
 WindowFrame::~WindowFrame()=default;
 bool WindowFrame::nativeEventFilter(const QByteArray &,void *,qintptr *){return false;}
 #endif

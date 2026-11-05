@@ -59,3 +59,9 @@ Cloudflare Tunnel이 origin으로 전달한 `Cf-Access-Jwt-Assertion` **헤더 �
 합성 RSA 키와 JWKS/HTTP 서버로 서명·issuer/aud/alg·시각·이메일 누락, 키 조회 실패/캐시 만료, 외부 키 URL 무시, 원자적 참여 기록과 세션 중복 방지, 실제 origin 인증을 확인합니다. 기존 개인 초대와 운영자 인증 검사도 함께 실행합니다. 운영 설정·실제 계정 로그인·서버 재시작은 이 합성 검사에 포함되지 않습니다.
 
 공식 근거: [Cloudflare JWT 검증](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [app JWT의 인증된 이메일·시각 필드](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/). 고정 의존성은 공식 [PyJWT](https://pypi.org/project/PyJWT/2.15.1/)와 [cryptography](https://pypi.org/project/cryptography/50.0.2/) 배포를 사용합니다.
+
+## 0.2.3 기기 로그인
+
+최초 이메일 OTP와 origin의 JWT 검증은 유지합니다. `/launcher-device/enroll`은 기존 Access 앱의 보호 아래0.2.3/개인정보 안내3 동의와 P-256 공개키만 받습니다. 서버에는 개인키를 저장하지 않습니다. 이후 `/client-device/`의 요청은60초 일회용 challenge와 기기 서명으로 인증하며 쿠키를 장기 bearer로 저장하지 않습니다. 이 경로만 별도의 구체적인 Access 앱에서 origin 인증에 위임해야 합니다. 기존 광역 앱·최초 등록·관리 서비스·퇴역 다운로드 포털의 정책을 넓히지 않습니다. 준비된 코드의 합성 검증과 운영 활성화는 구분합니다.
+
+`trusted-devices.json`은 비공개이며 등록ID·이메일·공개키·등록/최근접속/회수 시각을 보관합니다. 정상 기기 요청은 기존 이메일의 최근 접근만 갱신하고 인증 횟수·최근 OTP 인증 시각을 늘리지 않습니다. 사용자 삭제와180일 미사용 정리는 연관 기기도 정리합니다. 기기별 조회·회수는 [설계 및 운영 절차](DEVICE_LOGIN_PLAN.ko.md)의 `Manage-TrustedDevices.ps1`을 사용합니다. 회수는 새 요청부터 적용하고 내려받은 게임을 원격 삭제하지 않습니다.

@@ -37,6 +37,8 @@ https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/downl
 
 페이지에는 제품명, 플레이테스트용 런처라는 짧은 소개, 이메일 인증 후 설치·실행·업데이트·파일 관리를 할 수 있다는 설명과 간단한 실행 안내를 둔다. 세 다운로드 버튼과 버전·게시일, **런처의 이메일 인증 시 인증된 이메일 주소와 인증·접속 시각이 수집·보관된다**는 안내를 유지한다. 마케팅 문구·앱 모형·큰 단계별 카드는 추가하지 않는다. 사용자는 2026-10-31에 짧은 설명 보강과 메인과 동일한 푸터를 요청한 뒤, 서명 관련 첫 실행 FAQ를 추가하도록 요청했다.
 
+0.2.3부터 수집 안내에는 **기기 등록 정보**도 포함한다. 이메일·시각·무작위 등록ID·공개키·기기 등록/최근접속/회수 시각이며, 개인키는 OS 보호로 암호화해 클라이언트에만 보관한다. Google 로그인은 추가하지 않는다. 이 웹페이지 자체의 이메일 수집이나 하드웨어 지문 수집으로 설명하지 않는다. 상세 보관·로그아웃·회수·삭제 조건은 전용 개인정보 안내와 일치시킨다.
+
 다운로드 아래 첫 실행 FAQ는 Windows SmartScreen, macOS 개발자 확인·공증 경고, 계속 차단되거나 손상·악성코드 경고가 있는 경우의 세 접이식 항목이다. 공식 배포처를 신뢰하는 경우의 앱별 실행 절차만 안내한다. Windows 게시자 서명 없음과 macOS ad hoc 서명/Developer ID·공증 없음을 혼동하지 않는다. 운영체제 전체 보호 해제·quarantine 일괄 제거·백신 예외·관리자 실행을 해결책으로 권하지 않는다. 서명 정책이 바뀌면 FAQ도 함께 수정한다. 절차 근거는 [Microsoft 첫 배포 안내](https://learn.microsoft.com/windows/apps/package-and-deploy/publish-first-app#step-6-handle-smartscreen-for-new-apps), [SmartScreen 정책·평판](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation), [Apple 앱 안전하게 열기](https://support.apple.com/ko-kr/102445)다. FAQ의 화면 검수와 실제 각 OS의 경고 재현·해제 검증은 구분한다.
 
 2026-10-31 FAQ 추가 검수: Node 구문·공개 사이트 경계 검사 통과. Chrome의 데스크톱1278px과 모바일390px에서 세 FAQ와 한국어·English·简体中文의 번역 누락/가로 넘침 없음, 마우스 펼침과 Enter 접기·펼치기를 확인했다. Windows·macOS 보호 설정이나 릴리즈 ZIP은 변경하지 않았으며, 실제 경고 창을 이 작업에서 재현·승인한 것은 아니다.

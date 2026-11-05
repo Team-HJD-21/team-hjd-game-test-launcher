@@ -68,6 +68,12 @@ jobs:
           echo 'TEAMHJD_TEST_KEYCHAIN_READY=1' >> "$GITHUB_ENV"
       - name: Native core and visible GUI startup checks
         run: |
+          ctest --test-dir build-macos --output-on-failure -R '^client_experience$'
+          python -m pip install --requirement server/requirements.txt
+          HJD_RUN_NATIVE_DEVICE_PROBE=1 HJD_DEVICE_PROBE_EXECUTABLE="$PWD/build-macos/LauncherClientExperienceTests" python -X utf8 -m unittest tests.test_device_http.DeviceHttpTests.test_native_client_enroll_persist_catalog_resume_and_logout -v
+          keychain="$RUNNER_TEMP/TeamHJD-fixture.keychain-db"
+          test -f "$keychain"
+          security delete-generic-password -s com.teamhjd.launcher.credentials -a wrap-v1 "$keychain"
           ctest --test-dir build-macos --output-on-failure -R '^connection_status$'
           # Each unsigned native test binary must own its own fixture key. Reusing
           # the wrapping item created by ConnectionTests prompts CoreTests for
@@ -76,7 +82,7 @@ jobs:
           keychain="$RUNNER_TEMP/TeamHJD-fixture.keychain-db"
           test -f "$keychain"
           security delete-generic-password -s com.teamhjd.launcher.credentials -a wrap-v1 "$keychain"
-          ctest --test-dir build-macos --output-on-failure -E '^connection_status$'
+          ctest --test-dir build-macos --output-on-failure -E '^(client_experience|connection_status)$'
       - name: Archive the four native build outputs before packaging
         id: archive
         if: ${{ !cancelled() && steps.compile.outcome == 'success' }}

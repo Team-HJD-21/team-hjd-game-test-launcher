@@ -1,5 +1,17 @@
 # 프로젝트 장애 대응 기록
 
+## 2026-11-05 — 기기 회수·인증 창 복귀와 후보 검사
+
+추가 진단run42013676617의Python3.13.17/ARM Mac 스레드가HTTPServer.server_bind→socket.getfqdn('127.0.0.1')→gethostbyaddr에서20초 이상 머문 것을 확인했습니다. 익명 요청이나 기기 서명 검증 전의 fixture 준비 지연입니다. 해당 단독 loopback fixture의 서버 생성 동안만 reverse-DNS 결과를localhost로 고정하고 원래5초 준비 상한으로 되돌렸습니다. 제품 DNS/TLS·JWT·서명 검증은 변경하지 않았습니다. 실제품 화면의 남아 있던 오프라인 플레이 안내2곳도 접속 필수 정책에 맞췄습니다.
+
+새 Mac runner의 기기 HTTP 단독 검사에서 저장소의 무시된 `.local/` 부모가 없어FileNotFoundError로 준비 단계가 실패했습니다(run42012488965). 기기 키/QML 검사는 그 전에 통과했으나 이 실패를 전체 인증 성공으로 처리하지 않습니다. 격리 fixture가 자신이 쓸 부모 경로를mkdir(parents=True)로 생성하도록 수정하고 전체 native 검사를 다시 합니다. Windows 부트스트랩 fixture도 새 import 검색 보호에 맞춰 공식Qt를 실행 파일 옆에 배치하며 PATH 의존을 제거했습니다. 제품 인증·보호 조건은 바꾸지 않습니다.
+
+0.2.3 후보의 운영자 회수 CLI는32자 URL-safe 등록ID를 사용합니다. ID가`-`로 시작해도 옵션으로 해석되지 않도록 Python 인수는 단일 `--device-id=<ID>`로 전달합니다. 해당 형태의 실제 CLI 미리보기·회수·다음 요청 차단 회귀를 통과했습니다. 새 경로의 저장 장애503/nonce 만료409/회수401을 구분하며, 이미 회수된 기기의 로그아웃도 로컬 키·동의를 정리합니다.
+
+인증 후 창 복귀에서Qt의show()가 최대화 상태를 초기화한 증상을 재현했습니다. 최소화 상태만 복원하고setVisible(true)·활성화 요청을 사용합니다. 콜백 수명은WindowFrame의QObject context에 묶고 OS 포커스 거절 시 기본 주의 표시를 사용합니다. 실제품 QML·최소화/최대화 회귀를 통과했으며 사람 OTP 검증과는 구분합니다.
+
+Windows 최종 검사 중 수동 게임 업데이트의 재적용에서 원자 저장 오류가1회 발생했습니다. 같은 소스의 이전 여러 검사에서는 통과했고, 실패한 로그는 보존했습니다. 구체 파일/OS 오류가 없던 메시지에 basename·Qt errorString을 추가한 뒤 최종11/11 검사는 통과했습니다. 일시 파일 잠금·백신 간섭 등 원인은 미확정입니다. 직접 덮어쓰기 fallback이나 검증 생략·원인 없는 반복 retry를 추가하지 않았습니다. 재발 시 새 진단 정보와 해당 격리 profile을 함께 조사합니다.
+
 기록 갱신: **2026-10-31 KST**. Windows 기준 환경은 Windows 11 build 26200, PowerShell 7.6.5, Qt 6.8.3 MSVC x64와 Visual Studio 2022 C++ 도구다. 맥 네이티브 검증은 GitHub macOS 15 Apple Silicon·Intel, AppleClang 17.0.0.17000013, Qt 6.8.3에서 수행했다. 아래 이전 Windows 사건은 2026-10-29에 관측한 결과도 포함한다.
 
 이 문서는 런처·배포 구성과 검사 코드의 원인을 기록한다. 환경·CLI·권한·도구 문제의 재사용 진단은 먼저 운영 PC의 [공통 에이전트 장애 기록](C:/Users/c/.codex/agent-troubleshooting.md)을 읽는다. 같은 원인을 확인 없이 재시도하거나 전역 인증·PATH·샌드박스·TLS 설정을 바꿔 숨기지 않는다.
