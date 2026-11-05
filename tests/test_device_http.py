@@ -49,7 +49,10 @@ class DeviceHttpTests(unittest.TestCase):
                     if edge_self.headers.get("Cookie") == "CF_Authorization=synthetic-edge-session":
                         edge_self.headers["Cf-Access-Jwt-Assertion"] = "synthetic-verified-edge-assertion"
                     return super().authorized()
-            self.httpd = original_server(address, SyntheticEdge, context)
+            # GitHub macOS can stall in HTTPServer's reverse-DNS lookup for
+            # numeric loopback. This fixture has no DNS or hostname under test.
+            with mock.patch("http.server.socket.getfqdn", return_value="localhost"):
+                self.httpd = original_server(address, SyntheticEdge, context)
             ready.set()
             return self.httpd
         args = SimpleNamespace(root=str(self.root), bind="127.0.0.1", port=0, cert=None, key=None, test_http=True)
@@ -63,8 +66,7 @@ class DeviceHttpTests(unittest.TestCase):
             frame = sys._current_frames().get(self.thread.ident)
             diagnostic = "".join(traceback.format_stack(frame)) if frame else "origin thread exited"
             print("Isolated origin startup diagnostic (no request credentials):\n" + diagnostic, flush=True)
-            if not ready.wait(15):
-                self.fail("isolated origin startup timed out; see thread diagnostic")
+            self.fail("isolated origin startup timed out; see thread diagnostic")
         self.port = self.httpd.server_port
         self.addCleanup(self.stop)
         self.key = ec.generate_private_key(ec.SECP256R1())

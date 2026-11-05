@@ -141,7 +141,7 @@ QVariantMap Controller::view() const {
     bool compatible=!g||g->supported();
     bool installedOk=!installed.isEmpty(); bool update=g&&compatible&&installedOk&&(g->version!=installed||g->sha256!=receipt["archiveSha256"].toString());
     QString action=running?QStringLiteral("게임 실행 중"):installedOk?update&&online?QStringLiteral("업데이트"):QStringLiteral("플레이"):needsLogin()?QStringLiteral("이메일로 시작"):m_config.server.isEmpty()?QStringLiteral("초대 파일로 연결"):!g?QStringLiteral("자동 연결 대기"):QStringLiteral("설치");
-    QString status=m_busy&&!m_background?m_phase:running?QStringLiteral("게임을 실행하고 있어요"):online?update?QStringLiteral("새 버전이 있어요 · 업데이트를 눌러 적용하세요"):installedOk?QStringLiteral("플레이할 준비가 되었어요"):QStringLiteral("게임을 설치하고 테스트에 참여하세요"):installedOk?QStringLiteral("오프라인 · 설치된 버전으로 플레이할 수 있어요"):m_config.server.isEmpty()?QStringLiteral("팀에서 받은 초대 파일을 가져오세요"):QStringLiteral("서버 연결을 확인하세요");
+    QString status=m_busy&&!m_background?m_phase:running?QStringLiteral("게임을 실행하고 있어요"):online?update?QStringLiteral("새 버전이 있어요 · 업데이트를 눌러 적용하세요"):installedOk?QStringLiteral("플레이할 준비가 되었어요"):QStringLiteral("게임을 설치하고 테스트에 참여하세요"):installedOk?QStringLiteral("오프라인 · 서버 연결 확인 후 플레이할 수 있어요"):m_config.server.isEmpty()?QStringLiteral("팀에서 받은 초대 파일을 가져오세요"):QStringLiteral("서버 연결을 확인하세요");
     if(needsLogin()&&!installedOk&&!m_busy)status=QStringLiteral("이메일 인증 후 테스트에 참여할 수 있어요");
     if(!m_status.isEmpty()&&!m_busy&&!running) status=m_status;
     if(g&&!compatible&&!needsLogin()&&!m_busy){action=QStringLiteral("지원 빌드 준비 중");status=QStringLiteral("이 운영체제용 게임 빌드가 아직 배포되지 않았어요.");}

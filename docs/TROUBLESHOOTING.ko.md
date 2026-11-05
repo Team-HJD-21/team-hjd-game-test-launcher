@@ -2,6 +2,8 @@
 
 ## 2026-11-05 — 기기 회수·인증 창 복귀와 후보 검사
 
+추가 진단run42013676617의Python3.13.17/ARM Mac 스레드가HTTPServer.server_bind→socket.getfqdn('127.0.0.1')→gethostbyaddr에서20초 이상 머문 것을 확인했습니다. 익명 요청이나 기기 서명 검증 전의 fixture 준비 지연입니다. 해당 단독 loopback fixture의 서버 생성 동안만 reverse-DNS 결과를localhost로 고정하고 원래5초 준비 상한으로 되돌렸습니다. 제품 DNS/TLS·JWT·서명 검증은 변경하지 않았습니다. 실제품 화면의 남아 있던 오프라인 플레이 안내2곳도 접속 필수 정책에 맞췄습니다.
+
 새 Mac runner의 기기 HTTP 단독 검사에서 저장소의 무시된 `.local/` 부모가 없어FileNotFoundError로 준비 단계가 실패했습니다(run42012488965). 기기 키/QML 검사는 그 전에 통과했으나 이 실패를 전체 인증 성공으로 처리하지 않습니다. 격리 fixture가 자신이 쓸 부모 경로를mkdir(parents=True)로 생성하도록 수정하고 전체 native 검사를 다시 합니다. Windows 부트스트랩 fixture도 새 import 검색 보호에 맞춰 공식Qt를 실행 파일 옆에 배치하며 PATH 의존을 제거했습니다. 제품 인증·보호 조건은 바꾸지 않습니다.
 
 0.2.3 후보의 운영자 회수 CLI는32자 URL-safe 등록ID를 사용합니다. ID가`-`로 시작해도 옵션으로 해석되지 않도록 Python 인수는 단일 `--device-id=<ID>`로 전달합니다. 해당 형태의 실제 CLI 미리보기·회수·다음 요청 차단 회귀를 통과했습니다. 새 경로의 저장 장애503/nonce 만료409/회수401을 구분하며, 이미 회수된 기기의 로그아웃도 로컬 키·동의를 정리합니다.

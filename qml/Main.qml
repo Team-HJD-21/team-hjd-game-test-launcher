@@ -428,7 +428,7 @@ ApplicationWindow {
             AppCheckBox {id: collectionConsent;text: "[필수] 개인정보 수집·이용에 동의합니다";Layout.fillWidth: true}
             AppCheckBox {id: overseasConsent;text: "[필수] Cloudflare 국외 처리에 동의합니다";Layout.fillWidth: true}
             AppCheckBox {id: ageConsent;text: "만 14세 이상입니다";Layout.fillWidth: true}
-            Caption {text: v.error || "동의하지 않아도 설치된 게임은 오프라인으로 실행할 수 있습니다.";Layout.fillWidth: true}
+            Caption {text: v.error || "동의하지 않으면 온라인 테스트 기능을 사용할 수 없습니다. 설치된 게임과 저장 데이터는 보존됩니다.";Layout.fillWidth: true}
             RowLayout {Layout.fillWidth: true;Item {Layout.fillWidth: true}
                 ActionButton {text: "종료";onClicked: window.close()}
                 ActionButton {text: "동의하고 계속";prominent: true;enabled: collectionConsent.checked&&overseasConsent.checked&&ageConsent.checked&&!v.working;onClicked: launcher.acceptPrivacy(collectionConsent.checked,overseasConsent.checked,ageConsent.checked)}
