@@ -33,7 +33,9 @@ $destination=Join-Path $output $name
 if(Test-Path -LiteralPath $destination){throw 'Select a fresh installer output. Existing artifacts are never overwritten.'}
 $terms=Join-Path $output 'installer-terms-utf8.txt'
 [IO.File]::WriteAllText($terms,[IO.File]::ReadAllText((Join-Path $project 'legal/TERMS.ko.txt'),[Text.Encoding]::UTF8),[Text.UTF8Encoding]::new($true))
-$parameters=@('/V2','/INPUTCHARSET','UTF8',('/DVERSION='+$version),('/DOUTPUT_FILE='+$destination),('/DBUNDLE_ROOT='+$bundle),('/DBOOTSTRAP_ROOT='+(Join-Path $slot 'bootstrap')),('/DAPP_ICON='+(Join-Path $project 'assets/brand/TeamHJD.ico')),('/DTERMS_FILE='+$terms))
+$theme=Join-Path $output 'installer-theme'
+& (Join-Path $PSScriptRoot 'Build-InstallerTheme.ps1') -OutputDirectory $theme -NsisRoot $NsisRoot
+$parameters=@('/V2','/INPUTCHARSET','UTF8',('/DVERSION='+$version),('/DOUTPUT_FILE='+$destination),('/DBUNDLE_ROOT='+$bundle),('/DBOOTSTRAP_ROOT='+(Join-Path $slot 'bootstrap')),('/DAPP_ICON='+(Join-Path $project 'assets/brand/TeamHJD.ico')),('/DTERMS_FILE='+$terms),('/DTHEME_ROOT='+$theme))
 if($TestPackage){$parameters+='/DHJD_TEST_PACKAGE'}
 Invoke-Nsis ($parameters+@((Join-Path $project 'installer/windows.nsi')))
 Get-Item -LiteralPath $destination|Select-Object Name,Length
