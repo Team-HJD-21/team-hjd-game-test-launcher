@@ -122,6 +122,12 @@ fullSHA/최종source일치/모든필수회귀/양쪽Mac최종증거를대조한�
 
 **사이트피드는모든파일을공개대조한뒤마지막에게시합니다.** `launcher-stable.json`을 `website/updates/stable.json`으로동일bytes복사하고 `node tools/check-download-site.mjs --update-asset-versions`, `node tools/test-release-feed.mjs`를실행합니다. Pages배포성공및실제HTTPS피드서명/모든URL을확인합니다. 새필수버전/개인정보gate는이후에비공개 `client-policy.json`으로활성화합니다. 포털 `/downloads`를살리지않고기존playtest API도메인도삭제하지않습니다.
 
+Windows의 새 서명 피드 실제 전환 검사는 아래 도구로 재현합니다. 공개한 최종 dist를 지정하며, 별도 `.local/static-feed-live-*` 설치/프로필만 만듭니다. 비교 버전만0.0.9로 두고 실제 앱 버전·공개 응답·서명·SHA·tree 검사는 유지합니다. 실제 사용자 설치를 시험하는 명령이 아닙니다.
+
+```powershell
+./tools/verify-launcher-signed-live.ps1 -ReleaseDirectory $releaseDist -Version $version
+```
+
 공개후실제latest API의정확버전/11digest, 기존0.1.4다운로드·검증·queue, 새피드기반다운로드·설치/handoff를검사합니다. 격리테스트의비교override와사용자실제설치활성화는별도로기록합니다. 오류를숨기기위해비교버전/상태파일/active포인터를실제사용자설치에수동주입하지않습니다.
 
 `docs/RELEASE_VALIDATION_<version>.md`에환경·원인확실도·수정·증거·미검증범위를남기고운영handoff와팀원안내를갱신합니다. 모든필수작업이끝나기전목표를complete로표시하지않습니다.

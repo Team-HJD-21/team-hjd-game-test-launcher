@@ -4,6 +4,8 @@ Windows per-user Setup and ARM/Intel macOS DMG game playtest launcher, written i
 
 ## Maintainers: start here
 
+- [Current installer rollout and team handoff (Korean)](docs/DISTRIBUTION_HANDOFF.ko.md): one-time ZIP migration, player flow, server startup, verified-user records and future releases.
+- [v0.2.0 release validation](docs/RELEASE_VALIDATION_0.2.0.md): exact published assets, signed feed, real updater acceptance and untested boundaries.
 - [Release runbook and completion checklist (Korean)](docs/RELEASING.ko.md): fresh output directories, native Mac build/reuse rules, draft upload/digest checks, publication and old-client acceptance.
 - [Troubleshooting and verified repairs (Korean)](docs/TROUBLESHOOTING.ko.md): known symptoms, minimum diagnostics, evidence and unresolved limits.
 - [Hosting and verified-user reports (Korean)](docs/PLAYTEST_HOSTING.ko.md): Tunnel, logon startup/recovery, local dashboard and email/timestamp reports.
