@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 from types import SimpleNamespace
 import unittest
 from unittest import mock
@@ -59,7 +60,11 @@ class DeviceHttpTests(unittest.TestCase):
         self.thread = threading.Thread(target=distribution.serve, args=(args,), daemon=True)
         self.thread.start()
         if not ready.wait(5):
-            self.fail("isolated origin startup timed out")
+            frame = sys._current_frames().get(self.thread.ident)
+            diagnostic = "".join(traceback.format_stack(frame)) if frame else "origin thread exited"
+            print("Isolated origin startup diagnostic (no request credentials):\n" + diagnostic, flush=True)
+            if not ready.wait(15):
+                self.fail("isolated origin startup timed out; see thread diagnostic")
         self.port = self.httpd.server_port
         self.addCleanup(self.stop)
         self.key = ec.generate_private_key(ec.SECP256R1())
