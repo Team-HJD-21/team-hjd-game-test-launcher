@@ -1,8 +1,10 @@
 #include "Core.h"
+#include "DeviceIdentity.h"
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -24,9 +26,27 @@ bool publicHost(const QUrl &u){
         (u.query().isEmpty()||QRegularExpression("^check=[0-9]{1,16}$").match(u.query()).hasMatch());
 }
 struct Response { QByteArray body; int status=0; QUrl redirect; };
-Response request(const QUrl &url,const NetConfig &cfg,std::atomic_bool &cancel,qint64 maximum,bool publicFile,QFile *file=nullptr,qint64 expected=0,qint64 offset=0,const Progress &progress={}) {
+Response request(const QUrl &logicalUrl,const NetConfig &cfg,std::atomic_bool &cancel,qint64 maximum,bool publicFile,QFile *file=nullptr,qint64 expected=0,qint64 offset=0,const Progress &progress={},const QByteArray *postBody=nullptr,bool retriedChallenge=false) {
     if(cancel) fail(QStringLiteral("취소했습니다."));
-    if(publicFile?!publicHost(url):(!allowedServer(url,cfg.testLoopback)||!sameOrigin(url,cfg.server))) fail(QStringLiteral("허용되지 않은 다운로드 주소입니다."));
+    if(publicFile?!publicHost(logicalUrl):(!allowedServer(logicalUrl,cfg.testLoopback)||!sameOrigin(logicalUrl,cfg.server))) fail(QStringLiteral("허용되지 않은 다운로드 주소입니다."));
+    QUrl url=logicalUrl;
+    const bool deviceRequest=!publicFile&&bool(cfg.device);
+    const auto range=file&&offset>0?QByteArray("bytes=")+QByteArray::number(offset)+"-":QByteArray();
+    QByteArray challenge,proof;
+    if(deviceRequest){
+        if(cfg.device->id().isEmpty())fail(QStringLiteral("이 기기의 등록이 완료되지 않았습니다."));
+        if(postBody){if(url.path()!="/client-device/revoke")fail(QStringLiteral("허용되지 않은 기기 인증 요청입니다."));}
+        else if(url.path()=="/catalog.json"||QRegularExpression("^/packages/[0-9a-f]{64}\\.zip$").match(url.path()).hasMatch())url.setPath("/client-device"+url.path());
+        else fail(QStringLiteral("허용되지 않은 기기 다운로드 경로입니다."));
+        auto unsignedConfig=cfg;unsignedConfig.device.reset();unsignedConfig.cloudflareToken.clear();unsignedConfig.password.clear();
+        const auto body=QJsonDocument(QJsonObject{{"deviceId",cfg.device->id()}}).toJson(QJsonDocument::Compact);
+        auto raw=Http::post(cfg.server.resolved(QUrl("client-device/challenge")),unsignedConfig,body,cancel);
+        QJsonParseError error;auto document=QJsonDocument::fromJson(raw,&error);
+        if(error.error!=QJsonParseError::NoError||!document.isObject()||document.object()["schema"].toInt()!=1)fail(QStringLiteral("기기 인증 서버 응답이 올바르지 않습니다."));
+        const auto nonce=document.object()["challenge"].toString();
+        proof=cfg.device->sign(deviceProofMessage(nonce,postBody?QByteArray("POST"):QByteArray("GET"),url.path(QUrl::FullyEncoded),range,QStringLiteral(HJD_VERSION),cfg.policyVersion));
+        challenge=nonce.toLatin1();
+    }
     QNetworkAccessManager manager;
     QNetworkRequest req(url); req.setTransferTimeout(30000);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
@@ -36,15 +56,21 @@ Response request(const QUrl &url,const NetConfig &cfg,std::atomic_bool &cancel,q
     if(!publicFile) {
         req.setRawHeader("X-TeamHJD-Launcher-Version",HJD_VERSION);
         if(!cfg.policyVersion.isEmpty())req.setRawHeader("X-TeamHJD-Privacy-Version",cfg.policyVersion.toUtf8());
-        if(!cfg.cloudflareToken.isEmpty()) req.setRawHeader("Cookie","CF_Authorization="+cfg.cloudflareToken);
+        if(deviceRequest){
+            req.setRawHeader("X-TeamHJD-Device",cfg.device->id().toLatin1());
+            req.setRawHeader("X-TeamHJD-Challenge",challenge);
+            req.setRawHeader("X-TeamHJD-Proof",proof.toBase64());
+        }
+        else if(!cfg.cloudflareToken.isEmpty()) req.setRawHeader("Cookie","CF_Authorization="+cfg.cloudflareToken);
         else if(!cfg.password.isEmpty()) req.setRawHeader("Authorization","Bearer "+cfg.password.toBase64());
         if(!cfg.caPem.isEmpty()) {
             auto certs=QSslCertificate::fromData(cfg.caPem); if(certs.isEmpty()) fail(QStringLiteral("초대 인증서를 읽을 수 없습니다."));
             auto ssl=QSslConfiguration::defaultConfiguration(); auto roots=ssl.caCertificates(); roots+=certs; ssl.setCaCertificates(roots); req.setSslConfiguration(ssl);
         }
     } else if(url.host()=="api.github.com") { req.setRawHeader("Accept","application/vnd.github+json"); req.setRawHeader("X-GitHub-Api-Version","2022-11-28"); }
-    if(file && offset>0) req.setRawHeader("Range","bytes="+QByteArray::number(offset)+"-");
-    auto *reply=manager.get(req); reply->setReadBufferSize(1024*1024);
+    if(!range.isEmpty())req.setRawHeader("Range",range);
+    if(postBody)req.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
+    auto *reply=postBody?manager.post(req,*postBody):manager.get(req); reply->setReadBufferSize(1024*1024);
     QEventLoop loop; QString error; Response result; qint64 received=offset; bool headersChecked=false;
     QTimer poll; poll.setInterval(75);
     QObject::connect(&poll,&QTimer::timeout,&loop,[&]{if(cancel){error=QStringLiteral("취소했습니다.");reply->abort();}}); poll.start();
@@ -77,7 +103,9 @@ Response request(const QUrl &url,const NetConfig &cfg,std::atomic_bool &cancel,q
     if(reply->bytesAvailable()) drain();
     result.status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if(!error.isEmpty()) fail(error);
+    if(deviceRequest&&result.status==409&&!retriedChallenge)return request(logicalUrl,cfg,cancel,maximum,publicFile,file,expected,offset,progress,postBody,true);
     if(result.status>=300&&result.status<400) { if(!publicFile&&!cfg.cloudflareToken.isEmpty())fail(QStringLiteral("이메일 인증이 만료되었어요. 이메일로 다시 연결해 주세요.")); result.redirect=url.resolved(reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl()); return result; }
+    if(!publicFile&&(result.status==401||result.status==403)&&url.path().startsWith("/client-device/"))throw Error(QStringLiteral("이 기기의 로그인 권한이 만료되었거나 회수되었습니다. 이메일로 다시 인증해 주세요."),FailureCode::DeviceAuthenticationRequired);
     if(result.status==401||result.status==403) fail(publicFile?QStringLiteral("런처 업데이트 조회가 제한되었습니다. 잠시 후 다시 시도하세요."):!cfg.cloudflareToken.isEmpty()?QStringLiteral("이메일 인증이 만료되었어요. 이메일로 다시 연결해 주세요."):QStringLiteral("초대 또는 접근 정보를 확인하세요. 만료되었거나 회수된 초대는 새로 받아 주세요."));
     if(result.status==404) fail(QStringLiteral("배포된 파일을 찾을 수 없습니다."));
     if(!publicFile&&result.status==426)throw Error(QStringLiteral("온라인 기능을 사용하려면 런처 필수 업데이트가 필요합니다."),FailureCode::LauncherUpgradeRequired);
@@ -87,6 +115,12 @@ Response request(const QUrl &url,const NetConfig &cfg,std::atomic_bool &cancel,q
     if(file&&(received!=expected||!file->flush())) fail(QStringLiteral("다운로드가 완료되지 않았습니다. 다시 시도하면 이어받습니다."));
     return result;
 }
+}
+QByteArray Http::post(const QUrl &url,const NetConfig &config,const QByteArray &json,std::atomic_bool &cancel){
+    if(json.size()>4096||!QStringList{"/launcher-device/enroll","/client-device/challenge","/client-device/revoke"}.contains(url.path()))fail(QStringLiteral("허용되지 않은 인증 요청입니다."));
+    auto response=request(url,config,cancel,16384,false,nullptr,0,0,{},&json);
+    if(!response.redirect.isEmpty())fail(QStringLiteral("기기 로그인 서버 연결 설정을 확인해 주세요."));
+    return response.body;
 }
 QByteArray Http::get(const QUrl &url,const NetConfig &config,std::atomic_bool &cancel,qint64 maximum,bool publicFile) {
     auto u=url;

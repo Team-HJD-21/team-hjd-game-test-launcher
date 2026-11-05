@@ -1,6 +1,9 @@
 #include "client/Controller.h"
 #include "client/WindowFrame.h"
+#include "client/DefaultChannel.h"
+#include "client/Privacy.h"
 #include "core/LauncherUpdate.h"
+#include "core/DeviceIdentity.h"
 #include "SigningKey.h"
 #include <QDesktopServices>
 #include <QElapsedTimer>
@@ -9,6 +12,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QRegularExpression>
 #include <QSet>
 #include <QTemporaryDir>
 #include <QTextStream>
@@ -25,6 +29,43 @@ public slots:
 
 class ClientExperienceFixture {
 public:
+    static void deviceProbe(const QStringList &args){
+        if(args.size()!=6)fail("device probe arguments");
+        const QUrl server(args[2]);
+        if(server.scheme()!="http"||server.host()!="127.0.0.1"||server.path()!="/"||!allowedServer(server,true)||!QDir::isAbsolutePath(args[3]))fail("isolated loopback device probe only");
+        const auto bytes=args[5].toLongLong();const auto digest=args[4];
+        if(bytes<=123||bytes>1024*1024||!QRegularExpression("^[0-9a-f]{64}$").match(digest).hasMatch())fail("bounded native fixture package required");
+        QDir().mkpath(args[3]);std::atomic_bool cancel=false;
+        NetConfig config;config.server=server;config.testLoopback=true;config.cloudflareToken="synthetic-edge-session";config.policyVersion="2026-11-05.3";
+        auto device=std::make_shared<DeviceIdentity>(DeviceIdentity::create());
+        writeJson(args[3]+"/device.json",device->toJson());
+        device=std::make_shared<DeviceIdentity>(DeviceIdentity::fromJson(readJson(args[3]+"/device.json"),true));
+        const auto registration=Http::post(server.resolved(QUrl("launcher-device/enroll")),config,QJsonDocument(QJsonObject{{"publicKey",device->publicKey()}}).toJson(QJsonDocument::Compact),cancel);
+        device->registered(QJsonDocument::fromJson(registration).object()["deviceId"].toString());
+        const auto repeated=Http::post(server.resolved(QUrl("launcher-device/enroll")),config,QJsonDocument(QJsonObject{{"publicKey",device->publicKey()}}).toJson(QJsonDocument::Compact),cancel);
+        if(QJsonDocument::fromJson(repeated).object()["deviceId"].toString()!=device->id())fail("registration retry created a duplicate device");
+        writeJson(args[3]+"/device.json",device->toJson());
+        config.device=std::make_shared<DeviceIdentity>(DeviceIdentity::fromJson(readJson(args[3]+"/device.json")));config.cloudflareToken.clear();
+        const auto catalog=Http::get(server.resolved(QUrl("catalog.json")),config,cancel);
+        if(catalog!="{\"fixture\":\"device-catalog\"}")fail("native device catalog mismatch");
+        const auto contents=QByteArray("device-http-package\n").repeated(16384);
+        if(contents.size()!=bytes||QString::fromLatin1(QCryptographicHash::hash(contents,QCryptographicHash::Sha256).toHex())!=digest)fail("native fixture digest mismatch");
+        const auto package=args[3]+"/package.part";atomicWrite(package,contents.left(123));
+        Http::download(server.resolved(QUrl("packages/"+digest+".zip")),config,package,bytes,digest,cancel,{});
+        if(readFile(package)!=contents)fail("native device range mismatch");
+        const auto revoked=Http::post(server.resolved(QUrl("client-device/revoke")),config,"{}",cancel);
+        if(!QJsonDocument::fromJson(revoked).object()["revoked"].toBool())fail("native device revoke failed");
+        bool rejected=false;try{Http::get(server.resolved(QUrl("catalog.json")),config,cancel);}catch(const Error &error){rejected=error.code==FailureCode::DeviceAuthenticationRequired;}
+        if(!rejected)fail("native revoked device was accepted");
+        Controller loggedOut(args[3]+"/logout-profile",{},true);
+        loggedOut.m_autoTimer.stop();loggedOut.m_runningTimer.stop();loggedOut.m_config=config;loggedOut.m_cloudflare=true;
+        loggedOut.m_policyAcceptedAt=QDateTime::currentDateTimeUtc();loggedOut.save();loggedOut.forgetLogin();
+        QElapsedTimer wait;wait.start();
+        while(loggedOut.m_busy&&wait.elapsed()<8000){QCoreApplication::processEvents();QThread::msleep(2);}
+        const auto cleared=readJson(args[3]+"/logout-profile/settings.json");
+        if(loggedOut.m_busy||loggedOut.m_config.device||!loggedOut.m_config.policyVersion.isEmpty()||!cleared["deviceLogin"].toObject().isEmpty()||!cleared["privacyVersion"].toString().isEmpty())fail("already-revoked device did not complete local logout");
+        QTextStream(stdout)<<"PASS native device HTTP enrollment/persistence/catalog/resume/revocation\n";
+    }
     static void run(){
         QTemporaryDir temp;if(!temp.isValid())fail("temporary profile");
         const auto root=temp.path()+"/runtime",profile=temp.path()+"/profile";
@@ -117,6 +158,26 @@ public:
 #endif
         controller.openFolder("root");check(capture.opened.toLocalFile()==profile+"/games","game installation folder stays distinct");
         QDesktopServices::unsetUrlHandler("file");
+        auto device=DeviceIdentity::create();device.registered(QString(32,'A'));
+        const auto message=deviceProofMessage(QString(43,'A'),"GET","/client-device/catalog.json",{},controller.version(),"2026-11-05.3");
+        auto restoredDevice=DeviceIdentity::fromJson(device.toJson());
+        check(verifySignature(message,restoredDevice.sign(message),device.publicKey()),"encrypted device identity survives persistence and signs a server challenge");
+        check(!verifySignature(message+"changed",restoredDevice.sign(message),device.publicKey()),"changing a device request invalidates its signature");
+        auto otherDevice=DeviceIdentity::create();
+        check(otherDevice.publicKey()!=device.publicKey()&&!verifySignature(message,otherDevice.sign(message),device.publicKey()),"separate installations have independent signing keys");
+        auto corrupted=device.toJson();auto blob=QByteArray::fromBase64(corrupted["keyBlob"].toString().toLatin1());blob[blob.size()/2]^=1;corrupted["keyBlob"]=QString::fromLatin1(blob.toBase64());
+        bool rejected=false;try{DeviceIdentity::fromJson(corrupted);}catch(const Error&){rejected=true;}
+        check(rejected,"corrupt encrypted device identity fails closed");
+        const auto savedProfile=temp.path()+"/saved-device-profile";
+        writeJson(savedProfile+"/settings.json",{{"server",channel::server},{"publisherKey",channel::publisherKey},{"gamesRoot",savedProfile+"/games"},{"privacyVersion",privacy::version},{"privacyAcceptedAt",QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},{"deviceLogin",device.toJson()}});
+        {
+            Controller saved(savedProfile,{},false);
+            saved.m_config.server=QUrl(); // No external request in this persistence fixture.
+            saved.restoreCredentials();
+            check(saved.m_config.device&&!saved.needsLogin()&&saved.m_config.cloudflareToken.isEmpty(),"persisted device login does not require an unexpired Cloudflare JWT or another email code");
+            saved.forgetLogin();until([&]{return !saved.m_busy;});
+            check(!saved.m_config.device&&saved.needsLogin()&&readJson(savedProfile+"/settings.json")["deviceLogin"].toObject().isEmpty(),"offline logout still removes the protected local device identity");
+        }
         int completed=0;QObject::connect(&controller,&Controller::authenticationCompleted,&controller,[&]{++completed;});
         controller.finishLogin(controller.m_config,{}, {},{},QStringLiteral("취소했습니다."));
         check(completed==0,"cancelled authentication cannot return focus or claim completion");
@@ -140,6 +201,6 @@ public:
 };
 int main(int argc,char **argv){
     QGuiApplication app(argc,argv);app.setOrganizationName("TeamHJDTests");app.setApplicationName("ClientExperienceTests");app.setQuitOnLastWindowClosed(false);QQuickStyle::setStyle("Basic");
-    try{ClientExperienceFixture::run();return 0;}catch(const std::exception &error){QTextStream(stderr)<<error.what()<<'\n';return 1;}
+    try{if(app.arguments().contains("--device-probe"))ClientExperienceFixture::deviceProbe(app.arguments());else ClientExperienceFixture::run();return 0;}catch(const std::exception &error){QTextStream(stderr)<<error.what()<<'\n';return 1;}
 }
 #include "ClientExperienceTests.moc"

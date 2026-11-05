@@ -22,6 +22,11 @@ import urllib.error
 import urllib.request
 import uuid
 
+if __package__:
+    from .access_policy import DEVICE_PRIVACY_VERSION, SUPPORTED_PRIVACY_VERSIONS, privacy_rank
+else:
+    from access_policy import DEVICE_PRIVACY_VERSION, SUPPORTED_PRIVACY_VERSIONS, privacy_rank
+
 
 MAX_TOKEN_BYTES = 16 * 1024
 MAX_JWKS_BYTES = 256 * 1024
@@ -33,6 +38,7 @@ JWKS_RETRY_SECONDS = 15
 MAX_SESSION_SECONDS = 31 * 24 * 3600
 CLOCK_LEEWAY_SECONDS = 30
 AUDIT_RETENTION_DAYS = 180
+SUPPORTED_CONSENTS = SUPPORTED_PRIVACY_VERSIONS
 ISSUER_PATTERN = re.compile(r"https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com")
 ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,128}")
 
@@ -203,7 +209,7 @@ def _validate_registry(data, now: float) -> list:
             raise ValueError("Invalid verified-user session reference")
         consent = user.get("privacyConsent")
         if consent is not None:
-            if not isinstance(consent, dict) or consent.get("version") != "2026-11-05.1" or consent.get("source") != "authenticated-client-explicit-consent":
+            if not isinstance(consent, dict) or consent.get("version") not in SUPPORTED_CONSENTS or consent.get("source") != "authenticated-client-explicit-consent":
                 raise ValueError("Invalid privacy consent record")
             if not first <= _audit_time(consent.get("recordedAt"), now) <= accessed:
                 raise ValueError("Invalid privacy consent time")
@@ -387,13 +393,39 @@ class CloudflareAccess:
                 selected["lastSessionHash"] = identity.session_hash
                 selected["activeSessions"] = active
                 if consent_version:
-                    if consent_version != "2026-11-05.1":
+                    if consent_version not in SUPPORTED_CONSENTS:
                         raise ValueError("Unsupported consent version")
-                    if selected.get("privacyConsent", {}).get("version") != consent_version:
+                    prior_consent = selected.get("privacyConsent", {}).get("version")
+                    if prior_consent is None or privacy_rank(consent_version) > privacy_rank(prior_consent):
                         selected["privacyConsent"] = {"version": consent_version, "recordedAt": stamp, "source": "authenticated-client-explicit-consent"}
                 _atomic_json(path, data)
         except (OSError, ValueError, TypeError, UnicodeError, RecursionError, OverflowError) as error:
             raise AuditUnavailable("Verified-user storage is unavailable") from error
+
+    def record_device_access(self, email: str, *, consent_version: str) -> bool:
+        """Update an existing verified user; a device never recreates deleted users."""
+        try:
+            if (_email(email) is None or consent_version not in SUPPORTED_CONSENTS
+                    or privacy_rank(consent_version) < privacy_rank(DEVICE_PRIVACY_VERSION)):
+                return False
+            with self._audit_lock, _file_lock(self.root / "verified-users.lock"):
+                path = self.root / "verified-users.json"
+                if not path.exists():
+                    return False
+                now = time.time()
+                data = _read_json(path, MAX_AUDIT_BYTES)
+                users = _validate_registry(data, now)
+                user = next((u for u in users if u["email"].casefold() == email.casefold()), None)
+                if (user is None or now - _audit_time(user["lastAccessAt"], now) >= AUDIT_RETENTION_DAYS * 86400
+                        or user.get("privacyConsent", {}).get("version") not in SUPPORTED_CONSENTS
+                        or privacy_rank(user["privacyConsent"]["version"]) < privacy_rank(consent_version)):
+                    return False
+                effective = max(now, _audit_time(user["lastAccessAt"], now))
+                user["lastAccessAt"] = datetime.fromtimestamp(effective, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+                _atomic_json(path, data)
+                return True
+        except (OSError, ValueError, TypeError, UnicodeError, RecursionError, OverflowError) as error:
+            raise AuditUnavailable("Verified-user device audit unavailable") from error
 
     def maintain_users(self, *, apply: bool = False, remove_email: str | None = None, now: float | None = None) -> dict:
         """Bounded local maintenance; return counts, never identities or session hashes."""
@@ -417,6 +449,12 @@ class CloudflareAccess:
                     else:
                         retained.append(user)
                 changed = len(retained) != len(users)
+                if apply and (self.root / "trusted-devices.json").exists():
+                    try:
+                        from .device_auth import DeviceRegistry
+                    except ImportError:
+                        from device_auth import DeviceRegistry
+                    DeviceRegistry(self.root, clock=lambda: current).maintain({u["email"].casefold() for u in retained})
                 if apply and changed:
                     data["users"] = retained
                     _atomic_json(path, data)

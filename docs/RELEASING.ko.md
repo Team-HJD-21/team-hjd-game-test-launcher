@@ -2,6 +2,12 @@
 
 2026-11-05 · 설치형 배포 계약0.2.0부터. 이전 릴리즈 검증 문서는 각 버전의 역사적 증거이며 현재 서버·인증·클라이언트 상태를 대신하지 않습니다.
 
+0.2.3 기기 로그인 전환은 [기기 인증 절차](DEVICE_LOGIN_PLAN.ko.md)를 함께 따릅니다. 기존 전역0.2.2/동의1 정책을 유지한 채 새 기기 경로만0.2.3/동의3으로 먼저 검증하고, 공개 파일·피드·구형 클라이언트 전환까지 확인한 후 전체 최소 버전/동의를 올립니다. 기존 정책의 동의1 요청이 새 동의3 기록을 낮추면 안 됩니다. 초기 등록은 기존 Access 보호를 유지하고 `/client-device/*`에만 origin 서명 인증을 위임합니다. 실제 관리자 정책 저장·새 동의/사람 OTP·운영 경로 확인이 없으면 이 전환을 완료로 기록하지 않습니다.
+
+Windows0.2.3은CFG·ASLR·고엔트로피·DEP·스택 보호와app/system 전용 import DLL 검색 플래그를 사용합니다. 실제 PE 회귀를 통과해야 합니다. 개발/검사 실행 파일도 공식 Qt DLL을 옆에 배치하며 PATH 검색을 열어 검사만 통과시키지 않습니다. 이는 모든 동적 로딩·OS 침해를 막는다는 뜻이 아닙니다.
+
+Intel Mac의 과거macdeployqt240초 초과는 원인이 미확정입니다. 다음 전체 빌드에서 verbose2와600초 상한으로 배포 단계를 진단합니다. 다른 도구의 제한·의존성 감사·최종delivery 검사 조건은 유지하며 제한만 늘린 사실을 성공으로 쓰지 않습니다.
+
 ## 1. 배포 대상을 구분한다
 
 | 대상 | 적용 방식 |
@@ -25,7 +31,7 @@ main 보호 적용 후에는 변경 브랜치의 PR과 다른 검토자1명의 �
 - CMake의 project VERSION을 새 버전으로 변경합니다. 기존 공개 태그/자산은 바꾸지 않습니다. 아래 값은 매 릴리즈 실제 값으로 수정합니다.
 
 ```powershell
-$version = '0.2.2'
+$version = '0.2.3'
 $qtRoot = '.deps/QtSecurity/6.11.3/msvc2022_64' # install-qt-sdk.py로 검증한 Qt6.11.3
 $releaseRun = Join-Path $PWD ('.local/releases/' + $version + '-' + (Get-Date -Format yyyyMMdd-HHmmss))
 $releaseDist = Join-Path $releaseRun 'dist'

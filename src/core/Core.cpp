@@ -52,7 +52,7 @@ void atomicWrite(const QString &p,const QByteArray &data) {
     if(!QDir().mkpath(QFileInfo(p).absolutePath())) fail(QStringLiteral("저장 폴더를 만들 수 없습니다."));
     noLinks(p);
     QSaveFile f(p); f.setDirectWriteFallback(false);
-    if(!f.open(QIODevice::WriteOnly) || f.write(data)!=data.size() || !f.commit()) fail(QStringLiteral("변경사항을 안전하게 저장하지 못했습니다."));
+    if(!f.open(QIODevice::WriteOnly) || f.write(data)!=data.size() || !f.commit()) fail(QStringLiteral("변경사항을 안전하게 저장하지 못했습니다: %1 (%2)").arg(QFileInfo(p).fileName(),f.errorString()));
 }
 void writeJson(const QString &p,const QJsonObject &o) { atomicWrite(p,QJsonDocument(o).toJson(QJsonDocument::Compact)); }
 QString fileHash(const QString &p,std::atomic_bool *cancel) {

@@ -10,6 +10,7 @@ public:
     ~WindowFrame() override;
     bool nativeEventFilter(const QByteArray &type,void *message,qintptr *result) override;
     void restoreAfterAuthentication();
+    QObject *callbackContext(){return &m_callbacks;}
 private:
     QPointer<QQuickWindow> m_window;
     QObject m_callbacks;

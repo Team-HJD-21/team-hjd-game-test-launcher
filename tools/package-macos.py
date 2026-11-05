@@ -27,7 +27,7 @@ HELPERS = {
 def run(*args):
     try:
         return subprocess.check_output([str(x) for x in args], text=True, stderr=subprocess.STDOUT,
-                                       timeout=240 if Path(str(args[0])).name in ('macdeployqt', 'hdiutil') else 60)
+                                       timeout=600 if Path(str(args[0])).name == 'macdeployqt' else 240 if Path(str(args[0])).name == 'hdiutil' else 60)
     except subprocess.CalledProcessError as error:
         print(error.output, flush=True)
         raise
@@ -64,7 +64,7 @@ def deploy(app, qt, arch):
     # in LC_BUILD_VERSION. The full product must honor its highest dependency.
     info.update(LSMinimumSystemVersion='15.0', NSHighResolutionCapable=True)
     info_path.write_bytes(plistlib.dumps(info))
-    deploy_args = [qt / 'bin/macdeployqt', app, '-always-overwrite']
+    deploy_args = [qt / 'bin/macdeployqt', app, '-always-overwrite', '-verbose=2']
     if app.name == 'TeamHJDClient.app':
         deploy_args.append(f'-qmldir={ROOT / "qml"}')
     run(*deploy_args)

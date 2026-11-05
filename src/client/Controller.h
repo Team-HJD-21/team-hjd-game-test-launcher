@@ -128,5 +128,6 @@ private:
     QDateTime m_policyAcceptedAt;
 #ifdef Q_OS_MACOS
     QByteArray m_pendingPassword,m_pendingSession;
+    QJsonObject m_pendingDevice;
 #endif
 };
