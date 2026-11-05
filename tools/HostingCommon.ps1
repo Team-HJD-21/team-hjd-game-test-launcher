@@ -29,6 +29,20 @@ function Get-OwnedHostingProcess([hashtable]$State,[string]$Executable,[string[]
     $process=Get-Process -Id ([int]$State.pid) -ErrorAction SilentlyContinue
     if(-not $process){return $null}
     try{
+        # A protected Windows service may reuse an old PID after reboot. Use
+        # CIM creation metadata only to prove that different-image PID stale;
+        # an exact creation-time match with a wrong image stays a conflict.
+        $expectedName=[IO.Path]::GetFileNameWithoutExtension($Executable)
+        if(-not [string]::Equals($process.ProcessName,$expectedName,[StringComparison]::OrdinalIgnoreCase)){
+            $created=$null;try{$created=$process.StartTime}catch{}
+            if(-not $created){
+                $metadata=Get-CimInstance Win32_Process -Filter "ProcessId=$($process.Id)" -ErrorAction Stop
+                if(-not $metadata.CreationDate -or $metadata.Name -ine ($process.ProcessName+'.exe')){throw 'Cannot verify reused process metadata.'}
+                $created=$metadata.CreationDate
+            }
+            if($created.ToUniversalTime().Ticks.ToString() -cne [string]$State.startedTicks){return $null}
+            throw 'Process identity conflicts with hosting state.'
+        }
         if($process.StartTime.ToUniversalTime().Ticks.ToString() -cne [string]$State.startedTicks){return $null}
         if(-not [string]::Equals($process.Path,$Executable,[StringComparison]::OrdinalIgnoreCase)){throw 'Process identity conflicts with hosting state.'}
         $command=(Get-CimInstance Win32_Process -Filter "ProcessId=$($process.Id)" -ErrorAction Stop).CommandLine

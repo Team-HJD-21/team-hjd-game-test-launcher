@@ -304,3 +304,10 @@ Get-FileHash -LiteralPath '검증할-artifact.zip' -Algorithm SHA256
 - 원인/확실도: hdiutil -srcfolder가dot-underscore JSON을AppleDouble파일로처리하는경로와일치했으며POSIX복사방식변경후그파일을포함한전체대조가통과해진단을뒷받침했습니다. `._` 파일을검사에서빼는수정은하지않았습니다.
 - 수정: 빈writable이미지→Python파일복사→원본receiptbytesassert→unmount→UDZO변환→최종read-onlymount전체bytes/modes·Applications링크·strictsignature검증. blank create에는 -format을지정하지않고convert에서UDZO를지정합니다(실제hdiutil오류로확인).
 - 성공증거: 최종run41937605235 ARM/Intelpackage/nativeaudit/DMGmount/delivery모두success. native-source검증기가동일한native source와미만료원본을확인했습니다. 사람이메일OTP/Unity실제플레이/재부팅이나macOS12실기를통과했다는증거는아닙니다.
+
+
+## 2026-11-05 — 오래된 origin PID가 svchost로 재사용되어 시작이 막힘
+
+저장한Python PID와현재CIM의svchost.exe/다른생성시각을대조했고8443listener가없었습니다. 보호된Windows프로세스의Get-Process.StartTime/Path는null이라기존helper가소유권확인불가로중지했습니다. 시스템프로세스는종료하지않았습니다.
+
+HostingCommon은이미지가다르면접근가능한생성시각또는CIM의일치하는이미지/생성시각으로저장값과다름을증명할때만stale로반환합니다. 정확한시각인데실행파일/인수가다르거나확인불가하면계속거부합니다. 원래보안회귀8개와추가소유권6개를통과했고서버가다시시작됐습니다. 미래의PID를현재값으로고정하거나임의프로세스를kill하지않습니다. 실제재부팅·로그온시험은별도이며최초서버종료원인은미확정입니다.
