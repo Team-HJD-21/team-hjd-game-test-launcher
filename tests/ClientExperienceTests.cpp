@@ -31,7 +31,7 @@ public:
         QDir().mkpath(root);QDir().mkpath(profile+"/games");
         Controller controller(profile,root,true);
         controller.m_autoTimer.stop();controller.m_runningTimer.stop();
-        controller.m_cloudflare=false;controller.m_config.server=QUrl();
+        controller.m_cloudflare=false;controller.m_config.server=QUrl();controller.m_reduceMotion=false;
         int checks=0;
         auto check=[&](bool ok,const char *label){if(!ok)fail(QString::fromUtf8(label));++checks;QTextStream(stdout)<<"PASS "<<label<<'\n';};
         auto until=[&](const std::function<bool()> &condition){
@@ -81,8 +81,14 @@ public:
         check(controller.view()["launcherChecking"].toBool()&&controller.view()["updateGate"].toString().isEmpty()&&controller.m_updateVerified,"routine check preserves the verified session and has no blocking gate");
         check(!notice->property("opened").toBool()&&!window->property("blockingFlow").toBool()&&status->property("text")==QStringLiteral("버전 확인중"),"routine checks only update the footer and leave the UI usable");
         QSet<int> dots;
+#ifdef Q_OS_MACOS
+        window->setOpacity(1); // A visible macOS surface is needed for animation ticks.
+#endif
         for(int i=0;i<9;++i){dots.insert(window->property("launcherCheckDots").toInt());idle(210);}
         check(dots==QSet<int>{0,1,2,3},"footer dots animate from zero through three");
+        controller.m_reduceMotion=true;emit controller.settingsChanged();idle(40);
+        check(window->property("launcherCheckDots").toInt()==3,"reduced motion uses static dots");
+        controller.m_reduceMotion=false;emit controller.settingsChanged();window->setOpacity(0);
         hold=false;until([&]{return !controller.m_busy;});
         check(status->property("text")==QStringLiteral("최신 런처")&&!notice->property("opened").toBool(),"quiet success restores latest status without a popup");
         hold=true;controller.checkLauncherUpdate(true);
