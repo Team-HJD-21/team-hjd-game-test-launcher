@@ -122,7 +122,9 @@ fullSHA/최종source일치/모든필수회귀/양쪽Mac최종증거를대조한�
 
 **사이트피드는모든파일을공개대조한뒤마지막에게시합니다.** `launcher-stable.json`을 `website/updates/stable.json`으로동일bytes복사하고 `node tools/check-download-site.mjs --update-asset-versions`, `node tools/test-release-feed.mjs`를실행합니다. Pages배포성공및실제HTTPS피드서명/모든URL을확인합니다. 새필수버전/개인정보gate는이후에비공개 `client-policy.json`으로활성화합니다. 포털 `/downloads`를살리지않고기존playtest API도메인도삭제하지않습니다.
 
-0.2.2부터 정식 `release.published`도 사이트 배포를 실행합니다. 워크플로는 검토된 main의 도구로 공개 immutable Release의11개 자산, 고정 공개키의 피드 서명·버전·전체SHA·sequence와6개 설치기/payload의 실제 digest를 확인한 뒤 **이미 서명된 피드 bytes**와 전체 릴리즈 기록을 Pages에 반영합니다. 현재 배포 피드의 sequence보다 낮아지면 거부합니다. 개인키나 운영 인증을 CI에 보내지 않습니다. 배포 실패·도메인 장애·피드 만료를 성공으로 취급하지 말고 해당 Pages run과 실제HTTPS를 확인합니다. main에 아직 이 워크플로가 없던 전환 릴리즈는 위 수동 게시 절차도 수행합니다.
+정식 `release.published`는 `release-site-dispatch.yml`이 받아 `download-site.yml --ref main`을 실행합니다. Pages 환경은 **main 브랜치만 허용**하며 태그를 허용하도록 보호를 풀지 않습니다. 수동 확인은 `gh workflow run release-site-dispatch.yml --ref main`으로 수행하고, 이어 생성된 main의 Pages run까지 성공했는지 확인합니다. GitHub의 workflow_dispatch는 GITHUB_TOKEN으로도 후속 실행을 생성할 수 있습니다. ([공식 문서](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow))
+
+배포는 검토된 main의 도구로 공개 immutable Release의11개 자산, 고정 공개키의 피드 서명·버전·전체SHA·sequence와6개 설치기/payload의 실제 digest를 확인한 뒤 **이미 서명된 피드 bytes**와 전체 릴리즈 기록을 Pages에 반영합니다. 현재 배포 피드의 sequence보다 낮아지면 거부합니다. 개인키나 운영 인증을 CI에 보내지 않습니다. 배포 실패·도메인 장애·피드 만료를 성공으로 취급하지 말고 해당 Pages run과 실제HTTPS를 확인합니다. 전환 릴리즈는 위 수동 게시 절차도 수행합니다.
 
 서명 도구의 Version/MinimumVersion은 필수 인수입니다. 기본값으로 옛 버전을 서명하지 않습니다. 새 안정 버전 공개가 완료되어야 legacy latest 링크와 release event가 바뀌며, 초안·단순 커밋으로는 바뀌지 않습니다.
 
@@ -187,6 +189,6 @@ $privateRoot = Join-Path $PWD '.local/production-distribution'
 
 ## 2026-11-03 추가 기준
 
-[v0.1.4 검증](RELEASE_VALIDATION_0.1.4.md)을 함께 확인한다. 런처 시작 시 이메일 인증보다 먼저 업데이트를 확인하며, 업데이트·인증 모달이 열린 동안 배경 조작을 막는다. `queued-launcher.json`은 다음 안정된 TeamHJDLauncher 실행에서 적용된다. Client 파일만 반복해서 직접 열어 적용 완료로 오인하지 않는다. 설치 게임은 인증/업데이트 확인 실패 모달에서 오프라인 모드로 계속할 수 있다.
+[v0.1.4 검증](RELEASE_VALIDATION_0.1.4.md)은 당시 동작의 기록이다. 런처 시작 시 이메일 인증보다 먼저 업데이트를 확인하며, 업데이트·인증 모달이 열린 동안 배경 조작을 막는다. `queued-launcher.json`은 안정된 TeamHJDLauncher 실행에서 적용된다. Client 파일만 직접 열어 적용 완료로 오인하지 않는다. **0.2.2부터 오프라인 우회는 제거했다.** 현재 정책과 검증은 [v0.2.2](RELEASE_VALIDATION_0.2.2.md)를 우선한다.
 
 Mac CI의 connection/core 테스트는 같은 임시 Keychain에서 서로 다른 unsigned 바이너리의 wrap 항목을 공유하지 않는다. 정해진 disposable Keychain의 해당 테스트 항목만 정리하고 각 바이너리의 실제 protect/unprotect 검사는 유지한다. 테스트 UI의 GitHub API rate-limit 오류와 native 전달 성공을 구분한다.

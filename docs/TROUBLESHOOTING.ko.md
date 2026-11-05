@@ -313,6 +313,12 @@ Get-FileHash -LiteralPath '검증할-artifact.zip' -Algorithm SHA256
 HostingCommon은이미지가다르면접근가능한생성시각또는CIM의일치하는이미지/생성시각으로저장값과다름을증명할때만stale로반환합니다. 정확한시각인데실행파일/인수가다르거나확인불가하면계속거부합니다. 원래보안회귀8개와추가소유권6개를통과했고서버가다시시작됐습니다. 미래의PID를현재값으로고정하거나임의프로세스를kill하지않습니다. 실제재부팅·로그온시험은별도이며최초서버종료원인은미확정입니다.
 
 
+## 2026-11-05 — Release 이벤트의 Pages 배포가 시작 전에 거부됨
+
+환경은 GitHub Actions/Pages, `github-pages` 배포 허용 브랜치가 main뿐인 구성입니다. v0.2.2의 main push 배포41963945322는 성공했지만 Release 이벤트41963948237은 step 없이 실패했습니다. 최소 확인은 해당 job의 check-run annotations와 `environments/github-pages/deployment-branch-policies` GET입니다. annotation에 `Tag "v0.2.2" is not allowed to deploy to github-pages`가 명시되어 원인은 확정입니다. checkout의 ref만 main으로 바꿔도 이벤트의 배포 ref는 바뀌지 않습니다.
+
+태그 배포를 허용하는 대신 Release 전용 dispatcher에서 main의 Pages 워크플로를 호출하도록 분리했습니다. 후속 main 배포가 실제 완료되는지까지 검사하며, 공개 피드 bytes와 latest 설치 링크도 대조합니다. 미래 Release가 만들어질 태그에는 dispatcher 파일이 포함되어야 합니다. 이미 공개된 immutable 태그를 수정하거나 가짜 Release를 만들어 테스트하지 않습니다.
+
 ## 2026-11-05 — 실제 자동 업데이트의 종료된 부모 HANDLE·한글 오류
 
 Windows11/Qt6.11.3/NSIS3.13. 실제0.2.0이0.2.1 설치기를 실행한 뒤 종료되었지만 프로세스 HANDLE이 남았습니다. QueryFullProcessImageName은 ERROR_GEN_FAILURE31, GetProcessTimes 생성 시각은 원본 일치, WaitForSingleObject는 종료 상태였습니다. 기존 liveness용 processStamp의0을 잘못된 요청자로 취급했습니다. controlled Setup만으로는 이 전체 자동 흐름의 성공을 증명하지 못했습니다.

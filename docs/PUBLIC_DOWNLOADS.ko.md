@@ -31,7 +31,7 @@ https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/downl
 
 기본 `latest/download` 링크는 새 stable Release의 같은 파일명으로 자동 전환됩니다. 단순 commit/push, draft 또는 prerelease로는 바뀌지 않습니다. 버전 표시와 새 클라이언트는 별도의 **서명된 정적 피드**를 사용하므로, 발행자는 최종 자산 대조 후 피드를 Pages에 게시해야 합니다. 사이트는 약5분/탭 복귀에 다시 확인합니다. 피드의 날짜는 GitHub 게시 시각이 아닌 서명 피드 발행일입니다. 비공개 게임 BUILD와 런처 Release는 별도입니다.
 
-0.2.2부터 정식 Release의 published 이벤트가 Pages 배포를 시작합니다. 검토된 main의 도구가 이미 공개된 피드의 제품 고정키 서명·순서·버전과 실제 GitHub 파일 digest를 확인한 뒤 동일bytes를 반영하므로 CI에 개인키가 필요하지 않습니다. 사이트의 업데이트 기록도 이 배포에서 전체 공개 Release 원문으로 갱신합니다. 단계가 실패하면 배포를 중단하며, 운영자는 실제 Pages 결과와HTTPS를 확인합니다. 네이티브0.2.2는 사이트와GitHub의서명피드를함께대조해더높은sequence를사용하고,사이트캐시가새버전발견을가리지않도록합니다.
+정식 Release의 published 이벤트는 `release-site-dispatch.yml`을 통해 main의 Pages 배포를 시작합니다. 태그에서 Pages를 직접 실행하면 main 전용 환경 정책에 거부되므로, 환경 보호는 유지하고 명시적인 main workflow_dispatch로 연결합니다. 검토된 main의 도구가 이미 공개된 피드의 제품 고정키 서명·순서·버전과 실제 GitHub 파일 digest를 확인한 뒤 동일bytes를 반영하므로 CI에 개인키가 필요하지 않습니다. 사이트의 업데이트 기록도 이 배포에서 전체 공개 Release 원문으로 갱신합니다. 단계가 실패하면 배포를 중단하며, 운영자는 실제 Pages 결과와HTTPS를 확인합니다. 네이티브0.2.2는 사이트와GitHub의서명피드를함께대조해더높은sequence를사용하고,사이트캐시가새버전발견을가리지않도록합니다.
 
 `releases.html`은 다운로드 페이지의 **업데이트 기록** 링크로 열립니다. 기존과 같은 header·언어 메뉴·색·글꼴·footer를 사용하고 버전·날짜·변경 내용·GitHub 원문 링크만 표시합니다. 기존 기록은 배포 당시의 내용이므로 옛 macOS 최소 버전·오프라인 정책·설치 방식이 현재와 다를 수 있습니다. 현재 이용 안내는 다운로드 페이지와 최신 버전을 기준으로 합니다. 새 안내용 배지·타임라인 장식·상태 인디케이터는 넣지 않습니다.
 

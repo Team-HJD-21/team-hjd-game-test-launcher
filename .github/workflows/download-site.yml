@@ -1,7 +1,5 @@
 name: Deploy launcher download site
 on:
-  release:
-    types: [published]
   push:
     branches: [main]
     paths:

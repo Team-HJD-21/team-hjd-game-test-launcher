@@ -1,0 +1,20 @@
+name: Refresh launcher site after release
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dispatch:
+    if: github.event_name == 'workflow_dispatch' || (!github.event.release.draft && !github.event.release.prerelease)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Deploy the reviewed main branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run download-site.yml --ref main --repo "$GITHUB_REPOSITORY"
