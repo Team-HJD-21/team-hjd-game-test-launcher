@@ -31,6 +31,10 @@ https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/latest/downl
 
 기본 `latest/download` 링크는 새 stable Release의 같은 파일명으로 자동 전환됩니다. 단순 commit/push, draft 또는 prerelease로는 바뀌지 않습니다. 버전 표시와 새 클라이언트는 별도의 **서명된 정적 피드**를 사용하므로, 발행자는 최종 자산 대조 후 피드를 Pages에 게시해야 합니다. 사이트는 약5분/탭 복귀에 다시 확인합니다. 피드의 날짜는 GitHub 게시 시각이 아닌 서명 피드 발행일입니다. 비공개 게임 BUILD와 런처 Release는 별도입니다.
 
+0.2.2부터 정식 Release의 published 이벤트가 Pages 배포를 시작합니다. 검토된 main의 도구가 이미 공개된 피드의 제품 고정키 서명·순서·버전과 실제 GitHub 파일 digest를 확인한 뒤 동일bytes를 반영하므로 CI에 개인키가 필요하지 않습니다. 사이트의 업데이트 기록도 이 배포에서 전체 공개 Release 원문으로 갱신합니다. 단계가 실패하면 배포를 중단하며, 운영자는 실제 Pages 결과와HTTPS를 확인합니다. 네이티브0.2.2는 사이트와GitHub의서명피드를함께대조해더높은sequence를사용하고,사이트캐시가새버전발견을가리지않도록합니다.
+
+`releases.html`은 다운로드 페이지의 **업데이트 기록** 링크로 열립니다. 기존과 같은 header·언어 메뉴·색·글꼴·footer를 사용하고 버전·날짜·변경 내용·GitHub 원문 링크만 표시합니다. 기존 기록은 배포 당시의 내용이므로 옛 macOS 최소 버전·오프라인 정책·설치 방식이 현재와 다를 수 있습니다. 현재 이용 안내는 다운로드 페이지와 최신 버전을 기준으로 합니다. 새 안내용 배지·타임라인 장식·상태 인디케이터는 넣지 않습니다.
+
 페이지에는 제품명, 플레이테스트용 런처라는 짧은 소개, 이메일 인증 후 설치·실행·업데이트·파일 관리를 할 수 있다는 설명과 간단한 실행 안내를 둔다. 세 다운로드 버튼과 버전·게시일, **런처의 이메일 인증 시 인증된 이메일 주소와 인증·접속 시각이 수집·보관된다**는 안내를 유지한다. 마케팅 문구·앱 모형·큰 단계별 카드는 추가하지 않는다. 사용자는 2026-10-31에 짧은 설명 보강과 메인과 동일한 푸터를 요청한 뒤, 서명 관련 첫 실행 FAQ를 추가하도록 요청했다.
 
 다운로드 아래 첫 실행 FAQ는 Windows SmartScreen, macOS 개발자 확인·공증 경고, 계속 차단되거나 손상·악성코드 경고가 있는 경우의 세 접이식 항목이다. 공식 배포처를 신뢰하는 경우의 앱별 실행 절차만 안내한다. Windows 게시자 서명 없음과 macOS ad hoc 서명/Developer ID·공증 없음을 혼동하지 않는다. 운영체제 전체 보호 해제·quarantine 일괄 제거·백신 예외·관리자 실행을 해결책으로 권하지 않는다. 서명 정책이 바뀌면 FAQ도 함께 수정한다. 절차 근거는 [Microsoft 첫 배포 안내](https://learn.microsoft.com/windows/apps/package-and-deploy/publish-first-app#step-6-handle-smartscreen-for-new-apps), [SmartScreen 정책·평판](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation), [Apple 앱 안전하게 열기](https://support.apple.com/ko-kr/102445)다. FAQ의 화면 검수와 실제 각 OS의 경고 재현·해제 검증은 구분한다.

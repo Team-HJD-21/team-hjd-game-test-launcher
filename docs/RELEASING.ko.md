@@ -122,6 +122,12 @@ fullSHA/최종source일치/모든필수회귀/양쪽Mac최종증거를대조한�
 
 **사이트피드는모든파일을공개대조한뒤마지막에게시합니다.** `launcher-stable.json`을 `website/updates/stable.json`으로동일bytes복사하고 `node tools/check-download-site.mjs --update-asset-versions`, `node tools/test-release-feed.mjs`를실행합니다. Pages배포성공및실제HTTPS피드서명/모든URL을확인합니다. 새필수버전/개인정보gate는이후에비공개 `client-policy.json`으로활성화합니다. 포털 `/downloads`를살리지않고기존playtest API도메인도삭제하지않습니다.
 
+0.2.2부터 정식 `release.published`도 사이트 배포를 실행합니다. 워크플로는 검토된 main의 도구로 공개 immutable Release의11개 자산, 고정 공개키의 피드 서명·버전·전체SHA·sequence와6개 설치기/payload의 실제 digest를 확인한 뒤 **이미 서명된 피드 bytes**와 전체 릴리즈 기록을 Pages에 반영합니다. 현재 배포 피드의 sequence보다 낮아지면 거부합니다. 개인키나 운영 인증을 CI에 보내지 않습니다. 배포 실패·도메인 장애·피드 만료를 성공으로 취급하지 말고 해당 Pages run과 실제HTTPS를 확인합니다. main에 아직 이 워크플로가 없던 전환 릴리즈는 위 수동 게시 절차도 수행합니다.
+
+서명 도구의 Version/MinimumVersion은 필수 인수입니다. 기본값으로 옛 버전을 서명하지 않습니다. 새 안정 버전 공개가 완료되어야 legacy latest 링크와 release event가 바뀌며, 초안·단순 커밋으로는 바뀌지 않습니다.
+
+0.2.2의 실제 설치기 검증에는 종료된 부모 HANDLE 보유 회귀와 원시 한글 오류 검사를 포함합니다. `verify-installer-update-windows.ps1`는 정확한 부모의 SafeHandle을 전환 완료까지 유지합니다. `verify-installer-encoding-windows.ps1 -Executable '<최종번들/TeamHJDLauncher.exe>'`는 잘못된 live 이미지 거부·BOM·짝수 UTF-16 바이트·한글 원문·줄바꿈을 확인합니다. 실제 사용자 데이터는 `verify-user-data-preservation.ps1 -Stage Before/After -EvidenceFile '<보호된 로컬 증거 파일>'`로 비교하며 인증값·게임 내용은 출력하지 않습니다.
+
 Windows의 새 서명 피드 실제 전환 검사는 아래 도구로 재현합니다. 공개한 최종 dist를 지정하며, 별도 `.local/static-feed-live-*` 설치/프로필만 만듭니다. 비교 버전만0.0.9로 두고 실제 앱 버전·공개 응답·서명·SHA·tree 검사는 유지합니다. 실제 사용자 설치를 시험하는 명령이 아닙니다.
 
 ```powershell
