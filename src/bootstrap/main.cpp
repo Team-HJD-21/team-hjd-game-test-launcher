@@ -212,7 +212,6 @@ int main(int argc,char **argv){
                 if(changing)store.activate("launcher",folder);
                 QFile::remove(queued);awaitingHealth=true;
                 if(!launchHealthy(root,store,dataRoot))fail(QStringLiteral("새 런처의 정상 실행을 확인하지 못했습니다."));
-                commitBootstrapUpdate(root);QFile::remove(pending);QFile::remove(root+"/launcher/failed-release.json");return 0;
             }catch(const std::exception &failure){
                 // Bundle replacement can fail before the GUI health check (for
                 // example on a read-only DMG). Recover that transaction too;
@@ -229,6 +228,9 @@ int main(int argc,char **argv){
                 }
                 fail(detail+QStringLiteral("\n이전 런처도 시작하지 못했습니다. 공식 설치 파일로 복구해 주세요."));
             }
+            // A healthy GUI already owns this slot. Commit/backup-cleanup
+            // errors must not roll its files back underneath that process.
+            commitBootstrapUpdate(root);QFile::remove(pending);QFile::remove(root+"/launcher/failed-release.json");return 0;
         }
         if(launchHealthy(root,store,dataRoot))return 0;
         if(!store.state("launcher")["previous"].toString().isEmpty()){
