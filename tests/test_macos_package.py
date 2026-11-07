@@ -1,6 +1,9 @@
 """Exercise public Mac artifact audit boundaries without a macOS host."""
 from pathlib import Path
 import runpy
+import hashlib
+import json
+import os
 import stat
 import tempfile
 import unittest
@@ -11,6 +14,26 @@ audit = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools" / "veri
 
 
 class MacPackageAuditTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == 'posix', 'Real POSIX file modes are required for seed auditing')
+    def test_initial_manifest_survives_native_copy_without_relaxing_seed_checks(self):
+        with tempfile.TemporaryDirectory() as temp:
+            seed = Path(temp, 'Resources/seed')
+            seed.mkdir(parents=True)
+            entry = seed / 'client'
+            entry.write_bytes(b'native')
+            entry.chmod(0o644)
+            manifest = {'version': '0.2.4', 'executable': 'TeamHJDClient.app/Contents/MacOS/TeamHJDClient',
+                        'files': [{'path': 'client', 'bytes': 6, 'sha256': hashlib.sha256(b'native').hexdigest(), 'executableFile': False}]}
+            (seed.parent / 'seed-manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
+            self.assertEqual(set(audit['receipt_files'](seed)), {'client'})
+            entry.write_bytes(b'broken')
+            with self.assertRaises(ValueError):
+                audit['receipt_files'](seed)
+            entry.write_bytes(b'native')
+            (seed / '._teamhjd-receipt.json').write_text('{}', encoding='utf-8')
+            with self.assertRaises(ValueError):
+                audit['receipt_files'](seed)
+
     def make_zip(self, path, entries):
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for name, content, mode in entries:

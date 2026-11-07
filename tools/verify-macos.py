@@ -98,7 +98,10 @@ def zip_files(path: Path) -> dict[str, dict]:
 
 
 def receipt_files(seed: Path) -> dict[str, dict]:
-    receipt = json.loads((seed / "._teamhjd-receipt.json").read_text(encoding="utf-8"))
+    manifest = seed.parent / 'seed-manifest.json'
+    if not manifest.exists():
+        manifest = seed / '._teamhjd-receipt.json'
+    receipt = json.loads(manifest.read_text(encoding="utf-8"))
     require(receipt["executable"] == "TeamHJDClient.app/Contents/MacOS/TeamHJDClient", "Incorrect macOS client entrypoint")
     require(bool(re.fullmatch(r"[0-9][A-Za-z0-9._-]{0,80}", receipt["version"])), "Invalid seed version")
     expected: dict[str, dict] = {}
@@ -109,7 +112,10 @@ def receipt_files(seed: Path) -> dict[str, dict]:
         require(isinstance(file.get("executableFile"), bool), "Receipt omits executable permission")
         expected[name] = {"bytes": file["bytes"], "sha256": file["sha256"], "executableFile": file["executableFile"]}
     actual = tree_files(seed)
-    actual.pop("._teamhjd-receipt.json")
+    if manifest.parent == seed:
+        actual.pop("._teamhjd-receipt.json")
+    else:
+        require('._teamhjd-receipt.json' not in actual, 'Initial seed still uses an AppleDouble-reserved receipt')
     require(actual == expected, "Seed file hashes, sizes or executable permissions differ from receipt")
     return actual
 

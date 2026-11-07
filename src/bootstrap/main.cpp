@@ -44,11 +44,12 @@ void showMessage(const QString &message,bool error=false){
 void seedRuntime(const QString &root){
     const auto seed=QDir::cleanPath(QCoreApplication::applicationDirPath()+"/../Resources/seed");
     const bool hasActive=QFileInfo::exists(root+"/launcher/active.json");
-    if(!QFileInfo::exists(seed+"/._teamhjd-receipt.json")){
-        if(hasActive)return; // A verified self-update uses a seed-free wrapper.
+    const auto seedReceipt=bootstrapSeedReceipt(seed);
+    if(!QFileInfo::exists(seedReceipt)){
+        if(hasActive&&!QFileInfo::exists(seed))return; // A verified self-update uses a seed-free wrapper.
         fail(QStringLiteral("초기 런처가 없습니다. 공식 DMG로 설치해 주세요."));
     }
-    auto receipt=readJson(seed+"/._teamhjd-receipt.json");
+    auto receipt=readJson(seedReceipt);
     if(receipt["executable"].toString()!=clientExecutable()||!verifyTree(seed,receipt))fail(QStringLiteral("런처 설치 파일을 확인하지 못했습니다. 공식 DMG를 다시 받아 주세요."));
     bool damagedActive=false;
     if(hasActive){
@@ -200,18 +201,34 @@ int main(int argc,char **argv){
 #endif
             }else{folder=readJson(queued)["candidate"].toString();}
             auto previous=store.state("launcher")["current"].toString();
-            writeJson(pending,{{"previous",previous},{"candidate",folder}});
             auto directory=root+"/launcher/versions/"+folder;
-            if(!verifyTree(directory,readJson(directory+"/._teamhjd-receipt.json")))fail(QStringLiteral("새 런처 파일을 확인하지 못했습니다."));
-            if(args.contains("--runtime-root"))beginBootstrapUpdate(root,directory);
+            const auto candidateReceipt=readJson(directory+"/._teamhjd-receipt.json");
+            if(!verifyTree(directory,candidateReceipt))fail(QStringLiteral("새 런처 파일을 확인하지 못했습니다."));
+            writeJson(pending,{{"previous",previous},{"candidate",folder}});
             const bool changing=folder!=previous;
-            if(changing)store.activate("launcher",folder);
-            QFile::remove(queued);
-            if(launchHealthy(root,store,dataRoot)){commitBootstrapUpdate(root);QFile::remove(pending);QFile::remove(root+"/launcher/failed-release.json");return 0;}
-            recoverBootstrapUpdate(root);if(changing)store.rollback("launcher");QFile::remove(pending);
-            writeJson(root+"/launcher/failed-release.json",{{"version",readJson(directory+"/._teamhjd-receipt.json")["version"]},{"reason","health"},{"at",QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}});
-            if(launchHealthy(root,store,dataRoot)){if(!args.contains("--noninteractive-test"))showMessage(QStringLiteral("새 런처를 시작하지 못해 이전 버전으로 복원했습니다."));return 0;}
-            fail(QStringLiteral("런처를 시작하지 못했습니다. 설치 폴더를 확인하세요."));
+            bool awaitingHealth=false;
+            try{
+                if(args.contains("--runtime-root"))beginBootstrapUpdate(root,directory);
+                if(changing)store.activate("launcher",folder);
+                QFile::remove(queued);awaitingHealth=true;
+                if(!launchHealthy(root,store,dataRoot))fail(QStringLiteral("새 런처의 정상 실행을 확인하지 못했습니다."));
+                commitBootstrapUpdate(root);QFile::remove(pending);QFile::remove(root+"/launcher/failed-release.json");return 0;
+            }catch(const std::exception &failure){
+                // Bundle replacement can fail before the GUI health check (for
+                // example on a read-only DMG). Recover that transaction too;
+                // retaining its queue makes every subsequent launch retry it.
+                const auto detail=QString::fromUtf8(failure.what());
+                recoverBootstrapUpdate(root);
+                if(store.state("launcher")["current"].toString()!=previous)store.rollback("launcher");
+                if(QFileInfo::exists(queued)&&!QFile::remove(queued))fail(QStringLiteral("실패한 업데이트 예약을 정리하지 못했습니다."));
+                if(QFileInfo::exists(pending)&&!QFile::remove(pending))fail(QStringLiteral("실패한 업데이트 상태를 정리하지 못했습니다."));
+                writeJson(root+"/launcher/failed-release.json",{{"version",candidateReceipt["version"]},{"reason",awaitingHealth?"health":"bootstrap"},{"detail",detail},{"at",QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}});
+                if(launchHealthy(root,store,dataRoot)){
+                    if(!args.contains("--noninteractive-test"))showMessage(detail+QStringLiteral("\n이전 런처를 유지했습니다. 문제를 해결한 뒤 업데이트를 다시 시도해 주세요."));
+                    return 0;
+                }
+                fail(detail+QStringLiteral("\n이전 런처도 시작하지 못했습니다. 공식 설치 파일로 복구해 주세요."));
+            }
         }
         if(launchHealthy(root,store,dataRoot))return 0;
         if(!store.state("launcher")["previous"].toString().isEmpty()){

@@ -49,7 +49,7 @@ def main():
                     if method == 'ditto':
                         subprocess.run(['/usr/bin/ditto', str(source), str(app)], check=True, capture_output=True, timeout=120)
                     elif method == 'finder':
-                        code = 'on run argv\ntell application "Finder" to duplicate (POSIX file (item 1 of argv)) to (POSIX file (item 2 of argv))\nend run'
+                        code = 'on run argv\nset sourceItem to (POSIX file (item 1 of argv)) as alias\nset destinationFolder to (POSIX file (item 2 of argv)) as alias\ntell application "Finder" to duplicate sourceItem to destinationFolder\nend run'
                         subprocess.run(['osascript', '-e', code, str(source), str(folder)], check=True, capture_output=True, timeout=45)
                     else:
                         shutil.copytree(source, app)
@@ -61,9 +61,13 @@ def main():
                     item['changedFiles'] = sorted(k for k in set(original) & set(copied) if original[k] != copied[k])
                     signature = subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], capture_output=True, timeout=30)
                     item['strictSignature'] = signature.returncode == 0
-                    launched = subprocess.run([str(app / 'Contents/MacOS/TeamHJDLauncher'), '--noninteractive-test'], capture_output=True, text=True, timeout=45)
+                    # A detached GUI inherits stdout/stderr. A pipe would keep
+                    # communicate() waiting after the bootstrap itself exited.
+                    log = folder / 'bootstrap-output.txt'
+                    with log.open('w', encoding='utf-8') as output:
+                        launched = subprocess.run([str(app / 'Contents/MacOS/TeamHJDLauncher'), '--noninteractive-test'], stdout=output, stderr=output, timeout=45)
                     item['exitCode'] = launched.returncode
-                    item['error'] = launched.stderr.strip()[-1600:]
+                    item['error'] = log.read_text(encoding='utf-8', errors='replace').strip()[-1600:]
                     state_path = runtime / 'launcher/running.json'
                     item['guiHealth'] = False
                     if state_path.exists():
@@ -79,6 +83,8 @@ def main():
                             assert process_path(state['pid']) != expected
                 except Exception as exc:
                     item['probeError'] = str(exc)[:1000]
+                    if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
+                        item['probeErrorDetail'] = exc.stderr.decode('utf-8', errors='replace')[:1000]
                 finally:
                     if runtime.exists():
                         runtime.rename(runtime.with_name(runtime.name + '-diagnostic-' + method))
