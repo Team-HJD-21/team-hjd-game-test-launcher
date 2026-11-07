@@ -33,6 +33,10 @@
     <p class="description" data-i18n="historyIntro">버전별 변경 사항과 배포 당시의 안내입니다. 현재 설치 방법은 다운로드 페이지를 확인하세요.</p>
     <div class="release-history">
 <!-- release-history:start -->
+<article class="release-entry" id="v0.2.4"><header><h2>v0.2.4 — Mac 설치·업데이트 복구</h2><div class="release-meta"><time datetime="2026-11-07T08:23:08Z">2026-11-07</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.2.4">GitHub Release</a></div></header><div class="release-notes"><p>Mac 설치 뒤 DMG를 다시 설치하라는 안내와 업데이트 반복을 수정했습니다.</p>
+<ul><li>macOS 기본 복사 과정에서 필수 검증 파일이 누락되지 않도록 초기 설치 manifest 위치를 수정했습니다.</li><li>앱 교체 실패 시 이전 버전을 보존하고 같은 업데이트를 자동 반복하지 않습니다.</li><li>읽기 전용 디스크와 설치 폴더 쓰기 권한 문제를 구분해 안내합니다.</li><li>ARM·Intel의 실제 DMG 복사·첫 실행·권한 실패 복원·재실행 검사를 추가했습니다.</li></ul>
+<p>0.2.3 앱 자체가 실행되지 않으면 새 DMG의 앱을 응용 프로그램 또는 ~/Applications에 한 번 새로 복사하세요. 게임과 설정을 삭제할 필요는 없습니다. 실행 가능한 기존 런처는 업데이트 시작 버튼을 사용하세요.</p>
+<p>macOS15 이상을 지원합니다. Windows Authenticode와 Apple Developer ID·공증은 아직 제공하지 않습니다. 보안 기능을 끄거나 백신 예외를 추가하지 마세요. 사람의 Mac 이메일 인증·게임 플레이·재부팅은 별도 검증 범위입니다.</p></div></article>
 <article class="release-entry" id="v0.2.3"><header><h2>v0.2.3 — 기기 로그인 유지와 사용성 개선</h2><div class="release-meta"><time datetime="2026-11-05T15:50:16Z">2026-11-05</time><a href="https://github.com/Team-HJD-21/team-hjd-game-test-launcher/releases/tag/v0.2.3">GitHub Release</a></div></header><div class="release-notes"><p>이메일 인증 후 기기 로그인을 유지하고, 평소 버전 확인 표시를 간소화했습니다.</p>
 <ul><li>최초 이메일 인증 후 암호화된 기기 키로 로그인을 유지합니다. 로그아웃·운영자 회수·키 손상/분실·180일 미사용 시 다시 인증합니다. 기존 사용자는 기기 등록 안내를 확인하고 동의한 뒤 진행합니다.</li><li>인증과 서버 확인을 마치면 런처 창으로 돌아옵니다. OS가 포커스를 허용하지 않으면 작업표시줄 또는 Dock의 런처를 선택하세요.</li><li>파일 메뉴에 <strong>런처 설치 폴더 열기</strong>를 추가했습니다. 도움말의 런처 정보에서도 설치 경로를 확인할 수 있습니다.</li><li>주기·화면 복귀 시 버전 확인은 우측 하단의 <strong>버전 확인중</strong>과 점으로 표시합니다. 실제 업데이트는 별도 승인·진행 창을 유지합니다.</li><li>기기 요청의 일회용 서명, 접근 회수와 손상 처리, Windows 실행 파일 보호를 보완했습니다.</li></ul>
 <p>Windows는Setup, Apple Silicon/Intel Mac은각 아키텍처DMG로 설치합니다. 게임·설정은 같은 사용자 프로필에 보존되며 앱 제거와 로그아웃은 별개입니다. 게임 업데이트는 업데이트 버튼으로 적용하고, 플레이에는 서버 연결이 필요합니다.</p>
