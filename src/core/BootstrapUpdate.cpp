@@ -6,8 +6,10 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QProcess>
-#include <QStorageInfo>
 #include <QUuid>
+#ifdef Q_OS_MACOS
+#include <sys/mount.h>
+#endif
 
 namespace hjd {
 namespace {
@@ -148,8 +150,10 @@ void beginBootstrapUpdate(const QString &root,const QString &payload){
     }catch(...){recoverBootstrapUpdate(root);throw;}
 #else
     auto target=targetBundle(root),parent=QFileInfo(target).absolutePath();
-    const QStorageInfo volume(parent);
-    if(volume.isValid()&&volume.isReadOnly())fail(QStringLiteral("읽기 전용 디스크에서는 런처를 업데이트할 수 없습니다. DMG 안의 앱을 응용 프로그램 또는 사용자 응용 프로그램(~/Applications) 폴더로 복사한 뒤, 복사한 앱을 실행해 주세요."));
+    // statfs resolves APFS firmlinks (including /var on the writable Data
+    // volume). Mapping the path to the sealed root mount can misclassify it.
+    struct statfs volume{};
+    if(::statfs(QFile::encodeName(parent).constData(),&volume)==0&&(volume.f_flags&MNT_RDONLY))fail(QStringLiteral("읽기 전용 디스크에서는 런처를 업데이트할 수 없습니다. DMG 안의 앱을 응용 프로그램 또는 사용자 응용 프로그램(~/Applications) 폴더로 복사한 뒤, 복사한 앱을 실행해 주세요."));
     if(!QFileInfo(parent).isWritable())fail(QStringLiteral("런처가 설치된 폴더에 쓰기 권한이 없습니다. 앱을 사용자 응용 프로그램(~/Applications) 폴더로 옮겨 실행한 뒤 업데이트를 다시 시도해 주세요."));
     auto prepared=parent+"/.TeamHJDLauncher-update-"+id+".app",saved=parent+"/.TeamHJDLauncher-backup-"+id+".app";
     journal["bundle"]=target;journal["bundlePrepared"]=prepared;journal["bundleBackup"]=saved;validateBundle(journal);
