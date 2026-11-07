@@ -1,6 +1,6 @@
 # 0.2.4 Mac 설치·업데이트 검증
 
-2026-11-07 KST. Mac에서 DMG 복구 안내와 업데이트가 반복되는 문제를 수정한다. 공개 전 후보이며, 아래 진행 중 검사가 끝나기 전에는 배포 완료로 취급하지 않는다.
+2026-11-07 KST. Mac에서 DMG 복구 안내와 업데이트가 반복되는 문제를 수정한다. 최종 후보의 필수 검증을 완료했다. 공개 상태·파일 식별은 릴리즈 이후 기록과 실제 GitHub 릴리즈를 함께 확인한다.
 
 ## 확인한 원인
 
@@ -19,7 +19,7 @@
 
 ## 검사 상태
 
-최종 native source는 `a9c1b8e5e7958d86089a54cfa526c0f8b3e1ceee`이며 전체 ARM·Intel run42353603435의 양쪽 native build·검사를 통과했다. 최종 패키지·DMG·delivery 결과는 완료 후 갱신한다.
+최종 native source는 `a9c1b8e5e7958d86089a54cfa526c0f8b3e1ceee`이며 전체 ARM·Intel run42353603435의 **native·package 전체4job을 통과**했다. 양쪽6개 CTest와 실제 native 기기 HTTP 검사, 의존성·파일/권한·strict 서명 감사, DMG read-only mount, 실제 DMG→ditto 복사→전체 bytes/modes/서명 동일→첫 GUI health를 확인했다. 쓰기 불가 설치 위치의 이전 GUI 보존·queue/pending 정리·재실행 시 미반복, 권한 복원 후 정상 교체·seed-free 재실행·실패 health 복원도 양쪽에서 통과했다.
 
 Windows11/MSVC2022/Qt6.11.3 최종11/11,44.89초를 통과했다. 별도 TestPackage 설치·복구·제거·재설치·설정/게임/unknown 파일 보존과 최종 Setup의 정확한 부모 대기·새 GUI health·이전 슬롯 보존도 통과했다. 검증 전용 등록은 NSIS 임시 자식 제거기 종료까지 확인해 정리했다. 정상 사용자 설치는 대상으로 지정하지 않았다. 최종 Windows 공개 배포 폴더·Setup의 Defender 검사도 위협 없음/종료0이었다.
 
