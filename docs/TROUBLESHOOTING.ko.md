@@ -1,5 +1,11 @@
 # 프로젝트 장애 대응 기록
 
+## 2026-11-07 — Mac 설치 후 DMG 복구 안내·업데이트 반복
+
+공개0.2.3의 ARM·Intel DMG를 검증한 뒤 macOS `ditto`로 앱을 복사하자 필수 `._teamhjd-receipt.json`이 AppleDouble 취급으로 누락됐다. 실제 실행기의 공식 DMG 안내와 strict 서명 실패를 양쪽에서 재현했다. Python copytree만 사용한 이전 검사는 이 차이를 놓쳤다.
+
+0.2.4는 초기 manifest를 seed 밖의 일반 이름 `seed-manifest.json`으로 옮긴다. 파일 해시·권한·앱 서명 검사를 유지하며 실제 최종 DMG→native copy→첫 실행을 배포 조건에 추가한다. 교체 전 실패 시에도 이전 버전 복원과 queue·pending 정리, 재실행 시 미반복을 검사한다. 세부 증거·범위·현재 공개 여부는 [0.2.4 검증](RELEASE_VALIDATION_0.2.4.md)을 따른다. 앱 자체가 실행되지 않는 손상된 초기 설치는 수정된 DMG를 한 번 복사해 복구한다. 검증 파일을 임의 생성하거나 Gatekeeper·서명·해시를 해제하지 않는다.
+
 ## 2026-11-05 — 기기 회수·인증 창 복귀와 후보 검사
 
 추가 진단run42013676617의Python3.13.17/ARM Mac 스레드가HTTPServer.server_bind→socket.getfqdn('127.0.0.1')→gethostbyaddr에서20초 이상 머문 것을 확인했습니다. 익명 요청이나 기기 서명 검증 전의 fixture 준비 지연입니다. 해당 단독 loopback fixture의 서버 생성 동안만 reverse-DNS 결과를localhost로 고정하고 원래5초 준비 상한으로 되돌렸습니다. 제품 DNS/TLS·JWT·서명 검증은 변경하지 않았습니다. 실제품 화면의 남아 있던 오프라인 플레이 안내2곳도 접속 필수 정책에 맞췄습니다.
