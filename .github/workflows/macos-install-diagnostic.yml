@@ -1,0 +1,28 @@
+name: Diagnose published macOS installation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Probe verified public DMG through native copy paths
+        run: python3 tools/diagnose-macos-install.py --arch ${{ matrix.arch }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: macos-install-diagnostic-${{ matrix.arch }}
+          path: macos-install-diagnostic.json
+          if-no-files-found: error
+          retention-days: 7
