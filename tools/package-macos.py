@@ -248,7 +248,11 @@ def main():
     print(f'Compressing {len(manifest["files"])} payload files', flush=True)
     zip_tree(payload, args.output / f'TeamHJD-LauncherPayload-macOS-{args.arch}.zip')
     write_json(payload / '._teamhjd-receipt.json', manifest)
-    shutil.copytree(payload, launcher / 'Contents/Resources/seed', symlinks=False)
+    seed = launcher / 'Contents/Resources/seed'
+    shutil.copytree(payload, seed, symlinks=False)
+    # Finder/copyfile/ditto reserves ._* for AppleDouble metadata. Keep the
+    # signed initial manifest outside the seed tree under an ordinary name.
+    (seed / '._teamhjd-receipt.json').rename(launcher / 'Contents/Resources/seed-manifest.json')
     shutil.copy2(ROOT / 'docs/PLAYER_GUIDE_MACOS.ko.md', portable / '시작하기.md')
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', portable)
     shutil.copytree(ROOT / 'legal', portable / 'legal')
@@ -280,8 +284,8 @@ def main():
         run('hdiutil','attach','-nobrowse','-mountpoint',mount,working_disk);attached=True
         (mount/'.metadata_never_index').touch()
         shutil.copytree(disk_source,mount,dirs_exist_ok=True,symlinks=True)
-        mounted_receipt=mount/launcher.name/'Contents/Resources/seed/._teamhjd-receipt.json'
-        assert mounted_receipt.read_bytes()==(launcher/'Contents/Resources/seed/._teamhjd-receipt.json').read_bytes(),'Disk image lost its regular JSON receipt'
+        mounted_receipt=mount/launcher.name/'Contents/Resources/seed-manifest.json'
+        assert mounted_receipt.read_bytes()==(launcher/'Contents/Resources/seed-manifest.json').read_bytes(),'Disk image lost its signed seed manifest'
     finally:
         if attached:run('hdiutil','detach',mount)
     run('hdiutil','convert',working_disk,'-format','UDZO','-o',disk)

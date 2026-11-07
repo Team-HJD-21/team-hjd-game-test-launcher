@@ -197,7 +197,7 @@ jobs:
           retention-days: 3
           compression-level: 0
       - name: Verify native bootstrap activation and failed-health rollback
-        run: python tools/test-macos-delivery.py --app dist-macos/work/portable/TeamHJDLauncher.app --roundtrip "$RUNNER_TEMP/roundtrip" --arch ${{ matrix.arch }}
+        run: python tools/test-macos-delivery.py --app dist-macos/work/portable/TeamHJDLauncher.app --dmg dist-macos/TeamHJD-GameTestLauncher-macOS-${{ matrix.arch }}.dmg --roundtrip "$RUNNER_TEMP/roundtrip" --arch ${{ matrix.arch }}
       - name: Retain verified public artifacts and acceptance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

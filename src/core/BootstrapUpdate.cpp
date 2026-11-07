@@ -7,6 +7,9 @@
 #include <QRegularExpression>
 #include <QProcess>
 #include <QUuid>
+#ifdef Q_OS_MACOS
+#include <sys/mount.h>
+#endif
 
 namespace hjd {
 namespace {
@@ -53,6 +56,12 @@ QString bootstrapExecutable(const QString &payload){
     return payload+"/bootstrap/TeamHJDLauncher.app/Contents/MacOS/TeamHJDLauncher";
 #endif
 }
+QString bootstrapSeedReceipt(const QString &seed){
+    // The manifest lives beside the seed: macOS copyfile/ditto treats ._*
+    // inside an application as AppleDouble metadata and can omit it.
+    const auto installed=QFileInfo(seed).absolutePath()+"/seed-manifest.json";
+    return QFileInfo::exists(installed)?installed:seed+"/._teamhjd-receipt.json";
+}
 void rememberBootstrap(const QString &root){
     const auto executable=QDir::cleanPath(QCoreApplication::applicationFilePath());
     const auto normalized=QDir::cleanPath(QFileInfo(root).absoluteFilePath());
@@ -87,7 +96,8 @@ bool bootstrapCurrent(const QString &root,const QString &payload){
         // the actual installed bundle's strict signature instead of comparing
         // two different, valid resource envelopes byte-for-byte.
         const auto bundle=targetBundle(root),seed=bundle+"/Contents/Resources/seed";
-        if(!QFileInfo::exists(seed+"/._teamhjd-receipt.json")||!verifyTree(seed,readJson(seed+"/._teamhjd-receipt.json")))return false;
+        const auto seedReceipt=bootstrapSeedReceipt(seed);
+        if(!QFileInfo::exists(seedReceipt)||!verifyTree(seed,readJson(seedReceipt)))return false;
         QProcess signature;signature.start("/usr/bin/codesign",{"--verify","--deep","--strict",bundle});
         if(!signature.waitForFinished(15000)){signature.kill();signature.waitForFinished(3000);return false;}
         if(signature.exitStatus()!=QProcess::NormalExit||signature.exitCode()!=0)return false;
@@ -140,6 +150,11 @@ void beginBootstrapUpdate(const QString &root,const QString &payload){
     }catch(...){recoverBootstrapUpdate(root);throw;}
 #else
     auto target=targetBundle(root),parent=QFileInfo(target).absolutePath();
+    // statfs resolves APFS firmlinks (including /var on the writable Data
+    // volume). Mapping the path to the sealed root mount can misclassify it.
+    struct statfs volume{};
+    if(::statfs(QFile::encodeName(parent).constData(),&volume)==0&&(volume.f_flags&MNT_RDONLY))fail(QStringLiteral("읽기 전용 디스크에서는 런처를 업데이트할 수 없습니다. DMG 안의 앱을 응용 프로그램 또는 사용자 응용 프로그램(~/Applications) 폴더로 복사한 뒤, 복사한 앱을 실행해 주세요."));
+    if(!QFileInfo(parent).isWritable())fail(QStringLiteral("런처가 설치된 폴더에 쓰기 권한이 없습니다. 앱을 사용자 응용 프로그램(~/Applications) 폴더로 옮겨 실행한 뒤 업데이트를 다시 시도해 주세요."));
     auto prepared=parent+"/.TeamHJDLauncher-update-"+id+".app",saved=parent+"/.TeamHJDLauncher-backup-"+id+".app";
     journal["bundle"]=target;journal["bundlePrepared"]=prepared;journal["bundleBackup"]=saved;validateBundle(journal);
     try{
@@ -149,7 +164,7 @@ void beginBootstrapUpdate(const QString &root,const QString &payload){
             copy(source+"/"+relative,prepared+"/"+relative.mid(QStringLiteral("TeamHJDLauncher.app/").size()));
         }
         writeJson(root+"/bootstrap-update.json",journal);
-        if(!QDir().rename(target,saved)||!QDir().rename(prepared,target))fail(QStringLiteral("앱 갱신 권한이 없습니다. 새 DMG로 설치해 주세요."));
+        if(!QDir().rename(target,saved)||!QDir().rename(prepared,target))fail(QStringLiteral("런처 앱을 교체하지 못했습니다. 설치 폴더의 권한과 여유 공간을 확인하거나 사용자 응용 프로그램(~/Applications) 폴더로 옮긴 뒤 다시 시도해 주세요."));
     }catch(...){if(QFileInfo::exists(root+"/bootstrap-update.json"))recoverBootstrapUpdate(root);else removeBackup(prepared);throw;}
 #endif
 }

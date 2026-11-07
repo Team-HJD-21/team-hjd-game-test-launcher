@@ -11,6 +11,7 @@ import signal
 import subprocess
 import time
 import uuid
+import runpy
 
 
 def load(path):
@@ -73,11 +74,31 @@ def prepare_failed_health_fixture(rejected, executable, fixture):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--app', type=Path, required=True)
+    parser.add_argument('--dmg', type=Path, required=True)
     parser.add_argument('--roundtrip', type=Path, required=True)
     parser.add_argument('--arch', choices=['arm64', 'x64'], required=True)
     args = parser.parse_args()
     print('Checking unpacked native GUI', flush=True)
     output = args.app.resolve().parents[2]
+    # Exercise the real system copy operation from the final read-only DMG.
+    # Python copytree preserves ._* files which Finder/copyfile/ditto omit.
+    installation = output / 'native-install/Applications'
+    installation.mkdir(parents=True)
+    installed_app = installation / 'TeamHJDLauncher.app'
+    mount = output / 'native-install/mounted'
+    mount.mkdir()
+    subprocess.run(['hdiutil', 'attach', '-readonly', '-nobrowse', '-mountpoint', str(mount), str(args.dmg.resolve())], check=True, timeout=120, capture_output=True)
+    try:
+        subprocess.run(['/usr/bin/ditto', str(mount / installed_app.name), str(installed_app)], check=True, timeout=120)
+    finally:
+        subprocess.run(['hdiutil', 'detach', str(mount)], check=True, timeout=60, capture_output=True)
+    audit = runpy.run_path(str(Path(__file__).resolve().with_name('verify-macos.py')))
+    assert audit['tree_files'](installed_app) == audit['tree_files'](args.app), 'Native copy changed signed application bytes or modes'
+    assert (installed_app/'Contents/Resources/seed-manifest.json').is_file()
+    assert not (installed_app/'Contents/Resources/seed/._teamhjd-receipt.json').exists()
+    subprocess.run(['codesign','--verify','--deep','--strict',str(installed_app)],check=True,timeout=90,capture_output=True)
+    args.app = installed_app
+    print('PASS actual DMG native-copy installation preserves the complete signed app and seed manifest', flush=True)
     active = load(args.roundtrip / 'launcher/active.json')['current']
     extracted = args.roundtrip / 'launcher/versions' / active
     version = load(extracted / '._teamhjd-receipt.json')['version']
@@ -124,6 +145,27 @@ def main():
     subprocess.run(['codesign','--verify','--deep','--strict',str(args.app)],check=True,timeout=90,capture_output=True)
     target = runtime / 'launcher/versions' / active
     shutil.copytree(extracted, target)
+    # A non-writable installation must retain the old version and clear both
+    # queue and pending state, rather than repeat the same failed activation.
+    original_mode = installation.stat().st_mode & 0o777
+    installation.chmod(0o555)
+    try:
+        assert not os.access(installation, os.W_OK), 'Permission regression requires an unprivileged runner'
+        save(runtime / 'queued-launcher.json', {'candidate': active})
+        failed = launch(seed['current'])
+        assert failed['current'] == seed['current']
+        failure = load(runtime/'launcher/failed-release.json')
+        assert failure['reason'] == 'bootstrap' and failure['version'] == version
+        assert not (runtime/'queued-launcher.json').exists()
+        assert not (runtime/'pending-launcher.json').exists()
+        assert not (runtime/'bootstrap-update.json').exists()
+        stop_owned(runtime)
+        launch(seed['current'])
+        stop_owned(runtime)
+        assert not (runtime/'queued-launcher.json').exists(), 'A failed update was queued again automatically'
+    finally:
+        installation.chmod(original_mode)
+    print('PASS denied app replacement preserves the old client, clears activation state and does not loop', flush=True)
     save(runtime / 'queued-launcher.json', {'candidate': active})
     applied = launch(active)
     assert applied['current'] == active and applied['previous'] == seed['current']
@@ -149,6 +191,9 @@ def main():
     assert load(runtime / 'launcher/failed-release.json')['version']==version
     stop_owned(runtime)
     result = {'result': 'PASS', 'arch': args.arch, 'nativePackagedGUI': True,
+              'actualDmgNativeCopyBytesModesAndSignature': True,
+              'nonWritableInstallPreservesPreviousAndClearsQueue': True,
+              'nonWritableInstallRelaunchDoesNotRetryActivation': True,
               'interruptedInitialCopyRecovery': True,
               'nativeBootstrapSeedAndFrameAck': True, 'queuedPayloadActivation': True,
               'nativeStableAppAtomicallyRefreshedFromVersionInfoFixture': True, 'seedFreeStableAppRelaunch': True,

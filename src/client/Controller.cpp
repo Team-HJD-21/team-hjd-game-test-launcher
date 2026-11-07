@@ -386,10 +386,13 @@ void Controller::checkLauncherUpdate(bool force){
             m_updateSequence=release->sequence;m_releaseEnvelope=*raw;
             m_knownFailedRelease=false;
             const auto failurePath=m_launcherRoot+"/launcher/failed-release.json";
-            if(QFileInfo::exists(failurePath)&&readJson(failurePath)["version"].toString()==release->version){
+            const auto previousFailure=QFileInfo::exists(failurePath)?readJson(failurePath):QJsonObject{};
+            if(previousFailure["version"].toString()==release->version){
                 if(!m_retryFailedOnce){
                     m_updateVerified=false;m_online=false;m_knownFailedRelease=true;m_updateGate="error";
-                    m_updateError=QStringLiteral("새 런처의 정상 실행을 확인하지 못해 이전 버전으로 복원했습니다. 새 패치를 자동으로 확인합니다. 복구를 마쳤다면 다시 설치를 시도할 수 있습니다.");
+                    m_updateError=previousFailure["reason"].toString()=="bootstrap"
+                        ?previousFailure["detail"].toString()+QStringLiteral("\n이전 런처는 유지했습니다. 설치 위치·권한 문제를 해결한 뒤 ‘다시 설치 시도’를 눌러 주세요. 같은 업데이트를 자동으로 반복하지 않습니다.")
+                        :QStringLiteral("새 런처의 정상 실행을 확인하지 못해 이전 버전으로 복원했습니다. 새 패치를 자동으로 확인합니다. 복구를 마쳤다면 다시 설치를 시도할 수 있습니다.");
                     m_updateRetry.start(300000);return;
                 }
             }

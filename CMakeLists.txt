@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(TeamHJDGameTestLauncher VERSION 0.2.3 LANGUAGES C CXX)
+project(TeamHJDGameTestLauncher VERSION 0.2.4 LANGUAGES C CXX)
 if(WIN32)
   enable_language(RC)
 elseif(NOT APPLE)
