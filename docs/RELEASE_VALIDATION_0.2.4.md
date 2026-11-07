@@ -19,7 +19,11 @@
 
 ## 검사 상태
 
-최종 native source는 `579f774aba8814bea3e136d43469c1101725f329`이며 전체 ARM·Intel run42353000447을 실행했다. Windows와 Mac의 최종 결과·파일 식별은 완료 후 갱신한다.
+최종 native source는 `a9c1b8e5e7958d86089a54cfa526c0f8b3e1ceee`이며 전체 ARM·Intel run42353603435의 양쪽 native build·검사를 통과했다. 최종 패키지·DMG·delivery 결과는 완료 후 갱신한다.
+
+Windows11/MSVC2022/Qt6.11.3 최종11/11,44.89초를 통과했다. 별도 TestPackage 설치·복구·제거·재설치·설정/게임/unknown 파일 보존과 최종 Setup의 정확한 부모 대기·새 GUI health·이전 슬롯 보존도 통과했다. 검증 전용 등록은 NSIS 임시 자식 제거기 종료까지 확인해 정리했다. 정상 사용자 설치는 대상으로 지정하지 않았다. 최종 Windows 공개 배포 폴더·Setup의 Defender 검사도 위협 없음/종료0이었다.
+
+첫 sandbox 실행의 TEMP/루프백 실패는 같은 바이너리의 정상 승인 실행으로 대조했다. 전역 TEMP·ACL·방화벽·보안 설정이나 검증 assertion은 변경하지 않았다. 초기 Mac 후보의 추가 QStorageInfo 기반 읽기 전용 검사는 쓰기 가능한 APFS fixture를 오인해 실패했다. 실제 경로를 조회하는 statfs로 바꾼 뒤 양쪽 native 검사를 통과했으며, 그 실패 후보는 공개하지 않는다. 앱 교체 복원 범위는 GUI health까지이고, 이미 건강한 GUI가 실행 중인 commit/백업 정리 실패를 파일 rollback으로 처리하지 않는다.
 
 새 Mac delivery 검사는 실제 최종 DMG를 읽기 전용으로 mount하고 `ditto`로 앱을 설치한다. 원본과 전체 bytes·modes·strict 서명이 같아야 첫 실행을 통과한다. 쓰기 불가 설치 위치에서 이전 GUI 보존·queue/pending 정리·재실행 시 미반복을 확인한 뒤, 권한을 복원해 정상 업데이트와 health 실패 복원을 검사한다.
 
