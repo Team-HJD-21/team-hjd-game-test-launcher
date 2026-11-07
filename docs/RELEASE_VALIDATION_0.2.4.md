@@ -6,7 +6,7 @@
 
 공개 0.2.3 DMG의 크기·SHA256을 확인하고 ARM·Intel에서 macOS 기본 복사 도구 `ditto`로 앱을 설치했다. 두 환경 모두 `Contents/Resources/seed/._teamhjd-receipt.json`만 누락됐다. 앱의 strict 서명 검증도 실패했고 실제 실행기는 종료1과 “초기 런처가 없습니다. 공식 DMG로 설치해 주세요.”를 반환했다. 진단 run42352684720의 실행 성공은 정상 설치 통과가 아니라 이 실패를 재현한 결과다.
 
-기존 검사는 Python `copytree`로 앱을 복사해 이 파일을 보존했다. 실제 macOS 복사 동작과 달라 놓친 회귀다. Finder 자동화는 해당 진단에서 실패해 Finder UI 설치 성공·실패 증거로 계산하지 않는다. Python 복사 후 초기 실행의 시간 초과는 detached GUI가 상속한 출력 pipe의 대기 문제와 구분한다.
+기존 검사는 Python `copytree`로 앱을 복사해 이 파일을 보존했다. 실제 macOS 복사 동작과 달라 놓친 회귀다. 최초 Finder 자동화 실패는 설치 결과로 계산하지 않았다. 후속 run42354244633에서 올바른 Finder alias로 실제 복사를 수행하자 **양쪽 Finder에서도 같은 파일 누락·strict 서명 실패·종료1을 재현**했다. 같은 원본을 Python으로 복사한 앱은 파일 손실 없이 strict 서명·실제 GUI health를 통과했다. 초기 진단의 출력 pipe를 파일로 분리한 재검사도 종료0으로 완료했다.
 
 또한 앱 교체가 GUI health 검사 전에 실패하면 업데이트 queue·pending이 남는 코드 경로를 확인했다. 다음 실행에서 같은 적용을 반복할 수 있었다.
 

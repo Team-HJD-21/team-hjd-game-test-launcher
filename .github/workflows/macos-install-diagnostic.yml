@@ -1,6 +1,23 @@
 name: Diagnose published macOS installation
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Public immutable version to inspect
+        type: string
+        default: '0.2.3'
+      arm64_sha256:
+        description: Reviewed ARM DMG SHA256 (required for a new version)
+        type: string
+      arm64_bytes:
+        description: Reviewed ARM DMG size (required for a new version)
+        type: string
+      x64_sha256:
+        description: Reviewed Intel DMG SHA256 (required for a new version)
+        type: string
+      x64_bytes:
+        description: Reviewed Intel DMG size (required for a new version)
+        type: string
 permissions:
   contents: read
 jobs:
@@ -11,14 +28,27 @@ jobs:
         include:
           - runner: macos-15
             arch: arm64
+            digest: ${{ inputs.arm64_sha256 }}
+            bytes: ${{ inputs.arm64_bytes }}
           - runner: macos-15-intel
             arch: x64
+            digest: ${{ inputs.x64_sha256 }}
+            bytes: ${{ inputs.x64_bytes }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Probe verified public DMG through native copy paths
-        run: python3 tools/diagnose-macos-install.py --arch ${{ matrix.arch }}
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          REVIEWED_DIGEST: ${{ matrix.digest }}
+          REVIEWED_BYTES: ${{ matrix.bytes }}
+        run: |
+          args=(--arch '${{ matrix.arch }}' --version "$RELEASE_VERSION")
+          if [ -n "$REVIEWED_DIGEST" ] || [ -n "$REVIEWED_BYTES" ]; then
+            args+=(--dmg-sha256 "$REVIEWED_DIGEST" --dmg-bytes "$REVIEWED_BYTES")
+          fi
+          python3 tools/diagnose-macos-install.py "${args[@]}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
